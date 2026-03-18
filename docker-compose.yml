@@ -1,0 +1,14 @@
+services:
+  pastebin:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - BASE_URL=http://localhost:8000
+    depends_on:
+      - redis
+
+  redis:
+    image: redis:7
+    restart: always
