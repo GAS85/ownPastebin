@@ -5,3 +5,4 @@ redis
 python-multipart
 nanoid
 pydantic
+cryptography

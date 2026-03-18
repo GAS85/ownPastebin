@@ -6,5 +6,7 @@ class Settings:
     DEFAULT_TTL = int(os.getenv("DEFAULT_TTL", "60"))
     SLUG_LEN = int(os.getenv("SLUG_LEN", "20"))
     MAX_PASTE_SIZE = int(os.getenv("MAX_PASTE_SIZE", 5 * 1024 * 1024))  # 5 MB default
+    SERVER_SIDE_ENCRYPTION_ENABLED = bool(os.getenv("SERVER_SIDE_ENCRYPTION_ENABLED", "false").lower() == "true")
+    SERVER_SIDE_ENCRYPTION_KEY = os.getenv("SERVER_SIDE_ENCRYPTION_KEY", "")  # Must be 32 bytes for AES-256
 
 settings = Settings()

@@ -6,6 +6,7 @@ from app.storage import save_paste, get_paste, delete_paste, get_and_delete_past
 from app.config import settings
 import html
 import json
+from app.crypto import encrypt, decrypt
 
 router = APIRouter()
 
@@ -57,8 +58,13 @@ async def create(request: Request):
         raise HTTPException(400, "Empty paste")
 
     # 🔍 debug (optional)
-    print("CONTENT LENGTH:", raw_body.__len__())
-    print("CONTENT PREVIEW:", repr(content[:100]))
+    #print("CONTENT LENGTH:", raw_body.__len__())
+    #print("CONTENT PREVIEW:", repr(content[:100]))
+
+
+    # ✅ encrypt ONLY final content
+    if settings.SERVER_SIDE_ENCRYPTION_ENABLED:
+        content = encrypt(content)
 
     ttl = int(request.query_params.get("ttl", 0))
     burn = request.query_params.get("burn") == "true"
@@ -89,6 +95,9 @@ async def view(paste_id: str):
         if not paste:
             raise HTTPException(404)
 
+    if settings.SERVER_SIDE_ENCRYPTION_ENABLED:
+        paste["content"] = decrypt(paste["content"])
+
     return f"<pre>{html.escape(paste['content'])}</pre>"
 
 @router.get("/raw/{paste_id}", response_class=PlainTextResponse)
@@ -102,6 +111,9 @@ async def raw(paste_id: str):
         if not paste:
             raise HTTPException(404)
 
+    if settings.SERVER_SIDE_ENCRYPTION_ENABLED:
+        paste["content"] = decrypt(paste["content"])
+
     return paste["content"]
 
 @router.get("/download/{paste_id}")
@@ -112,6 +124,9 @@ async def download(paste_id: str):
 
     if paste.get("burn"):
         delete_paste(paste_id)
+
+    if settings.SERVER_SIDE_ENCRYPTION_ENABLED:
+        paste["content"] = decrypt(paste["content"])
 
     return Response(
         content=paste["content"],
