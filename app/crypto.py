@@ -1,20 +1,22 @@
+import base64
 from cryptography.fernet import Fernet
 from app.config import settings
 
-fernet = None
 
+# Create Fernet only if enabled
 if settings.SERVER_SIDE_ENCRYPTION_ENABLED:
-    if not settings.SERVER_SIDE_ENCRYPTION_KEY:
-        raise RuntimeError("SERVER_SIDE_ENCRYPTION_ENABLED=true but SERVER_SIDE_ENCRYPTION_KEY is missing")
+    fernet = Fernet(settings.SERVER_SIDE_ENCRYPTION_KEY)
+else:
+    fernet = None
 
-    fernet = Fernet(settings.SERVER_SIDE_ENCRYPTION_KEY.encode())
-
-def encrypt(text: str) -> str:
+# Encrypt (accepts bytes, returns bytes)
+def encrypt(data: bytes) -> bytes:
     if not fernet:
-        return text
-    return fernet.encrypt(text.encode()).decode()
+        raise RuntimeError("Encryption is disabled")
+    return fernet.encrypt(data)
 
-def decrypt(token: str) -> str:
+# Decrypt (accepts bytes, returns bytes)
+def decrypt(token: bytes) -> bytes:
     if not fernet:
-        return token
-    return fernet.decrypt(token.encode()).decode()
+        raise RuntimeError("Encryption is disabled")
+    return fernet.decrypt(token)
