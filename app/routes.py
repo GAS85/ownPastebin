@@ -1,5 +1,5 @@
-from fastapi import APIRouter, Request, HTTPException
-from fastapi.responses import HTMLResponse, PlainTextResponse, Response
+from fastapi import APIRouter, Request, HTTPException, Response, status
+from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Response
 from urllib.parse import parse_qs
 from nanoid import generate
 from app.storage import save_paste, get_paste, delete_paste
@@ -69,7 +69,13 @@ async def create(request: Request):
         "burn": burn
     }, ttl)
 
-    return build_url(paste_id)
+    # Return URL in Location header and body
+    url = build_url(paste_id)
+    return JSONResponse(
+        status_code=201,
+        headers={"Location": url},
+        content={"url": url, "id": paste_id},
+    )
 
 @router.get("/{paste_id}", response_class=HTMLResponse)
 async def view(paste_id: str, request: Request):
