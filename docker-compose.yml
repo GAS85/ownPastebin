@@ -2,13 +2,22 @@ services:
   pastebin:
     build: .
     ports:
-      - "8000:8000"
+      - "8080:8080"
     environment:
       - REDIS_URL=redis://redis:6379/0
-      - BASE_URL=http://localhost:8000
+      - BASE_URL=http://localhost:8080
+      - SERVER_SIDE_ENCRYPTION_ENABLED=true
+      # You can generate a random 32-byte key using: `openssl rand -base64 32` or docker container 'docker exec -it ownpastebin openssl rand -base64 32'
+      - SERVER_SIDE_ENCRYPTION_KEY=your_base64_encoded_32_byte_key_here
+    restart: always
     depends_on:
-      - redis
+      redis:
+        condition: service_healthy
 
   redis:
     image: redis:7
     restart: always
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 20s
+      timeout: 3s
