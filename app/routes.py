@@ -31,6 +31,23 @@ def decode_from_storage(stored_str: str) -> bytes:
     else:
         return base64.b64decode(data)
 
+    # Enforce MAX_TTL rules:
+    # - If requested_ttl is None → use MAX_TTL
+    # - If requested_ttl > MAX_TTL → clamp to MAX_TTL
+    # - Otherwise → use requested_ttl
+def resolve_ttl(requested_ttl: int | None) -> int:
+    max_ttl = getattr(settings, "MAX_TTL", None)
+
+    # No TTL provided
+    if requested_ttl is None:
+        return max_ttl or 0
+
+    # Clamp if MAX_TTL exists
+    if max_ttl is not None:
+        return min(requested_ttl, max_ttl)
+
+    return requested_ttl
+
 # CREATE PASTE
 @router.post("/")
 async def create(request: Request):
@@ -47,7 +64,19 @@ async def create(request: Request):
     # Store as encrypted OR base64
     stored_content = encode_for_storage(raw_body)
 
-    ttl = int(request.query_params.get("ttl", 0))
+    # Handle TTL, do not allow garbage values (negative, zero, non-integer)
+    ttl_param = request.query_params.get("ttl")
+
+    try:
+        ttl = int(ttl_param) if ttl_param is not None else None
+    except ValueError:
+        raise HTTPException(400, "Invalid TTL")
+
+    if ttl is not None and ttl < 0:
+        raise HTTPException(400, "TTL must be >= 0")
+
+    ttl = resolve_ttl(ttl)
+
     burn = request.query_params.get("burn") == "true"
 
     paste_id = generate(size=settings.SLUG_LEN)
