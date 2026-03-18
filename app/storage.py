@@ -21,3 +21,9 @@ def get_paste(paste_id):
 
 def delete_paste(paste_id):
     r.delete(paste_id)
+
+def get_and_delete_paste(paste_id: str):
+    data = r.execute_command("GETDEL", paste_id)
+    if not data:
+        return None
+    return json.loads(data)

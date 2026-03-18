@@ -2,9 +2,10 @@ from fastapi import APIRouter, Request, HTTPException, Response, status
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Response
 from urllib.parse import parse_qs
 from nanoid import generate
-from app.storage import save_paste, get_paste, delete_paste
+from app.storage import save_paste, get_paste, delete_paste, get_and_delete_paste
 from app.config import settings
 import html
+import json
 
 router = APIRouter()
 
@@ -78,18 +79,17 @@ async def create(request: Request):
     )
 
 @router.get("/{paste_id}", response_class=HTMLResponse)
-async def view(paste_id: str, request: Request):
+async def view(paste_id: str):
     paste = get_paste(paste_id)
     if not paste:
         raise HTTPException(404)
 
     if paste.get("burn"):
-        # delete_paste(paste_id)
-        # Delete in Redis
-        paste = r.execute_command("GETDEL", paste_id)
+        paste = get_and_delete_paste(paste_id)
+        if not paste:
+            raise HTTPException(404)
 
     return f"<pre>{html.escape(paste['content'])}</pre>"
-    # return f"{paste['content']}"
 
 @router.get("/raw/{paste_id}", response_class=PlainTextResponse)
 async def raw(paste_id: str):
@@ -98,7 +98,9 @@ async def raw(paste_id: str):
         raise HTTPException(404)
 
     if paste.get("burn"):
-        delete_paste(paste_id)
+        paste = get_and_delete_paste(paste_id)
+        if not paste:
+            raise HTTPException(404)
 
     return paste["content"]
 
