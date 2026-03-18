@@ -47,6 +47,16 @@ def resolve_ttl(requested_ttl: int | None) -> int:
 
     return requested_ttl
 
+# CONFIG ENDPOINT
+@router.get("/config")
+async def get_config():
+    return {
+        "max_ttl": settings.MAX_TTL or 0,
+        "default_ttl": settings.DEFAULT_TTL,
+        "max_paste_size": settings.MAX_PASTE_SIZE,
+        "server_side_encryption": settings.SERVER_SIDE_ENCRYPTION_ENABLED,
+    }
+
 # CREATE PASTE
 @router.post("/")
 async def create(request: Request):
