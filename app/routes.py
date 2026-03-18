@@ -13,61 +13,50 @@ def build_url(paste_id):
 
 @router.post("/")
 async def create(request: Request):
-    content_type = request.headers.get("content-type", "").lower()
-
     max_size = settings.MAX_PASTE_SIZE
 
-    # ✅ Pre-check via Content-Length (if provided)
-    content_length = request.headers.get("content-length")
-    if content_length:
-        try:
-            if int(content_length) > max_size:
-                raise HTTPException(413, "Paste too large")
-        except ValueError:
-            pass  # ignore malformed header
+    # Read body exactly once
+    raw_body = await request.body()
 
-    content = ""
-    raw_bytes = b""
-
-    # ✅ MULTIPART (curl -F)
-    if "multipart/form-data" in content_type:
-        form = await request.form()
-        file = form.get("content")
-
-        if hasattr(file, "read"):  # UploadFile
-            raw_bytes = await file.read()
-        else:
-            raw_bytes = str(file or "").encode()
-
-    # ✅ FORM URLENCODED
-    elif "application/x-www-form-urlencoded" in content_type:
-        form = await request.form()
-        content = form.get("content", "")
-        raw_bytes = content.encode()
-
-    # ✅ JSON
-    elif "application/json" in content_type:
-        data = await request.json()
-        content = data.get("content", "")
-        raw_bytes = content.encode()
-
-    # ✅ RAW (curl --data-binary)
-    else:
-        raw_bytes = await request.body()
-
-    # ✅ Final size check (authoritative)
-    if len(raw_bytes) > max_size:
+    # Enforce size limit immediately
+    if len(raw_body) > max_size:
         raise HTTPException(413, "Paste too large")
 
-    # Decode once after validation
+    content_type = request.headers.get("content-type", "").lower()
+
+    content = ""
+
+    # JSON
+    if "application/json" in content_type:
+        try:
+            import json
+            data = json.loads(raw_body)
+            content = data.get("content", "")
+        except:
+            pass
+
+    # Form (only if truly form)
+    elif "application/x-www-form-urlencoded" in content_type:
+        from urllib.parse import parse_qs
+        parsed = parse_qs(raw_body.decode())
+        content = parsed.get("content", [""])[0]
+
+    # Multipart
+    elif "multipart/form-data" in content_type:
+        form = await request.form()
+        file = form.get("content")
+        if hasattr(file, "read"):
+            content = (await file.read()).decode(errors="replace")
+
+    # RAW fallback (THIS is what curl --data-binary uses)
     if not content:
-        content = raw_bytes.decode(errors="replace")
+        content = raw_body.decode(errors="replace")
 
     if not content:
         raise HTTPException(400, "Empty paste")
 
     # 🔍 debug (optional)
-    print("CONTENT LENGTH:", len(content))
+    print("CONTENT LENGTH:", raw_body.__len__())
     print("CONTENT PREVIEW:", repr(content[:100]))
 
     ttl = int(request.query_params.get("ttl", 0))
