@@ -73,7 +73,8 @@ async def create(request: Request):
 
     save_paste(paste_id, {
         "content": content,
-        "burn": burn
+        "burn": burn,
+        "encrypted": settings.SERVER_SIDE_ENCRYPTION_ENABLED
     }, ttl)
 
     # Return URL in Location header and body
@@ -95,7 +96,7 @@ async def view(paste_id: str):
         if not paste:
             raise HTTPException(404)
 
-    if settings.SERVER_SIDE_ENCRYPTION_ENABLED:
+    if settings.SERVER_SIDE_ENCRYPTION_ENABLED and paste.get("encrypted"):
         paste["content"] = decrypt(paste["content"])
 
     return f"<pre>{html.escape(paste['content'])}</pre>"
@@ -111,7 +112,7 @@ async def raw(paste_id: str):
         if not paste:
             raise HTTPException(404)
 
-    if settings.SERVER_SIDE_ENCRYPTION_ENABLED:
+    if settings.SERVER_SIDE_ENCRYPTION_ENABLED and paste.get("encrypted"):
         paste["content"] = decrypt(paste["content"])
 
     return paste["content"]
@@ -125,7 +126,7 @@ async def download(paste_id: str):
     if paste.get("burn"):
         delete_paste(paste_id)
 
-    if settings.SERVER_SIDE_ENCRYPTION_ENABLED:
+    if settings.SERVER_SIDE_ENCRYPTION_ENABLED and paste.get("encrypted"):
         paste["content"] = decrypt(paste["content"])
 
     return Response(
