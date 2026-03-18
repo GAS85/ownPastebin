@@ -5,7 +5,6 @@ from app.storage import save_paste, get_paste, delete_paste, get_and_delete_past
 from app.config import settings
 from app.crypto import encrypt, decrypt
 import html
-import json
 import base64
 
 router = APIRouter()

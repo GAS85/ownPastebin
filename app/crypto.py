@@ -1,4 +1,3 @@
-import base64
 from cryptography.fernet import Fernet
 from app.config import settings
 

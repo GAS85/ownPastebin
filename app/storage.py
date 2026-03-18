@@ -1,6 +1,5 @@
 import redis
 import json
-from datetime import datetime
 from app.config import settings
 
 r = redis.Redis.from_url(settings.REDIS_URL, decode_responses=False)
