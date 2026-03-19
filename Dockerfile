@@ -23,11 +23,18 @@ ENV UVICORN_HOST="0.0.0.0"
 ENV UVICORN_PORT="8080"
 
 COPY requirements.txt .
-COPY app ./app
 COPY --chmod=555 entrypoint.sh /entrypoint.sh
+COPY app ./app
+
+# Download static data to host it locally
+ADD https://code.jquery.com/jquery-3.6.0.min.js ./app/static
+ADD https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css ./app/static
+ADD https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.bundle.min.js ./app/static
+ADD https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js ./app/static
 
 RUN pip install --no-cache-dir -r requirements.txt && \
-    chown nobody /app/app/logging.yml
+    chown nobody /app/app/logging.yml && \
+    chmod -R 555 /app/app/static/
 
 USER nobody
 
