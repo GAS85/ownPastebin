@@ -124,13 +124,13 @@ $(document).ready(function () {
       success: function (result) {
         uri = uri_prefix + "/";
         uri = replaceUrlParam(uri, "level", "success");
-        uri = replaceUrlParam(uri, "glyph", "fas fa-check");
+        uri = replaceUrlParam(uri, "glyph", encodeURIComponent("fas fa-check"));
         uri = replaceUrlParam(
           uri,
           "msg",
           "The paste has been successfully created:",
         );
-        uri = replaceUrlParam(uri, "url", result);
+        uri = replaceUrlParam(uri, "url", result.url);
 
         window.location.href = encodeURI(uri);
       },

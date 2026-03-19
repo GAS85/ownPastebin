@@ -119,7 +119,11 @@ async def new_paste(request: Request):
                 ("1 week", "604800"),
                 ("1 month", "18144000"),
                 ("1 year", "220752000"),
-            ]
+            ],
+            "level": request.query_params.get("level"),
+            "glyph": request.query_params.get("glyph"),
+            "msg": request.query_params.get("msg"),
+            "url": request.query_params.get("url"),
         },
     )
 
@@ -135,15 +139,41 @@ async def view(paste_id: str, request: Request):
     except UnicodeDecodeError:
         text = "[binary data]"
 
-    lang = paste.get("lang", "text")
-
     return templates.TemplateResponse(
-        "index.html",
+        "index.html",  # reuse your existing template
         {
             "request": request,
-            "content": text,
-            "lang": lang,
-        }
+            "is_editable": False,
+            "is_created": True,
+            "is_burned": paste.get("burn", False),
+            "is_error": False,
+            "uri_prefix": "",
+            "pastebin_code": text,
+            "pastebin_cls": f"language-{paste.get('lang', 'text')}",
+            "version": "1.0",
+            "css_imports": [
+                "/static/bootstrap.min.css",
+                "/static/custom.css",
+            ],
+            "js_imports": [
+                "/static/jquery-3.6.0.min.js",
+                "/static/bootstrap.bundle.min.js",
+                "/static/crypto-js.min.js",
+                "/static/custom.js",
+            ],
+            "js_init": [],
+            "ui_expiry_default": "1d",
+            "ui_expiry_times": [
+                ("Never", "0"),
+                ("5 min", "300"),
+                ("10 min", "600"),
+                ("1 hour", "3600"),
+                ("1 day", "86400"),
+                ("1 week", "604800"),
+                ("1 month", "18144000"),
+                ("1 year", "220752000"),
+            ]
+        },
     )
 
 # CREATE PASTE
