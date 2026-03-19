@@ -23,6 +23,9 @@ services:
   redis:
     image: redis:7
     restart: always
+    # You need to persist redis DB
+    volumes:
+      - ./redis-data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 20s
