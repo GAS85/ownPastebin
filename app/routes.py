@@ -61,16 +61,28 @@ async def get_config():
     }
 
 # RAW (binary-safe)
-@router.get("/raw/{paste_id}", response_class=PlainTextResponse)
+
+@router.get("/raw/{paste_id}")
 async def raw(paste_id: str):
     paste = fetch_paste(paste_id)
-
     data = decode_from_storage(paste["content"])
 
-    return Response(
-        content=data,
-        media_type="application/octet-stream",
-    )
+    try:
+        text = data.decode("utf-8")
+        # It's text show in browser
+        return Response(
+            content=text,
+            media_type="text/plain; charset=utf-8",
+        )
+    except UnicodeDecodeError:
+        # Binary force download
+        return Response(
+            content=data,
+            media_type="application/octet-stream",
+            headers={
+                "Content-Disposition": f"attachment; filename={paste_id}"
+            },
+        )
 
 # DOWNLOAD
 @router.get("/download/{paste_id}")
@@ -149,6 +161,7 @@ async def view(paste_id: str, request: Request):
             "is_error": False,
             "uri_prefix": "",
             "pastebin_code": text,
+            "pastebin_id": paste_id,
             "pastebin_cls": f"language-{paste.get('lang', 'text')}",
             "version": "1.0",
             "css_imports": [

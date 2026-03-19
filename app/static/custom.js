@@ -79,7 +79,7 @@ $(document).ready(function () {
           "msg",
           "The paste has been successfully removed.",
         );
-        window.location.href = encodeURI(uri);
+        window.location.href = result.url;
       },
     });
   });
