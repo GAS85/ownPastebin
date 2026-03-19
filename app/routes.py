@@ -1,11 +1,14 @@
 from fastapi import APIRouter, Request, HTTPException, Response
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse
+from fastapi.templating import Jinja2Templates
 from nanoid import generate
 from app.storage import save_paste, get_paste, delete_paste, get_and_delete_paste
 from app.config import settings
 from app.crypto import encrypt, decrypt
 import html
 import base64
+
+templates = Jinja2Templates(directory="app/templates")
 
 router = APIRouter()
 
@@ -57,6 +60,92 @@ async def get_config():
         "server_side_encryption": settings.SERVER_SIDE_ENCRYPTION_ENABLED,
     }
 
+# RAW (binary-safe)
+@router.get("/raw/{paste_id}", response_class=PlainTextResponse)
+async def raw(paste_id: str):
+    paste = fetch_paste(paste_id)
+
+    data = decode_from_storage(paste["content"])
+
+    return Response(
+        content=data,
+        media_type="application/octet-stream",
+    )
+
+# DOWNLOAD
+@router.get("/download/{paste_id}")
+async def download(paste_id: str):
+    paste = fetch_paste(paste_id)
+
+    data = decode_from_storage(paste["content"])
+
+    return Response(
+        content=data,
+        media_type="application/octet-stream",
+        headers={"Content-Disposition": f"attachment; filename={paste_id}"},
+    )
+
+@router.get("/", response_class=HTMLResponse)
+async def new_paste(request: Request):
+    return templates.TemplateResponse(
+        "index.html",
+        {
+            "request": request,
+            "is_editable": True,
+            "is_created": False,
+            "is_burned": False,
+            "is_error": False,
+            "uri_prefix": "",
+            "pastebin_code": "",
+            "version": "1.0",
+            "css_imports": [
+                "/static/bootstrap.min.css",
+                "/static/custom.css",
+            ],
+            "js_imports": [
+                "/static/jquery-3.6.0.min.js",
+                "/static/bootstrap.bundle.min.js",
+                "/static/crypto-js.min.js",
+                "/static/custom.js",
+            ],
+            "js_init": [],
+            "ui_expiry_default": "1d",
+            "ui_expiry_times": [
+                ("Never", "0"),
+                ("5 min", "300"),
+                ("10 min", "600"),
+                ("1 hour", "3600"),
+                ("1 day", "86400"),
+                ("1 week", "604800"),
+                ("1 month", "18144000"),
+                ("1 year", "220752000"),
+            ]
+        },
+    )
+
+# VIEW (HTML)
+@router.get("/{paste_id}", response_class=HTMLResponse)
+async def view(paste_id: str, request: Request):
+    paste = fetch_paste(paste_id)
+
+    data = decode_from_storage(paste["content"])
+
+    try:
+        text = data.decode()
+    except UnicodeDecodeError:
+        text = "[binary data]"
+
+    lang = paste.get("lang", "text")
+
+    return templates.TemplateResponse(
+        "index.html",
+        {
+            "request": request,
+            "content": text,
+            "lang": lang,
+        }
+    )
+
 # CREATE PASTE
 @router.post("/")
 async def create(request: Request):
@@ -88,6 +177,8 @@ async def create(request: Request):
 
     burn = request.query_params.get("burn") == "true"
 
+    lang = request.query_params.get("lang") or "text"  # default to 'text'
+
     paste_id = generate(size=settings.SLUG_LEN)
 
     save_paste(
@@ -96,6 +187,7 @@ async def create(request: Request):
             "content": stored_content,
             "burn": burn,
             "encrypted": settings.SERVER_SIDE_ENCRYPTION_ENABLED,
+            "lang": lang,
         },
         ttl,
     )
@@ -105,7 +197,7 @@ async def create(request: Request):
     return JSONResponse(
         status_code=201,
         headers={"Location": url},
-        content={"url": url, "id": paste_id},
+        content={"url": url, "id": paste_id, "lang": lang},
     )
 
 # INTERNAL FETCH (handles burn)
@@ -120,45 +212,6 @@ def fetch_paste(paste_id: str):
             raise HTTPException(404)
 
     return paste
-
-# VIEW (HTML)
-@router.get("/{paste_id}", response_class=HTMLResponse)
-async def view(paste_id: str):
-    paste = fetch_paste(paste_id)
-
-    data = decode_from_storage(paste["content"])
-
-    try:
-        text = data.decode()
-    except UnicodeDecodeError:
-        text = "[binary data]"
-
-    return f"<pre>{html.escape(text)}</pre>"
-
-# RAW (binary-safe)
-@router.get("/raw/{paste_id}", response_class=PlainTextResponse)
-async def raw(paste_id: str):
-    paste = fetch_paste(paste_id)
-
-    data = decode_from_storage(paste["content"])
-
-    return Response(
-        content=data,
-        media_type="application/octet-stream",
-    )
-
-# DOWNLOAD
-@router.get("/download/{paste_id}")
-async def download(paste_id: str):
-    paste = fetch_paste(paste_id)
-
-    data = decode_from_storage(paste["content"])
-
-    return Response(
-        content=data,
-        media_type="application/octet-stream",
-        headers={"Content-Disposition": f"attachment; filename={paste_id}"},
-    )
 
 # DELETE
 @router.delete("/{paste_id}")
