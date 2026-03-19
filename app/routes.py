@@ -107,6 +107,7 @@ async def new_paste(request: Request):
             "is_created": False,
             "is_burned": False,
             "is_error": False,
+            "is_encrypted": False,
             "uri_prefix": "",
             "pastebin_code": "",
             "version": "1.0",
@@ -159,6 +160,7 @@ async def view(paste_id: str, request: Request):
             "is_created": True,
             "is_burned": paste.get("burn", False),
             "is_error": False,
+            "is_encrypted": paste.get("e2e_encrypted", False),
             "uri_prefix": "",
             "pastebin_code": text,
             "pastebin_id": paste_id,
@@ -220,7 +222,9 @@ async def create(request: Request):
 
     burn = request.query_params.get("burn") == "true"
 
-    lang = request.query_params.get("lang") or "text"  # default to 'text'
+    lang = request.query_params.get("lang") or "text"
+
+    e2e_encrypted = request.query_params.get("encrypted") == "true"
 
     paste_id = generate(size=settings.SLUG_LEN)
 
@@ -230,6 +234,7 @@ async def create(request: Request):
             "content": stored_content,
             "burn": burn,
             "encrypted": settings.SERVER_SIDE_ENCRYPTION_ENABLED,
+            "e2e_encrypted": e2e_encrypted,
             "lang": lang,
         },
         ttl,
