@@ -112,10 +112,12 @@ async def new_paste(request: Request):
             "pastebin_code": "",
             "version": "1.0",
             "css_imports": [
+                "/static/prism.css",
                 "/static/bootstrap.min.css",
                 "/static/custom.css",
             ],
             "js_imports": [
+                "/static/prism.js",
                 "/static/jquery-3.6.0.min.js",
                 "/static/bootstrap.bundle.min.js",
                 "/static/crypto-js.min.js",
@@ -167,10 +169,12 @@ async def view(paste_id: str, request: Request):
             "pastebin_cls": f"language-{paste.get('lang', 'text')}",
             "version": "1.0",
             "css_imports": [
+                "/static/prism.css",
                 "/static/bootstrap.min.css",
                 "/static/custom.css",
             ],
             "js_imports": [
+                "/static/prism.js",
                 "/static/jquery-3.6.0.min.js",
                 "/static/bootstrap.bundle.min.js",
                 "/static/crypto-js.min.js",
@@ -211,7 +215,7 @@ async def create(request: Request):
     ttl_param = request.query_params.get("ttl")
 
     try:
-        ttl = int(ttl_param) if ttl_param is not None else None
+        ttl = int(ttl_param) if ttl_param else None
     except ValueError:
         raise HTTPException(400, "Invalid TTL")
 
@@ -265,4 +269,6 @@ def fetch_paste(paste_id: str):
 @router.delete("/{paste_id}")
 async def delete(paste_id: str):
     delete_paste(paste_id)
-    return {"status": "ok"}
+    return {
+        "url": f"/?level=info&msg=Paste deleted successfully"
+    }

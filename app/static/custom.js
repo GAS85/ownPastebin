@@ -1,7 +1,7 @@
 $(document).ready(function () {
   function replaceUrlParam(url, param, value) {
-    if (value == null) {
-      value = "";
+    if (value === undefined || value === null) {
+      return url;
     }
 
     var pattern = new RegExp("\\b(" + param + "=).*?(&|#|$)");
@@ -70,16 +70,18 @@ $(document).ready(function () {
     $.ajax({
       url: window.location.pathname,
       type: "DELETE",
-      success: function (result) {
-        uri = uri_prefix + "/";
+      success: function () {
+        let uri = uri_prefix || "/";
+
         uri = replaceUrlParam(uri, "level", "info");
         uri = replaceUrlParam(uri, "glyph", "fas fa-info-circle");
         uri = replaceUrlParam(
           uri,
           "msg",
-          "The paste has been successfully removed.",
+          encodeURIComponent("The paste has been successfully removed."),
         );
-        window.location.href = result.url;
+
+        window.location.href = uri;
       },
     });
   });
@@ -124,15 +126,15 @@ $(document).ready(function () {
       success: function (result) {
         uri = uri_prefix + "/";
         uri = replaceUrlParam(uri, "level", "success");
-        uri = replaceUrlParam(uri, "glyph", encodeURIComponent("fas fa-check"));
+        uri = replaceUrlParam(uri, "glyph", "fas fa-check");
         uri = replaceUrlParam(
           uri,
           "msg",
-          "The paste has been successfully created:",
+          encodeURIComponent("The paste has been successfully created:"),
         );
         uri = replaceUrlParam(uri, "url", result.url);
 
-        window.location.href = encodeURI(uri);
+        window.location.href = result.url;
       },
     });
   });

@@ -32,9 +32,9 @@
                             <li class="nav-item">
                               <a class="nav-link" href="#" id="remove-btn">Remove</a>
                             </li>
-                            <li class="nav-item">
+                            <!-- <li class="nav-item">
                                  <a class="nav-link" href="{{ uri_prefix }}/?id={{ pastebin_id }}" id="clone-btn">Clone</a>
-                            </li>
+                            </li> -->
                         {% endif %}
                     {% endif %}
 
@@ -218,7 +218,7 @@
                         <option value="yaml">YAML</option>
                     </select>
                     {% if is_created %}
-                        <a id="copy-btn" class="form-control btn btn-outline-success mt-2 mt-md-0 mb-md-0 ml-md-2 ml-sm-2" href="#">Copy</a>
+                        <!-- <a id="copy-btn" class="form-control btn btn-outline-success mt-2 mt-md-0 mb-md-0 ml-md-2 ml-sm-2" href="#">Copy</a> -->
                         {% if not is_burned %}
                             <a class="form-control btn btn-outline-success mt-2 mt-md-0 mb-md-0 ml-md-2 ml-sm-2" href="{{ uri_prefix }}/raw/{{ pastebin_id }}">Raw</a>
                             <a class="form-control btn btn-outline-success mt-2 mt-md-0 mb-md-0 ml-md-2 ml-sm-2" href="{{ uri_prefix }}/download/{{ pastebin_id }}">Download</a>
