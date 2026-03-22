@@ -1,74 +1,170 @@
 # Pastebin
 
-A minimal paste service with support for raw uploads, TTL, burn-after-read, and optional encryption.
+A minimal, RAM-friendly paste service with support for raw uploads, TTL, burn-after-read, optional encryption, and **pluggable storage backends**.
 
-## Configuration
+## ✨ Features
 
-Following Variables are supported:
+* ⚡ Fast and lightweight
+* 🔌 Pluggable storage:
 
-- `REDIS_URL` - redis URL, default to `redis://redis:6379/0`.
-- `BASE_URL` - Base URL, default to `http://localhost:8080`. Base URL will be used in API answers, provide your real host, protocol and port here. E.g if your host is `myhost.com` with https and default ports set it to `https://myhost.com`.
-- `UVICORN_HOST` - Web Server interface to bind, default `0.0.0.0`.
-- `UVICORN_PORT` - Web Server port to bind, default `8080`.
-- `DEFAULT_TTL` - Default TTL if no TTL was provided by paste creation, default to `0` (no expiration). Supported values:
-  - Seconds: `3600`
-  - Hours: `1h`
-  - Days: `1d`
-  - Month: `1m`
-- `MAX_TTL` - Maximum TTL, default is not set. This value will define Maximum allowed TTL to set. If no TTL was provided, `MAX_TTL` Value will apply. Supported values are the same as for `DEFAULT_TTL`. It is recommended to set `MAX_TTL` e.g. to 1 year (15768000) otherwise most paste's will be stored forever.
-- `SLUG_LEN` - Uniq URL Length, default to `20`. It is not recommended to go below this value to avoid collision and Link guessing.
-- `MAX_PASTE_SIZE` - Max payload size to be pasted, default to `5MB`.
-- `SERVER_SIDE_ENCRYPTION_ENABLED` - Enable Server Side encryption, default to `false`. It is strongly recommended to enable Server Side encryption, especially on a shared redis instances.
-- `SERVER_SIDE_ENCRYPTION_KEY` - Server side 32-byte encryption key, there is no default. You can generate one by command `openssl rand -base64 32` or using this container directly by setting `GENERATE_KEY` to `true`, e.g.:
+  * Redis (optional, in-memory)
+  * PostgreSQL (optional, persistent)
+  * SQLite (default fallback)
 
-```shell
+* 🔥 Burn-after-read pastes
+* ⏳ TTL (expiration support)
+* 🔐 Optional server-side encryption
+* 📦 Binary-safe uploads/downloads
+* 🧠 Designed to be memory efficient (no caching layer)
+
+## ⚙️ Configuration
+
+All configuration is done via environment variables.
+
+### 🗄️ Storage Backends (Priority Order)
+
+The application automatically selects the first available backend:
+
+1. `REDIS_URL`
+2. `POSTGRES_URL`
+3. SQLite (fallback)
+
+### Variables
+
+* `REDIS_URL` - Redis connection string. **No default** → if not set, Redis is disabled. Example:
+
+  ```plain
+  redis://redis:6379/0
+  ```
+
+* `POSTGRES_URL` - PostgreSQL connection string. Used if Redis is not configured. Example:
+
+   ```plain
+   postgresql://user:pass@postgres:5432/pastebin
+   ```
+
+* `SQLITE_PATH` - Path to SQLite database file. Default:
+
+  ```plain
+  /data/pastes.db
+  ```
+
+## 🌐 Application Settings
+
+* `BASE_URL`- Public base URL of your service. Default:
+
+  ```plain
+  http://localhost:8080
+  ```
+
+* `UVICORN_HOST` - Bind address. Default: `0.0.0.0`
+* `UVICORN_PORT` - Port. Default: `8080`
+* `TLS_KEY` - Provide path to TLS Key to enable TLS Support directly on a service.
+* `TLS_CERT` - Provide path to TLS Certificate to enable TLS Support directly on a service.
+
+## ⏳ TTL Settings
+
+* `DEFAULT_TTL` - Default expiration if none provided. Default: `0` (no expiration)
+* `MAX_TTL` -  Maximum allowed TTL. It is recommendet to set this value for internet accessible sites. If set:
+  * caps user-provided TTL
+  * used when no TTL is provided
+
+### Supported Formats
+
+| Format       | Example |
+| ------------ | ------- |
+| Seconds      | `3600`  |
+| Hours        | `1h`    |
+| Days         | `1d`    |
+| Months (30d) | `1m`    |
+
+## 📏 Limits
+
+* `MAX_PASTE_SIZE` - Max upload size. Default: `5MB`
+
+### Supported Formats
+
+| Format    | Example |
+| ----------| ------- |
+| bytes     | `3600`  |
+| Kilobytes | `1kb`   |
+| Megabytes | `1mb`   |
+| Gigabytes | `1gb`   |
+
+## 🔐 Security
+
+* `SERVER_SIDE_ENCRYPTION_ENABLED`- Enable encryption before storage. Default disabled.
+* `SERVER_SIDE_ENCRYPTION_KEY`- 32-byte base64 key (required if encryption enabled). You can generate Key with openssl, or directly with this container
+
+```bash
+openssl rand -base64 32
+```
+
+Or:
+
+```bash
 docker run -e GENERATE_KEY=true gas85/ownpastebin:latest
 ```
 
-- `TLS_KEY` - Provide path to TLS Key to enable TLS Support directly on a service.
-- `TLS_CERT` - Provide path to TLS Certificate to enable TLS Support directly on a service.
-- `DATE_FORMAT` - You can modify logs date format, default value is `%Y-%m-%d %H:%M:%S`.
-- `TZ` - Time Zone.
+## 🕒 Misc
 
-## Run it
+* `SLUG_LEN` - Uniq URL Length. Default to `20`. It is not recommended to go below this value to avoid collision and Link guessing attack.
+* `DATE_FORMAT` - Log timestamp format. Default: `%Y-%m-%d %H:%M:%S`
+* `TZ` - Timezone. Defalut `Europe/Zurich`
+
+## 🧠 Storage Behavior
+
+| Config                  | Backend Used |
+| ----------------------- | ------------ |
+| `REDIS_URL` set         | Redis        |
+| Only `POSTGRES_URL` set | PostgreSQL   |
+| None set                | SQLite       |
+
+### Notes
+
+* Redis = fastest, but memory-based strorage. Fits good for Local network usage.
+* PostgreSQL = persistent, scalable. Fits good for Local network and Internet usage.
+* SQLite = zero-config, minimal RAM usage. Default simple storage fits to all.
+
+## 🚀 Run
+
+```bash
+docker compose up -d
+```
 
 ## 📦 Pastebin API
 
-## 🚀 Create Paste
-
-### POST `/`
+### 🚀 Create Paste - `POST /`
 
 Create a new paste.
 
 #### Supported Content Types
 
-Basically any, but you can set it explicitly.
-
-- `application/json`
-- `application/x-www-form-urlencoded`
-- `multipart/form-data`
-- raw body (`--data-binary`)
+* `application/json`
+* `application/x-www-form-urlencoded`
+* `multipart/form-data`
+* raw body (`--data-binary`)
 
 #### Query Parameters
 
-| Name      | Type | Description                    |
-|-----------|------|--------------------------------|
-| `ttl`     | int  | Time to live (seconds)         |
-| `burn`    | bool | Delete after first read        |
-| `encrypt` | bool | Content was e2e encrypted. This helps UI to offer password prompt on content request. |
+| Name        | Type | Description                          |
+| ----------- | ---- | ------------------------------------ |
+| `ttl`       | int  | Time to live (seconds)               |
+| `burn`      | bool | Delete after first read              |
+| `encrypted` | bool | Marks paste as client-side encrypted |
 
-#### Examples
+### Examples
 
-##### Raw upload
+#### Raw upload
 
-```shell
-curl "http://localhost:8000" --data-binary "@file.txt"
+```bash
+curl "http://localhost:8080" --data-binary "@file.txt"
 ```
 
-##### With burn + TTL 60 Seconds
+#### Burn after read + TTL
 
-```shell
-curl "http://localhost:8000?burn=true&ttl=60" --data-binary "@file.txt"
+```bash
+curl "http://localhost:8080?burn=true&ttl=60" --data-binary "@file.txt"
 ```
 
 #### Response
@@ -77,72 +173,66 @@ As Response you will get JSON with URL to the webUI for this paste and paste ID 
 
 ```json
 {
-  "url": "http://localhost:8000/abc123",
-  "id": "abc123"
+  "url": "http://localhost:8080/abc123",
+  "id": "abc123",
+  "lang": "text"
 }
 ```
 
-Additionally `Location` Header will be set:
+Headers:
 
 ```plain
-Location: http://localhost:8000/abc123
+Location: http://localhost:8080/abc123
 ```
 
-## 📖 View Paste
-
-### GET `/{paste_id}` - get results
+### 📖 View Paste - `GET /{paste_id}`
 
 Returns HTML view.
 
-#### Example
-
-```shell
-curl http://localhost:8000/abc123
+```bash
+curl http://localhost:8080/abc123
 ```
 
-### GET `/raw/{paste_id}` - get raw results
+### 📄 View Raw Paste - `GET /raw/{paste_id}`
 
-Returns plain text.
+Returns plain text or binary-safe response.
 
-```shell
-curl http://localhost:8000/raw/abc123
+```bash
+curl http://localhost:8080/raw/abc123
 ```
 
-## ⬇️ Download Paste
+### ⬇️ Download Paste - `GET /download/{paste_id}`
 
-### GET `/download/{paste_id}`
+Forces file download.
 
-Downloads paste as file.
-
-## ❌ Delete Paste
-
-### DELETE `/{paste_id}`
-
-```shell
-curl -X DELETE http://localhost:8000/abc123
+```bash
+curl http://localhost:8080/download/abc123
 ```
 
-## 🔥 Burn After Read
+### ❌ Delete Paste - `DELETE /{paste_id}`
 
-If query `burn=true` was set upon paste creation:
+```bash
+curl -X DELETE http://localhost:8080/abc123
+```
 
-- First request returns content
-- Second request will show `404 Not Found` as content is deleted
+### 🔥 Burn After Read
 
-## ⚠️ Limits
+If `burn=true`:
 
-- Max paste size: configurable (`MAX_PASTE_SIZE`)
-- Large uploads return:
+* First request → returns content
+* Second request → `404 Not Found`
+
+### ⚠️ Limits & Errors
+
+### Paste too large
 
 ```plain
 413 Paste too large
 ```
 
-You can also limit POST request size on your nginx or Apache2 in front of the service.
-
 ## 🧾 Logging
 
-All requests are logged in following format:
+Example:
 
 ```plain
 2026-03-18 21:30:21 - INFO - uvicorn.access - 192.168.1.1:36854 - "POST / HTTP/1.1" 201
@@ -150,7 +240,19 @@ All requests are logged in following format:
 
 ## 🛠️ Notes
 
-- Supports `curl`, browsers, and API clients
-- Designed for simplicity and speed
-- Backed by Redis
-- Inspired by [Pastebin](https://github.com/mkaczanowski/pastebin)
+* Works with curl, browsers, API clients
+* Binary-safe storage
+* No in-memory caching → RAM efficient
+* SQLite uses WAL mode for better concurrency
+* Expired pastes are cleaned on access (lazy cleanup)
+
+## 📌 Summary
+
+This pastebin is designed to be:
+
+* ⚡ Fast
+* 🧠 Memory-efficient
+* 🔌 Flexible (multi-backend)
+* 🔐 Secure (optional encryption)
+
+Inspired by [Pastebin](https://github.com/mkaczanowski/pastebin).

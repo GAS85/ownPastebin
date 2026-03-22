@@ -1,7 +1,6 @@
 #!/bin/bash
 
 # Set defaults
-export REDIS_URL="${REDIS_URL:-redis://redis:6379/0}"
 export BASE_URL="${BASE_URL:-http://localhost:8000}"
 export DEFAULT_TTL="${DEFAULT_TTL:-0}"
 export SLUG_LEN="${SLUG_LEN:-20}"

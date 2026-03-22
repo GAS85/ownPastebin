@@ -13,8 +13,7 @@ LABEL maintainer="Georgiy Sitnikov <g.own.pastebin@sitnikov.eu>" \
       org.opencontainers.image.url="https://hub.docker.com/r/gas85/ownpastebin" \
       org.opencontainers.image.documentation="https://github.com/GAS85/ownPastebin#" \
       org.opencontainers.image.version=$VERSION \
-      org.opencontainers.image.revision=$VCS_REF \
-      org.opencontainers.image.version=$VERSION
+      org.opencontainers.image.revision=$VCS_REF
 
 ENV VERSION=$VERSION
 ENV TZ=Europe/Zurich
