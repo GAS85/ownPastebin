@@ -50,6 +50,9 @@ echo "$(date "+$DATE_FORMAT") - INFO - $(basename "$0") - Welcome to your own Pa
 echo "$(date "+$DATE_FORMAT") - INFO - $(basename "$0") - Following variables are set:
                                 UVICORN_HOST $UVICORN_HOST
                                 UVICORN_PORT $UVICORN_PORT
+                                REDIS_URL ${REDIS_URL:-Not set}
+                                POSTGRES_URL ${POSTGRES_URL:-Not set}
+                                SQLITE_PATH ${SQLITE_PATH:-Not set}
                                 BASE_URL $BASE_URL
                                 SERVER_SIDE_ENCRYPTION_ENABLED $SERVER_SIDE_ENCRYPTION_ENABLED
                                 MAX_TTL ${MAX_TTL:-Not set}
@@ -57,6 +60,8 @@ echo "$(date "+$DATE_FORMAT") - INFO - $(basename "$0") - Following variables ar
                                 SLUG_LEN $SLUG_LEN
                                 MAX_PASTE_SIZE $MAX_PASTE_SIZE
                                 TLS_KEY ${TLS_KEY:-Not set}
-                                TLS_CERT ${TLS_CERT:-Not set}"
+                                TLS_CERT ${TLS_CERT:-Not set}
+                                DATE_FORMAT ${DATE_FORMAT:-Not set}
+                                TZ ${TZ:-Not set}"
 
 uvicorn app.main:app --log-config "$UVICORN_LOG_CONFIG" $UVICORN_TLS_KEY $UVICORN_TLS_CERT

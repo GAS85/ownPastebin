@@ -4,6 +4,8 @@ services:
     container_name: pastebin
     ports:
       - "8080:8080"
+    volumes:
+      - ./data:/app/data
     environment:
       # BACKEND SELECTION
       # Uncomment ONLY what you want to use
@@ -14,7 +16,7 @@ services:
       #- POSTGRES_URL=postgresql://paste:paste@postgres:5432/pastebin
       # SQLite (default)
       # You can set path where to store DB
-      #- SQLITE_PATH=/data/pastes.db
+      #- SQLITE_PATH=/app/data/pastes.db
       # APP SETTINGS
       #- UVICORN_HOST=0.0.0.0
       #- UVICORN_PORT=8080

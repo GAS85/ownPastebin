@@ -1,14 +1,11 @@
 from fastapi import APIRouter, Request, HTTPException, Response
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse
-from fastapi.templating import Jinja2Templates
+from app.templates import templates
 from nanoid import generate
 from app.storage import save_paste, get_paste, delete_paste, get_and_delete_paste
 from app.config import settings
 from app.crypto import encrypt, decrypt
-import html
 import base64
-
-templates = Jinja2Templates(directory="app/templates")
 
 router = APIRouter()
 
@@ -100,14 +97,14 @@ async def download(paste_id: str):
 @router.get("/", response_class=HTMLResponse)
 async def new_paste(request: Request):
     return templates.TemplateResponse(
-        "index.html",
-        {
-            "request": request,
+        name="index.html",
+        context={
             "is_editable": True,
             "is_created": False,
             "is_burned": False,
             "is_error": False,
             "is_encrypted": False,
+            "is_clone": False,
             "uri_prefix": "",
             "pastebin_code": "",
             "version": "1.0",
@@ -140,6 +137,7 @@ async def new_paste(request: Request):
             "msg": request.query_params.get("msg"),
             "url": request.query_params.get("url"),
         },
+        request=request,
     )
 
 # VIEW (HTML)
@@ -155,13 +153,13 @@ async def view(paste_id: str, request: Request):
         text = "[binary data]"
 
     return templates.TemplateResponse(
-        "index.html",  # reuse your existing template
-        {
-            "request": request,
+        name="index.html",
+        context={
             "is_editable": False,
             "is_created": True,
             "is_burned": paste.get("burn", False),
             "is_error": False,
+            "is_clone": False,
             "is_encrypted": paste.get("e2e_encrypted", False),
             "uri_prefix": "",
             "pastebin_code": text,
@@ -193,6 +191,7 @@ async def view(paste_id: str, request: Request):
                 ("1 year", "220752000"),
             ]
         },
+        request=request,
     )
 
 # CREATE PASTE
@@ -262,6 +261,9 @@ def fetch_paste(paste_id: str):
         paste = get_and_delete_paste(paste_id)
         if not paste:
             raise HTTPException(404)
+
+    if not isinstance(paste, dict):
+        raise HTTPException(500, "Corrupted paste data")
 
     return paste
 

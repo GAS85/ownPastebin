@@ -46,7 +46,7 @@ The application automatically selects the first available backend:
 * `SQLITE_PATH` - Path to SQLite database file. Default:
 
   ```plain
-  /data/pastes.db
+  /app/data/pastes.db
   ```
 
 ## 🌐 Application Settings

@@ -1,4 +1,4 @@
-FROM python:3.14-slim
+FROM python:3.12-slim
 
 WORKDIR /app
 
@@ -32,7 +32,8 @@ ADD https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.bundle.min.js
 ADD https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js ./app/static
 
 RUN pip install --no-cache-dir -r requirements.txt && \
-    chown nobody /app/app/logging.yml && \
+    mkdir /app/data && \
+    chown nobody /app/app/logging.yml /app/data && \
     chmod -R 555 /app/app/static/
 
 USER nobody

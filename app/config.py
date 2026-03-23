@@ -44,7 +44,7 @@ class Settings:
     # STORAGE BACKENDS
     REDIS_URL = os.getenv("REDIS_URL")  # None = disabled
     POSTGRES_URL = os.getenv("POSTGRES_URL")  # None = disabled
-    SQLITE_PATH = os.getenv("SQLITE_PATH", "/data/pastes.db")
+    SQLITE_PATH = os.getenv("SQLITE_PATH", "/app/data/pastes.db")
 
     # APP SETTINGS
     BASE_URL = os.getenv("BASE_URL", "http://localhost:8000")

@@ -253,14 +253,17 @@
                 </div>
                 {% endif %}
 
-                {% if is_editable %}
-                <div class="form-group">
-                    <textarea autofocus class="form-control" id="content-textarea" rows="25">{{ pastebin_code | e }}</textarea>
+                <div id="paste-container">
+                    {% if is_editable %}
+                    <div class="form-group">
+                        <textarea autofocus class="form-control" id="content-textarea" rows="25">{{ pastebin_code | e }}</textarea>
+                    </div>
+                    {% endif %}
+
+                    {% if is_created or (is_clone | default(false)) %}
+                    <pre><code id="pastebin-code-block" class="{{ pastebin_cls }}">{{ pastebin_code | e }}</code></pre>
+                    {% endif %}
                 </div>
-                {% endif %}
-                {% if is_created or is_clone %}
-                <pre><code id="pastebin-code-block" class="{{ pastebin_cls }}">{{ pastebin_code | e }}</code></pre>
-                {% endif %}
             {% endif %}
         </main>
 

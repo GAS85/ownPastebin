@@ -102,41 +102,62 @@ $(document).ready(function () {
   });
 
   $("#send-btn").on("click", function (event) {
-    event.preventDefault();
+      event.preventDefault();
 
-    uri = uri_prefix == "" ? "/" : uri_prefix;
-    uri = replaceUrlParam(uri, "lang", $("#language-selector").val());
-    if (state.expiry) {
-      uri = replaceUrlParam(uri, "ttl", state.expiry);
-    }
-    uri = replaceUrlParam(uri, "burn", state.burn);
+      // Build the URI for the POST request
+      let uri = uri_prefix === "" ? "/" : uri_prefix;
+      uri = replaceUrlParam(uri, "lang", $("#language-selector").val());
+      if (state.expiry) {
+          uri = replaceUrlParam(uri, "ttl", state.expiry);
+      }
+      uri = replaceUrlParam(uri, "burn", state.burn);
 
-    var data = $("#content-textarea").val();
-    var pass = $("#pastebin-password").val();
+      // Get content and optional password
+      let data = $("#content-textarea").val();
+      let pass = $("#pastebin-password").val();
 
-    if ($("#pastebin-password").val().length > 0) {
-      data = CryptoJS.AES.encrypt(data, pass).toString();
-      uri = replaceUrlParam(uri, "encrypted", true);
-    }
+      if (pass.length > 0) {
+          data = CryptoJS.AES.encrypt(data, pass).toString();
+          uri = replaceUrlParam(uri, "encrypted", true);
+      }
 
-    $.ajax({
-      url: uri,
-      type: "POST",
-      data: data,
-      success: function (result) {
-        uri = uri_prefix + "/";
-        uri = replaceUrlParam(uri, "level", "success");
-        uri = replaceUrlParam(uri, "glyph", "fas fa-check");
-        uri = replaceUrlParam(
-          uri,
-          "msg",
-          encodeURIComponent("The paste has been successfully created:"),
-        );
-        uri = replaceUrlParam(uri, "url", result.url);
+      // Ensure a container exists to show result
+      if ($("#paste-container").length === 0) {
+          $("#content-textarea").wrap('<div id="paste-container"></div>');
+      }
 
-        window.location.href = result.url;
-      },
-    });
+      // Send via AJAX
+      $.ajax({
+          url: uri,
+          type: "POST",
+          data: data,
+          success: function (result) {
+              let displayDiv = $("#paste-result");
+              if (displayDiv.length === 0) {
+                  displayDiv = $('<div id="paste-result" class="alert alert-success mt-3"></div>');
+                  $("#paste-container").prepend(displayDiv);
+              }
+
+              displayDiv.html(
+                  '✅ Paste created! <a href="' + result.url + '" target="_blank">' + result.url + '</a>'
+              );
+
+              // Optionally clear the textarea and password
+              $("#content-textarea").val("");
+              $("#pastebin-password").val("");
+          },
+          error: function (xhr) {
+              let displayDiv = $("#paste-result");
+              if (displayDiv.length === 0) {
+                  displayDiv = $('<div id="paste-result" class="alert alert-danger mt-3"></div>');
+                  $("#paste-container").prepend(displayDiv);
+              }
+
+              displayDiv.html(
+                  '❌ Error creating paste: ' + (xhr.responseText || xhr.statusText)
+              );
+          }
+      });
   });
 
   $("#expiry-dropdown a").click(function (event) {
