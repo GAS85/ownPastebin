@@ -41,3 +41,8 @@ USER nobody
 EXPOSE 8080
 
 ENTRYPOINT /entrypoint.sh
+
+HEALTHCHECK --interval=5m \
+            --timeout=5s \
+            --retries=1 \
+            CMD python -c "import urllib.request, sys; sys.exit(0 if urllib.request.urlopen('http://$UVICORN_HOST:$UVICORN_PORT/config').status == 200 else 1)"
