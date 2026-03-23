@@ -25,25 +25,25 @@ All configuration is done via environment variables.
 
 The application automatically selects the first available backend:
 
-1. `REDIS_URL`
-2. `POSTGRES_URL`
+1. `PASTEBIN_REDIS_URL`
+2. `PASTEBIN_POSTGRES_URL`
 3. SQLite (fallback)
 
 ### Variables
 
-* `REDIS_URL` - Redis connection string. **No default** → if not set, Redis is disabled. Example:
+* `PASTEBIN_REDIS_URL` - Redis connection string. **No default** → if not set, Redis is disabled. Example:
 
   ```plain
   redis://redis:6379/0
   ```
 
-* `POSTGRES_URL` - PostgreSQL connection string. Used if Redis is not configured. Example:
+* `PASTEBIN_POSTGRES_URL` - PostgreSQL connection string. Used if Redis is not configured. Example:
 
    ```plain
    postgresql://user:pass@postgres:5432/pastebin
    ```
 
-* `SQLITE_PATH` - Path to SQLite database file. Default:
+* `PASTEBIN_SQLITE_PATH` - Path to SQLite database file. Default:
 
   ```plain
   /app/data/pastes.db
@@ -51,21 +51,21 @@ The application automatically selects the first available backend:
 
 ## 🌐 Application Settings
 
-* `BASE_URL`- Public base URL of your service. Default:
+* `PASTEBIN_BASE_URL`- Public base URL of your service. Default:
 
   ```plain
   http://localhost:8080
   ```
 
-* `UVICORN_HOST` - Bind address. Default: `0.0.0.0`
-* `UVICORN_PORT` - Port. Default: `8080`
-* `TLS_KEY` - Provide path to TLS Key to enable TLS Support directly on a service.
-* `TLS_CERT` - Provide path to TLS Certificate to enable TLS Support directly on a service.
+* `PASTEBIN_HOST` - Bind address. Default: `0.0.0.0`
+* `PASTEBIN_PORT` - Port. Default: `8080`
+* `PASTEBIN_TLS_KEY` - Provide path to TLS Key to enable TLS Support directly on a service.
+* `PASTEBIN_TLS_CERT` - Provide path to TLS Certificate to enable TLS Support directly on a service.
 
 ## ⏳ TTL Settings
 
-* `DEFAULT_TTL` - Default expiration if none provided. Default: `0` (no expiration)
-* `MAX_TTL` -  Maximum allowed TTL. It is recommended to set this value for internet accessible sites. If set:
+* `PASTEBIN_DEFAULT_TTL` - Default expiration if none provided. Default: `0` (no expiration)
+* `PASTEBIN_MAX_TTL` -  Maximum allowed TTL. It is recommended to set this value for internet accessible sites. If set:
   * caps user-provided TTL
   * used when no TTL is provided
 
@@ -81,7 +81,7 @@ The application automatically selects the first available backend:
 
 ## 📏 Limits
 
-* `MAX_PASTE_SIZE` - Max upload size. Default: `5MB`
+* `PASTEBIN_MAX_PASTE_SIZE` - Max upload size. Default: `5MB`
 
 ### Supported Formats
 
@@ -94,8 +94,8 @@ The application automatically selects the first available backend:
 
 ## 🔐 Security
 
-* `SERVER_SIDE_ENCRYPTION_ENABLED`- Enable encryption before storage. Default disabled.
-* `SERVER_SIDE_ENCRYPTION_KEY`- 32-byte base64 key (required if encryption enabled). You can generate Key with openssl, or directly with this container.
+* `PASTEBIN_SERVER_SIDE_ENCRYPTION_ENABLED`- Enable encryption before storage. Default disabled.
+* `PASTEBIN_SERVER_SIDE_ENCRYPTION_KEY`- 32-byte base64 key (required if encryption enabled). You can generate Key with openssl, or directly with this container.
 
 ```bash
 openssl rand -base64 32
@@ -111,16 +111,16 @@ docker run -e GENERATE_KEY=true gas85/ownpastebin:latest
 
 ## 🕒 Misc
 
-* `SLUG_LEN` - Uniq URL Length. Default to `20`. It is not recommended to go below this value to avoid collision and Link guessing attack.
-* `DATE_FORMAT` - Log timestamp format. Default: `%Y-%m-%d %H:%M:%S`
+* `PASTEBIN_SLUG_LEN` - Uniq URL Length. Default to `20`. It is not recommended to go below this value to avoid collision and Link guessing attack.
+* `PASTEBIN_DATE_FORMAT` - Log timestamp format. Default: `%Y-%m-%d %H:%M:%S`
 * `TZ` - Timezone. Default `Europe/Zurich`
 
 ## 🧠 Storage Behavior
 
 | Config                  | Backend Used |
 | ----------------------- | ------------ |
-| `REDIS_URL` set         | Redis        |
-| Only `POSTGRES_URL` set | PostgreSQL   |
+| `PASTEBIN_REDIS_URL` set         | Redis        |
+| Only `PASTEBIN_POSTGRES_URL` set | PostgreSQL   |
 | None set                | SQLite       |
 
 ### Notes

@@ -1,8 +1,0 @@
-fastapi
-uvicorn[standard]
-jinja2
-redis
-python-multipart
-nanoid
-pydantic
-cryptography
