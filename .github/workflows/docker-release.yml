@@ -23,7 +23,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.14"
+          python-version: "3.12"
 
       - name: Install dependencies
         run: |
@@ -90,6 +90,28 @@ jobs:
             BUILD_DATE=${{ steps.meta.outputs.BUILD_DATE }}
           tags: docker.io/${{ steps.repo.outputs.REPO }}:dev
 
+      - name: Cache Trivy DB
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/trivy
+          key: trivy-db
+
+      - name: Run Trivy scan
+        uses: aquasecurity/trivy-action@0.35.0
+        with:
+          image-ref: docker.io/${{ steps.repo.outputs.REPO }}:dev
+          format: sarif
+          output: trivy-results.sarif
+          exit-code: 1
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Upload Trivy results
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-results.sarif
+
 # Release Push
   build-and-push:
     runs-on: ubuntu-latest
@@ -139,3 +161,25 @@ jobs:
           tags: |
             docker.io/${{ steps.repo.outputs.REPO }}:${{ steps.meta.outputs.VERSION }}
             docker.io/${{ steps.repo.outputs.REPO }}:latest
+
+      - name: Cache Trivy DB
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/trivy
+          key: trivy-db
+
+      - name: Run Trivy scan
+        uses: aquasecurity/trivy-action@0.35.0
+        with:
+          image-ref: docker.io/${{ steps.repo.outputs.REPO }}:${{ steps.meta.outputs.VERSION }}
+          format: sarif
+          output: trivy-results.sarif
+          exit-code: 1
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Upload Trivy results
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-results.sarif
