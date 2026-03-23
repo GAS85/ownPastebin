@@ -134,6 +134,7 @@ class SQLiteStorage(BaseStorage):
         self.conn.execute("PRAGMA journal_mode=WAL;")
         self.lock = threading.Lock()
         self._init_table()
+        self._cleanup_expired()
 
     def _init_table(self):
         cur = self.conn.cursor()
@@ -145,6 +146,22 @@ class SQLiteStorage(BaseStorage):
             )
         """)
         self.conn.commit()
+
+    def _cleanup_expired(self):
+        import time
+        import threading
+        def run():
+            while True:
+                time.sleep(3600)  # every hour
+                with self.lock:
+                    cur = self.conn.cursor()
+                    cur.execute(
+                        "DELETE FROM pastes WHERE expire_at IS NOT NULL AND expire_at < ?",
+                        (int(time.time()),)
+                    )
+                    self.conn.commit()
+        t = threading.Thread(target=run, daemon=True)
+        t.start()
 
     def save(self, key, data, ttl):
         import time
