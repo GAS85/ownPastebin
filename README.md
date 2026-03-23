@@ -95,7 +95,7 @@ The application automatically selects the first available backend:
 ## 🔐 Security
 
 * `SERVER_SIDE_ENCRYPTION_ENABLED`- Enable encryption before storage. Default disabled.
-* `SERVER_SIDE_ENCRYPTION_KEY`- 32-byte base64 key (required if encryption enabled). You can generate Key with openssl, or directly with this container
+* `SERVER_SIDE_ENCRYPTION_KEY`- 32-byte base64 key (required if encryption enabled). You can generate Key with openssl, or directly with this container.
 
 ```bash
 openssl rand -base64 32
@@ -106,6 +106,8 @@ Or:
 ```bash
 docker run -e GENERATE_KEY=true gas85/ownpastebin:latest
 ```
+
+**If you ever rotate the key or loose it, old pastes become permanently unreadable.**
 
 ## 🕒 Misc
 
