@@ -10,7 +10,7 @@ def test_server_side_encryption():
 
     client = TestClient(app)
 
-    res = client.post("/", data=b"secret-data")
+    res = client.post("/", content=f"secret-data")
     assert res.status_code == 201
 
     paste_id = res.json()["id"]

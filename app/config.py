@@ -19,8 +19,11 @@ def parse_time(value: str) -> int | None:
     if value is None:
         return None
 
-    value = value.strip().lower()
+    value = value.strip()
 
+    # Minutes
+    if value.endswith("M"):
+        return int(value[:-1]) * 60
     # Hours
     if value.endswith("h"):
         return int(value[:-1]) * 3600

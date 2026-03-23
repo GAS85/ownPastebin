@@ -65,15 +65,16 @@ The application automatically selects the first available backend:
 ## ⏳ TTL Settings
 
 * `DEFAULT_TTL` - Default expiration if none provided. Default: `0` (no expiration)
-* `MAX_TTL` -  Maximum allowed TTL. It is recommendet to set this value for internet accessible sites. If set:
+* `MAX_TTL` -  Maximum allowed TTL. It is recommended to set this value for internet accessible sites. If set:
   * caps user-provided TTL
   * used when no TTL is provided
 
 ### Supported Formats
 
 | Format       | Example |
-| ------------ | ------- |
+|:-------------|:-------:|
 | Seconds      | `3600`  |
+| Minutes      | `30M`   |
 | Hours        | `1h`    |
 | Days         | `1d`    |
 | Months (30d) | `1m`    |
@@ -85,7 +86,7 @@ The application automatically selects the first available backend:
 ### Supported Formats
 
 | Format    | Example |
-| ----------| ------- |
+|:----------|:-------:|
 | bytes     | `3600`  |
 | Kilobytes | `1kb`   |
 | Megabytes | `1mb`   |
@@ -110,7 +111,7 @@ docker run -e GENERATE_KEY=true gas85/ownpastebin:latest
 
 * `SLUG_LEN` - Uniq URL Length. Default to `20`. It is not recommended to go below this value to avoid collision and Link guessing attack.
 * `DATE_FORMAT` - Log timestamp format. Default: `%Y-%m-%d %H:%M:%S`
-* `TZ` - Timezone. Defalut `Europe/Zurich`
+* `TZ` - Timezone. Default `Europe/Zurich`
 
 ## 🧠 Storage Behavior
 
@@ -122,7 +123,7 @@ docker run -e GENERATE_KEY=true gas85/ownpastebin:latest
 
 ### Notes
 
-* Redis = fastest, but memory-based strorage. Fits good for Local network usage.
+* Redis = fastest, but memory-based storage. Fits good for Local network usage.
 * PostgreSQL = persistent, scalable. Fits good for Local network and Internet usage.
 * SQLite = zero-config, minimal RAM usage. Default simple storage fits to all.
 

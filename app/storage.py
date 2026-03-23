@@ -126,9 +126,11 @@ class SQLiteStorage(BaseStorage):
 
     def get(self, key):
         import time
-        cur = self.conn.cursor()
-        cur.execute("SELECT data, expire_at FROM pastes WHERE id=?", (key,))
-        row = cur.fetchone()
+
+        with self.lock:
+            cur = self.conn.cursor()
+            cur.execute("SELECT data, expire_at FROM pastes WHERE id=?", (key,))
+            row = cur.fetchone()
 
         if not row:
             return None

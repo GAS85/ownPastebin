@@ -31,9 +31,9 @@ def decode_from_storage(stored_str: str) -> bytes:
         return base64.b64decode(data)
 
     # Enforce MAX_TTL rules:
-    # - If requested_ttl is None → use MAX_TTL
-    # - If requested_ttl > MAX_TTL → clamp to MAX_TTL
-    # - Otherwise → use requested_ttl
+    # - If requested_ttl is None --> use MAX_TTL
+    # - If requested_ttl > MAX_TTL --> clamp to MAX_TTL
+    # - Otherwise --> use requested_ttl
 def resolve_ttl(requested_ttl: int | None) -> int:
     max_ttl = getattr(settings, "MAX_TTL", None)
 
