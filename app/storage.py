@@ -1,11 +1,6 @@
 import json
 from app.config import settings
 
-# Lazy imports (RAM friendly)
-redis = None
-psycopg2 = None
-sqlite3 = None
-
 class BaseStorage:
     def save(self, key, data, ttl): ...
     def get(self, key): ...
@@ -16,8 +11,8 @@ class BaseStorage:
 class RedisStorage(BaseStorage):
     def __init__(self):
         global redis
-        import redis
-        self.r = redis.Redis.from_url(settings.REDIS_URL, decode_responses=False)
+        import redis as redis_lib
+        self.r = redis_lib.Redis.from_url(settings.REDIS_URL, decode_responses=False)
 
     def save(self, key, data, ttl):
         payload = json.dumps(data).encode()

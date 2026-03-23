@@ -3,7 +3,7 @@ import time
 
 
 def test_create_paste(client):
-    res = client.post("/", data=b"hello world")
+    res = client.post("/", content=b"hello world")
     assert res.status_code == 201
 
     data = res.json()
@@ -12,7 +12,7 @@ def test_create_paste(client):
 
 
 def test_get_paste(client):
-    res = client.post("/", data=b"hello")
+    res = client.post("/", content=b"hello")
     paste_id = res.json()["id"]
 
     res = client.get(f"/{paste_id}")
@@ -21,7 +21,7 @@ def test_get_paste(client):
 
 
 def test_raw_paste(client):
-    res = client.post("/", data=b"raw content")
+    res = client.post("/", content=b"raw content")
     paste_id = res.json()["id"]
 
     res = client.get(f"/raw/{paste_id}")
@@ -30,7 +30,7 @@ def test_raw_paste(client):
 
 
 def test_delete_paste(client):
-    res = client.post("/", data=b"delete me")
+    res = client.post("/", content=b"delete me")
     paste_id = res.json()["id"]
 
     res = client.delete(f"/{paste_id}")
@@ -41,7 +41,7 @@ def test_delete_paste(client):
 
 
 def test_burn_after_read(client):
-    res = client.post("/?burn=true", data=b"burn me")
+    res = client.post("/?burn=true", content=b"burn me")
     paste_id = res.json()["id"]
 
     # First read
@@ -54,7 +54,7 @@ def test_burn_after_read(client):
 
 
 def test_ttl_expiry(client):
-    res = client.post("/?ttl=1", data=b"short lived")
+    res = client.post("/?ttl=1", content=b"short lived")
     paste_id = res.json()["id"]
 
     time.sleep(2)
@@ -66,5 +66,26 @@ def test_ttl_expiry(client):
 def test_large_payload_rejected(client):
     big_data = b"x" * (6 * 1024 * 1024)  # 6MB
 
-    res = client.post("/", data=big_data)
+    res = client.post("/", content=big_data)
     assert res.status_code == 413
+
+
+def test_binary_paste(client):
+    # Use bytes that are not valid UTF-8
+    binary_data = b'\x00\x01\x02\x03\xff\xfe\xfd'
+
+    res = client.post("/", content=binary_data)
+    assert res.status_code == 201
+    paste_id = res.json()["id"]
+
+    # Test raw endpoint for binary data
+    res = client.get(f"/raw/{paste_id}")
+    assert res.status_code == 200
+    assert res.headers.get("content-type") == "application/octet-stream"
+    assert res.headers.get("content-disposition") == f"attachment; filename={paste_id}"
+    assert res.content == binary_data
+
+    # Test HTML view shows [binary data]
+    res = client.get(f"/{paste_id}")
+    assert res.status_code == 200
+    assert "[binary data]" in res.text
