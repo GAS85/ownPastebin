@@ -15,6 +15,9 @@ COPY . .
 ADD https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css ./static
 ADD https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css ./static
 # Fonts
+ADD https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/webfonts/fa-solid-900.woff2 ./static
+ADD https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/webfonts/fa-solid-900.woff ./static
+ADD https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/webfonts/fa-solid-900.ttf  ./static
 ADD https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/webfonts/fa-brands-400.woff2 ./static
 ADD https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/webfonts/fa-brands-400.woff ./static
 ADD https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/webfonts/fa-brands-400.ttf ./static
@@ -24,8 +27,11 @@ ADD https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.6.2/js/bootstrap.
 ADD https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js ./static
 ADD https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.16.1/umd/popper.min.js ./static
 ADD https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.11/clipboard.min.js ./static
+ADD https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.6.1/mermaid.min.js ./static
 
-RUN mkdir -p /usr/local/go/src/pastebin/plugins && cp plugins/*.* /usr/local/go/src/pastebin/plugins && go mod download
+RUN sed -i 's|../webfonts|/static|g' ./static/all.min.css
+RUN mkdir -p /usr/local/go/src/pastebin/plugins && cp plugins/*.* /usr/local/go/src/pastebin/plugins
+RUN go mod download
 
 RUN CGO_ENABLED=1 GOOS=linux go build -ldflags="-s -w" -o pastebin .
 
