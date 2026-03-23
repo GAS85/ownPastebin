@@ -42,52 +42,85 @@ class PostgresStorage(BaseStorage):
     def __init__(self):
         global psycopg2
         import psycopg2
-        self.conn = psycopg2.connect(settings.POSTGRES_URL)
+        from psycopg2 import pool
+        self.pool = pool.ThreadedConnectionPool(
+            minconn=1,
+            maxconn=10,
+            dsn=settings.POSTGRES_URL
+        )
         self._init_table()
 
     def _init_table(self):
-        with self.conn.cursor() as cur:
-            cur.execute("""
-                CREATE TABLE IF NOT EXISTS pastes (
-                    id TEXT PRIMARY KEY,
-                    data JSONB,
-                    expire_at TIMESTAMP NULL
-                )
-            """)
-            self.conn.commit()
+        conn = self.pool.getconn()
+        try:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    CREATE TABLE IF NOT EXISTS pastes (
+                        id TEXT PRIMARY KEY,
+                        data JSONB,
+                        expire_at TIMESTAMP NULL
+                    )
+                """)
+                conn.commit()
+        finally:
+            self.pool.putconn(conn)
 
     def save(self, key, data, ttl):
-        with self.conn.cursor() as cur:
-            cur.execute("""
-                INSERT INTO pastes (id, data, expire_at)
-                VALUES (%s, %s, NOW() + (%s || ' seconds')::interval)
-                ON CONFLICT (id) DO UPDATE SET
-                    data = EXCLUDED.data,
-                    expire_at = EXCLUDED.expire_at
-            """, (key, json.dumps(data), ttl if ttl > 0 else None))
-            self.conn.commit()
+        conn = self.pool.getconn()
+        try:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    INSERT INTO pastes (id, data, expire_at)
+                    VALUES (%s, %s, NOW() + (%s || ' seconds')::interval)
+                    ON CONFLICT (id) DO UPDATE SET
+                        data = EXCLUDED.data,
+                        expire_at = EXCLUDED.expire_at
+                """, (key, json.dumps(data), ttl if ttl > 0 else None))
+                conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            self.pool.putconn(conn)
 
     def get(self, key):
-        with self.conn.cursor() as cur:
-            cur.execute("""
-                SELECT data FROM pastes
-                WHERE id=%s
-                AND (expire_at IS NULL OR expire_at > NOW())
-            """, (key,))
-            row = cur.fetchone()
-            return row[0] if row else None
+        conn = self.pool.getconn()
+        try:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    SELECT data FROM pastes
+                    WHERE id=%s
+                    AND (expire_at IS NULL OR expire_at > NOW())
+                """, (key,))
+                row = cur.fetchone()
+                return row[0] if row else None
+        finally:
+            self.pool.putconn(conn)
 
     def delete(self, key):
-        with self.conn.cursor() as cur:
-            cur.execute("DELETE FROM pastes WHERE id=%s", (key,))
-            self.conn.commit()
+        conn = self.pool.getconn()
+        try:
+            with conn.cursor() as cur:
+                cur.execute("DELETE FROM pastes WHERE id=%s", (key,))
+                conn.commit()
+        finally:
+            self.pool.putconn(conn)
 
     def get_and_delete(self, key):
-        with self.conn.cursor() as cur:
-            cur.execute("DELETE FROM pastes WHERE id = %s AND (expire_at IS NULL OR expire_at > NOW()) RETURNING data", (key,))
-            row = cur.fetchone()
-            self.conn.commit()
-            return row[0] if row else None
+        conn = self.pool.getconn()
+        try:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    DELETE FROM pastes
+                    WHERE id = %s
+                    AND (expire_at IS NULL OR expire_at > NOW())
+                    RETURNING data
+                """, (key,))
+                row = cur.fetchone()
+                conn.commit()
+                return row[0] if row else None
+        finally:
+            self.pool.putconn(conn)
 
 
 # SQLITE (DEFAULT)
