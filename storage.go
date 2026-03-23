@@ -4,7 +4,8 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
+	"os"
 	"sync"
 	"time"
 
@@ -308,25 +309,26 @@ func newStorage(cfg *Settings) Storage {
 	if cfg.RedisURL != "" {
 		s, err := newRedisStorage(cfg.RedisURL)
 		if err == nil {
-			log.Println("[storage] using Redis")
+			slog.Info("using Redis backend")
 			return s
 		}
-		log.Printf("[storage] Redis unavailable (%v), falling back", err)
+		slog.Warn("Redis unavailable, falling back", "err", err)
 	}
 
 	if cfg.PostgresURL != "" {
 		s, err := newPostgresStorage(cfg.PostgresURL)
 		if err == nil {
-			log.Println("[storage] using PostgreSQL")
+			slog.Info("using PostgreSQL backend")
 			return s
 		}
-		log.Printf("[storage] Postgres unavailable (%v), falling back", err)
+		slog.Warn("PostgreSQL unavailable, falling back", "err", err)
 	}
 
 	s, err := newSQLiteStorage(cfg.SQLitePath)
 	if err != nil {
-		log.Fatalf("[storage] SQLite failed: %v", err)
+		slog.Error("SQLite init failed", "err", err)
+		os.Exit(1)
 	}
-	log.Printf("[storage] using SQLite at %s", cfg.SQLitePath)
+	slog.Info("using SQLite backend", "path", cfg.SQLitePath)
 	return s
 }

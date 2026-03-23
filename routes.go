@@ -4,7 +4,7 @@ import (
 	"encoding/base64"
 	"html/template"
 	"io"
-	"log"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
@@ -138,7 +138,7 @@ func (a *App) handleCreatePaste(w http.ResponseWriter, r *http.Request) {
 
 	content, err := a.encodeForStorage(raw)
 	if err != nil {
-		log.Printf("encrypt error: %v", err)
+		slog.Error("encrypt error", "err", err)
 		http.Error(w, "encryption error", http.StatusInternalServerError)
 		return
 	}
@@ -176,7 +176,7 @@ func (a *App) handleCreatePaste(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := a.storage.Save(id, paste, ttl); err != nil {
-		log.Printf("storage save error: %v", err)
+		slog.Error("storage save error", "err", err)
 		http.Error(w, "storage error", http.StatusInternalServerError)
 		return
 	}
@@ -196,9 +196,9 @@ func (a *App) handleConfig(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.Write([]byte(`{` +
-		`"PASTEBIN_MAX_TTL":` + strconv.FormatInt(maxTTL, 10) + `,` +
-		`"PASTEBIN_DEFAULT_TTL":` + strconv.FormatInt(int64(a.cfg.DefaultTTL.Seconds()), 10) + `,` +
-		`"PASTEBIN_MAX_PASTE_SIZE":` + strconv.FormatInt(a.cfg.MaxPasteSize, 10) + `,` +
+		`"max_ttl":` + strconv.FormatInt(maxTTL, 10) + `,` +
+		`"default_ttl":` + strconv.FormatInt(int64(a.cfg.DefaultTTL.Seconds()), 10) + `,` +
+		`"max_paste_size":` + strconv.FormatInt(a.cfg.MaxPasteSize, 10) + `,` +
 		`"server_side_encryption":` + strconv.FormatBool(a.cfg.ServerSideEncryptionEnabled) +
 		`}`))
 }
@@ -304,7 +304,7 @@ func (a *App) render(w http.ResponseWriter, d TemplateData, status int) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(status)
 	if err := a.tmpl.Execute(w, d); err != nil {
-		log.Printf("template render error: %v", err)
+		slog.Error("template render error", "err", err)
 	}
 }
 

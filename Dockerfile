@@ -44,7 +44,7 @@ LABEL maintainer="Georgiy Sitnikov <g.own.pastebin@sitnikov.eu>" \
 ENV VERSION=$VERSION
 ENV TZ=Europe/Zurich
 
-RUN apk add --no-cache ca-certificates tzdata
+RUN apk add --no-cache ca-certificates tzdata openssl
 
 WORKDIR /app
 
@@ -58,10 +58,9 @@ USER $USER
 
 EXPOSE 8080
 
-#ENTRYPOINT ["/app/entrypoint.sh"]
 ENTRYPOINT ["/entrypoint.sh"]
 
-# HEALTHCHECK --interval=5m \
-#             --timeout=5s \
-#             --retries=1 \
-#             CMD python -c "import urllib.request, sys; sys.exit(0 if urllib.request.urlopen('http://$PASTEBIN_HOST:$PASTEBIN_PORT/config').status == 200 else 1)"
+HEALTHCHECK --interval=1m \
+             --timeout=5s \
+             --retries=1 \
+             CMD "pgrep pastebin"

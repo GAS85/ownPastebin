@@ -4,7 +4,7 @@ import (
 	"embed"
 	"html/template"
 	"io/fs"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 
@@ -25,17 +25,22 @@ var prismFS, _ = fs.Sub(staticFS, "static")
 var Version string
 
 func main() {
+	// ── Logger ────────────────────────────────────────────────────────────────
+	// Must be first so all subsequent log calls use the configured handler.
+	initLogger()
+
 	cfg := loadSettings()
 
-	// ── Crypto ───────────────────────────────────────────────────────────────
+	// ── Crypto ────────────────────────────────────────────────────────────────
 	var cry *Crypto
 	if cfg.ServerSideEncryptionEnabled {
 		var err error
 		cry, err = newCrypto(cfg.ServerSideEncryptionKey)
 		if err != nil {
-			log.Fatalf("[crypto] %v", err)
+			slog.Error("crypto init failed", "err", err)
+			os.Exit(1)
 		}
-		log.Println("[crypto] AES-256-GCM server-side encryption enabled")
+		slog.Info("AES-256-GCM server-side encryption enabled")
 	}
 
 	// ── Storage ───────────────────────────────────────────────────────────────
@@ -58,7 +63,8 @@ func main() {
 	}
 	tmpl, err := template.New("index.html").Funcs(funcMap).ParseFS(templateFS, "templates/index.html")
 	if err != nil {
-		log.Fatalf("[template] parse error: %v", err)
+		slog.Error("template parse failed", "err", err)
+		os.Exit(1)
 	}
 
 	// ── App ───────────────────────────────────────────────────────────────────
@@ -74,7 +80,8 @@ func main() {
 	// Serve the embedded static/ directory.
 	staticSub, err := fs.Sub(staticFS, "static")
 	if err != nil {
-		log.Fatal(err)
+		slog.Error("static fs setup failed", "err", err)
+		os.Exit(1)
 	}
 	staticHandler := http.FileServer(http.FS(staticSub))
 
@@ -101,16 +108,21 @@ func main() {
 	addr := host + ":" + port
 
 	Version = os.Getenv("VERSION")
-
-	log.Printf("[main] Pastebin %s listening on %s", Version, addr)
-
 	// TLS support (mirrors entrypoint.sh PASTEBIN_TLS_KEY / PASTEBIN_TLS_CERT vars)
 	tlsKey := os.Getenv("PASTEBIN_TLS_KEY")
 	tlsCert := os.Getenv("PASTEBIN_TLS_CERT")
+
 	if tlsKey != "" && tlsCert != "" {
-		log.Printf("[main] TLS enabled (cert=%s key=%s)", tlsCert, tlsKey)
-		log.Fatal(http.ListenAndServeTLS(addr, tlsCert, tlsKey, finalHandler))
+		slog.Info("server starting with TLS", "addr", addr, "cert", tlsCert, "key", tlsKey)
+		if err := http.ListenAndServeTLS(addr, tlsCert, tlsKey, finalHandler); err != nil {
+			slog.Error("server stopped", "err", err)
+			os.Exit(1)
+		}
 	} else {
-		log.Fatal(http.ListenAndServe(addr, finalHandler))
+		slog.Info("server starting", "addr", addr)
+		if err := http.ListenAndServe(addr, finalHandler); err != nil {
+			slog.Error("server stopped", "err", err)
+			os.Exit(1)
+		}
 	}
 }
