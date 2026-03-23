@@ -184,10 +184,18 @@ class SQLiteStorage(BaseStorage):
             self.conn.commit()
 
     def get_and_delete(self, key):
-        data = self.get(key)
-        if data:
-            self.delete(key)
-        return data
+        import time
+        with self.lock:
+            cur = self.conn.cursor()
+            cur.execute("""
+                DELETE FROM pastes
+                WHERE id = ?
+                AND (expire_at IS NULL OR expire_at > ?)
+                RETURNING data
+            """, (key, int(time.time())))
+            row = cur.fetchone()
+            self.conn.commit()
+            return json.loads(row[0]) if row else None
 
 # BACKEND SELECTOR
 def get_storage():
