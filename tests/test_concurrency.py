@@ -7,7 +7,7 @@ client = TestClient(app)
 
 
 def create_paste(i):
-    res = client.post("/", data=f"data-{i}".encode())
+    res = client.post("/", content=f"data-{i}".encode())
     return res.status_code
 
 

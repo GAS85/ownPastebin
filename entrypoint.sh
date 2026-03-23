@@ -55,7 +55,7 @@ elif [[ ! -z ${SQLITE_PATH+x}  ]]; then
 
     DB_TO_USE="SQLITE_PATH ${SQLITE_PATH:-Not set} - Will use SQLLite as DB"
 
-    if [ ! -w "$SQLITE_PATH" ]; then
+    if [ ! -w "$(dirname "$SQLITE_PATH")" ]; then
 
         echo "$(date "+$DATE_FORMAT") - ERROR - $(basename "$0") - $SQLITE_PATH is not writable by userID $(id -u). Exiting."
         exit 1
