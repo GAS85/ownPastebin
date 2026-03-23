@@ -82,7 +82,7 @@ jobs:
             VERSION=dev
             VCS_REF=${{ steps.meta.outputs.VCS_REF }}
             BUILD_DATE=${{ steps.meta.outputs.BUILD_DATE }}
-          tags: docker.io/${{ steps.repo.outputs.REPO }}::${{ steps.meta.outputs.VERSION }}
+          tags: docker.io/${{ steps.repo.outputs.REPO }}:${{ steps.meta.outputs.VERSION }}
 
 # Release Push
   build-and-push:
