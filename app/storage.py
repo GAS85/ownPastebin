@@ -83,10 +83,11 @@ class PostgresStorage(BaseStorage):
             self.conn.commit()
 
     def get_and_delete(self, key):
-        data = self.get(key)
-        if data:
-            self.delete(key)
-        return data
+        with self.conn.cursor() as cur:
+            cur.execute("DELETE FROM pastes WHERE id = %s AND (expire_at IS NULL OR expire_at > NOW()) RETURNING data", (key,))
+            row = cur.fetchone()
+            self.conn.commit()
+            return row[0] if row else None
 
 
 # SQLITE (DEFAULT)
