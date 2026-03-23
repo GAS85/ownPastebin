@@ -48,7 +48,7 @@ services:
 
   # # POSTGRES (OPTIONAL)
   # postgres:
-  #   image: postgres:18
+  #   image: postgres:17
   #   container_name: pastebin-postgres
   #   restart: always
   #   environment:
@@ -56,11 +56,11 @@ services:
   #     POSTGRES_USER: paste
   #     POSTGRES_PASSWORD: paste
   #   volumes:
-  #     - ./data:/var/lib/postgresql/data
+  #     - ./data_postgres:/var/lib/postgresql/data
   #   ports:
   #     - "5432:5432"
   #   healthcheck:
-  #     test: ["CMD-SHELL", "pg_isready -U paste"]
+  #     test: ["CMD-SHELL", "pg_isready -U paste -d pastebin"]
   #     interval: 20s
   #     timeout: 5s
   #     retries: 5

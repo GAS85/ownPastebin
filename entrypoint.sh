@@ -2,6 +2,7 @@
 
 # Set defaults
 export BASE_URL="${BASE_URL:-http://localhost:8000}"
+export SQLITE_PATH="${SQLITE_PATH:-/app/data/pastes.db}"
 export DEFAULT_TTL="${DEFAULT_TTL:-0}"
 export SLUG_LEN="${SLUG_LEN:-20}"
 export MAX_PASTE_SIZE="${MAX_PASTE_SIZE:-5MB}"
@@ -42,6 +43,33 @@ if [[ ! -z ${TLS_KEY+x} ]]; then
 
 fi
 
+if [[ ! -z ${REDIS_URL+x}  ]]; then
+
+    DB_TO_USE="REDIS_URL ${REDIS_URL:-Not set} - Will use Redis as DB"
+
+elif [[ ! -z ${POSTGRES_URL+x}  ]]; then
+
+    DB_TO_USE="POSTGRES_URL ${POSTGRES_URL:-Not set} - Will use Postgres as DB"
+
+elif [[ ! -z ${SQLITE_PATH+x}  ]]; then
+
+    DB_TO_USE="SQLITE_PATH ${SQLITE_PATH:-Not set} - Will use SQLLite as DB"
+
+    if [ ! -w "$SQLITE_PATH" ]; then
+
+        echo "$(date "+$DATE_FORMAT") - ERROR - $(basename "$0") - $SQLITE_PATH is not writable by userID $(id -u). Exiting."
+        exit 1
+
+    fi
+
+else
+
+    echo "$(date "+$DATE_FORMAT") - ERROR - $(basename "$0") - None of DBs are configured. Exiting."
+    exit 1
+
+fi
+
+
 # Use central DATE_FORMAT in Uvicorn
 CONFIG_UPDATE=$(sed "s/DATE_FORMAT/$DATE_FORMAT/g" $UVICORN_LOG_CONFIG)
 echo "${CONFIG_UPDATE}" >${UVICORN_LOG_CONFIG}
@@ -50,9 +78,7 @@ echo "$(date "+$DATE_FORMAT") - INFO - $(basename "$0") - Welcome to your own Pa
 echo "$(date "+$DATE_FORMAT") - INFO - $(basename "$0") - Following variables are set:
                                 UVICORN_HOST $UVICORN_HOST
                                 UVICORN_PORT $UVICORN_PORT
-                                REDIS_URL ${REDIS_URL:-Not set}
-                                POSTGRES_URL ${POSTGRES_URL:-Not set}
-                                SQLITE_PATH ${SQLITE_PATH:-Not set}
+                                $DB_TO_USE
                                 BASE_URL $BASE_URL
                                 SERVER_SIDE_ENCRYPTION_ENABLED $SERVER_SIDE_ENCRYPTION_ENABLED
                                 MAX_TTL ${MAX_TTL:-Not set}

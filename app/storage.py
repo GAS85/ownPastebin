@@ -94,9 +94,11 @@ class SQLiteStorage(BaseStorage):
     def __init__(self):
         global sqlite3
         import sqlite3
+        import threading
         self.conn = sqlite3.connect(settings.SQLITE_PATH, check_same_thread=False)
         # Enable WAL
         self.conn.execute("PRAGMA journal_mode=WAL;")
+        self.lock = threading.Lock()
         self._init_table()
 
     def _init_table(self):
@@ -114,12 +116,13 @@ class SQLiteStorage(BaseStorage):
         import time
         expire_at = int(time.time()) + ttl if ttl > 0 else None
 
-        cur = self.conn.cursor()
-        cur.execute("""
-            INSERT OR REPLACE INTO pastes (id, data, expire_at)
-            VALUES (?, ?, ?)
-        """, (key, json.dumps(data), expire_at))
-        self.conn.commit()
+        with self.lock: 
+            cur = self.conn.cursor()
+            cur.execute("""
+                INSERT OR REPLACE INTO pastes (id, data, expire_at)
+                VALUES (?, ?, ?)
+            """, (key, json.dumps(data), expire_at))
+            self.conn.commit()
 
     def get(self, key):
         import time
@@ -139,9 +142,10 @@ class SQLiteStorage(BaseStorage):
         return json.loads(data)
 
     def delete(self, key):
-        cur = self.conn.cursor()
-        cur.execute("DELETE FROM pastes WHERE id=?", (key,))
-        self.conn.commit()
+        with self.lock:
+            cur = self.conn.cursor()
+            cur.execute("DELETE FROM pastes WHERE id=?", (key,))
+            self.conn.commit()
 
     def get_and_delete(self, key):
         data = self.get(key)
