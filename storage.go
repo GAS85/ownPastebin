@@ -18,11 +18,12 @@ import (
 
 // PasteData is the JSON payload stored in all backends.
 type PasteData struct {
-	Content      string `json:"content"`       // base64 or AES-GCM ciphertext
-	Burn         bool   `json:"burn"`
-	Encrypted    bool   `json:"encrypted"`     // server-side encryption applied
-	E2EEncrypted bool   `json:"e2e_encrypted"` // client-side encryption
-	Lang         string `json:"lang"`
+	Content      string     `json:"content"`       // base64 or AES-GCM ciphertext
+	Burn         bool       `json:"burn"`
+	Encrypted    bool       `json:"encrypted"`     // server-side encryption applied
+	E2EEncrypted bool       `json:"e2e_encrypted"` // client-side encryption
+	Lang         string     `json:"lang"`
+	ExpireAt     *time.Time `json:"expire_at,omitempty"` // nil = never expires
 }
 
 // Storage is the common interface all backends implement.
@@ -113,7 +114,15 @@ func (s *SQLiteStorage) Get(key string) (*PasteData, error) {
 		return nil, nil
 	}
 
-	return unmarshalPaste([]byte(raw))
+	paste, err := unmarshalPaste([]byte(raw))
+	if err != nil {
+		return nil, err
+	}
+	if expireAt != nil {
+		t := time.Unix(*expireAt, 0)
+		paste.ExpireAt = &t
+	}
+	return paste, nil
 }
 
 func (s *SQLiteStorage) Delete(key string) error {
@@ -132,15 +141,24 @@ func (s *SQLiteStorage) GetAndDelete(key string) (*PasteData, error) {
 		DELETE FROM pastes
 		WHERE id = ?
 		  AND (expire_at IS NULL OR expire_at > ?)
-		RETURNING data`, key, time.Now().Unix())
+		RETURNING data, expire_at`, key, time.Now().Unix())
 
 	var raw string
-	if err := row.Scan(&raw); err == sql.ErrNoRows {
+	var expireAt *int64
+	if err := row.Scan(&raw, &expireAt); err == sql.ErrNoRows {
 		return nil, nil
 	} else if err != nil {
 		return nil, err
 	}
-	return unmarshalPaste([]byte(raw))
+	paste, err := unmarshalPaste([]byte(raw))
+	if err != nil {
+		return nil, err
+	}
+	if expireAt != nil {
+		t := time.Unix(*expireAt, 0)
+		paste.ExpireAt = &t
+	}
+	return paste, nil
 }
 
 func (s *SQLiteStorage) Close() error { return s.db.Close() }
@@ -204,16 +222,22 @@ func (s *PostgresStorage) Save(key string, d *PasteData, ttl time.Duration) erro
 
 func (s *PostgresStorage) Get(key string) (*PasteData, error) {
 	row := s.db.QueryRow(`
-		SELECT data FROM pastes
+		SELECT data, expire_at FROM pastes
 		WHERE id = $1 AND (expire_at IS NULL OR expire_at > NOW())`, key)
 
 	var raw string
-	if err := row.Scan(&raw); err == sql.ErrNoRows {
+	var expireAt *time.Time
+	if err := row.Scan(&raw, &expireAt); err == sql.ErrNoRows {
 		return nil, nil
 	} else if err != nil {
 		return nil, err
 	}
-	return unmarshalPaste([]byte(raw))
+	paste, err := unmarshalPaste([]byte(raw))
+	if err != nil {
+		return nil, err
+	}
+	paste.ExpireAt = expireAt
+	return paste, nil
 }
 
 func (s *PostgresStorage) Delete(key string) error {
@@ -226,15 +250,21 @@ func (s *PostgresStorage) GetAndDelete(key string) (*PasteData, error) {
 	row := s.db.QueryRow(`
 		DELETE FROM pastes
 		WHERE id = $1 AND (expire_at IS NULL OR expire_at > NOW())
-		RETURNING data`, key)
+		RETURNING data, expire_at`, key)
 
 	var raw string
-	if err := row.Scan(&raw); err == sql.ErrNoRows {
+	var expireAt *time.Time
+	if err := row.Scan(&raw, &expireAt); err == sql.ErrNoRows {
 		return nil, nil
 	} else if err != nil {
 		return nil, err
 	}
-	return unmarshalPaste([]byte(raw))
+	paste, err := unmarshalPaste([]byte(raw))
+	if err != nil {
+		return nil, err
+	}
+	paste.ExpireAt = expireAt
+	return paste, nil
 }
 
 func (s *PostgresStorage) Close() error { return s.db.Close() }
@@ -272,31 +302,68 @@ func (s *RedisStorage) Save(key string, d *PasteData, ttl time.Duration) error {
 
 func (s *RedisStorage) Get(key string) (*PasteData, error) {
 	ctx := context.Background()
-	b, err := s.client.Get(ctx, key).Bytes()
+
+	// Pipeline GET + TTL together — two round-trips would be a race.
+	pipe := s.client.Pipeline()
+	getCmd := pipe.Get(ctx, key)
+	ttlCmd := pipe.TTL(ctx, key)
+	if _, err := pipe.Exec(ctx); err != nil && err != redis.Nil {
+		return nil, err
+	}
+
+	b, err := getCmd.Bytes()
 	if err == redis.Nil {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, err
 	}
-	return unmarshalPaste(b)
+
+	paste, err := unmarshalPaste(b)
+	if err != nil {
+		return nil, err
+	}
+	// TTL > 0 means the key has an expiry; -1 = no expiry, -2 = key gone.
+	if ttl := ttlCmd.Val(); ttl > 0 {
+		t := time.Now().Add(ttl)
+		paste.ExpireAt = &t
+	}
+	return paste, nil
 }
 
 func (s *RedisStorage) Delete(key string) error {
 	return s.client.Del(context.Background(), key).Err()
 }
 
-// GetAndDelete uses GETDEL — atomic in Redis.
+// GetAndDelete uses a pipeline to read TTL then GETDEL atomically enough —
+// a true atomic GETDEL drops the TTL so we read it first in the same pipeline.
 func (s *RedisStorage) GetAndDelete(key string) (*PasteData, error) {
 	ctx := context.Background()
-	b, err := s.client.GetDel(ctx, key).Bytes()
+
+	pipe := s.client.Pipeline()
+	ttlCmd := pipe.TTL(ctx, key)
+	delCmd := pipe.GetDel(ctx, key)
+	if _, err := pipe.Exec(ctx); err != nil && err != redis.Nil {
+		return nil, err
+	}
+
+	b, err := delCmd.Bytes()
 	if err == redis.Nil {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, err
 	}
-	return unmarshalPaste(b)
+
+	paste, err := unmarshalPaste(b)
+	if err != nil {
+		return nil, err
+	}
+	if ttl := ttlCmd.Val(); ttl > 0 {
+		t := time.Now().Add(ttl)
+		paste.ExpireAt = &t
+	}
+	return paste, nil
 }
 
 func (s *RedisStorage) Close() error { return s.client.Close() }

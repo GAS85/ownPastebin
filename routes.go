@@ -32,6 +32,7 @@ type TemplateData struct {
 	IsEditable   bool
 	IsCreated    bool
 	IsBurned     bool
+	IsBurn       bool       // true = this paste is configured as burn-on-read
 	IsError      bool
 	IsEncrypted  bool
 	IsClone      bool
@@ -39,6 +40,7 @@ type TemplateData struct {
 	PastebinID   string
 	PastebinCls  string
 	Version      string
+	ExpireAt     *time.Time // nil = never expires
 	CSSImports   []string
 	JSImports    []string
 	JSInits      []string
@@ -278,10 +280,12 @@ func (a *App) handleView(w http.ResponseWriter, r *http.Request) {
 	d := a.baseData(r)
 	d.IsCreated = true
 	d.IsBurned = paste.Burn
+	d.IsBurn = paste.Burn
 	d.IsEncrypted = paste.E2EEncrypted
 	d.PastebinCode = text
 	d.PastebinID = id
 	d.PastebinCls = "language-" + paste.Lang
+	d.ExpireAt = paste.ExpireAt
 	a.render(w, d, http.StatusOK)
 }
 

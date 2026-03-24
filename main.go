@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"time"
 
 	"pastebin/plugins"
 )
@@ -60,6 +61,13 @@ func main() {
 		"not": func(b bool) bool { return !b },
 		// {{safeJS .}} — marks a string as safe for inline <script> injection
 		"safeJS": func(s string) template.JS { return template.JS(s) },
+		// {{formatTime .ExpireAt}} — formats *time.Time for display in the template.
+		"formatTime": func(t *time.Time) string {
+			if t == nil {
+				return ""
+			}
+			return t.Format("2006-01-02 15:04:05 UTC")
+		},
 	}
 	tmpl, err := template.New("index.html").Funcs(funcMap).ParseFS(templateFS, "templates/index.html")
 	if err != nil {

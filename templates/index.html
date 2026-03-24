@@ -257,6 +257,20 @@
                 </div>
                 {{end}}
                 {{if or .IsCreated .IsClone}}
+                    {{if .IsBurn}}
+                    <div class="alert alert-danger mt-3" role="alert">
+                        <i class="fas fa-fire"></i>
+                        <strong>For your eyes only.</strong>
+                        This paste has been permanently deleted after this view.
+                    </div>
+                    {{end}}
+
+                    {{if .ExpireAt}}
+                    <div class="alert alert-warning mt-3" role="alert">
+                        <i class="fas fa-clock"></i>
+                        This paste will expire on <strong>{{formatTime .ExpireAt}}</strong>.
+                    </div>
+                    {{end}}
                 <pre><code id="pastebin-code-block" class="{{.PastebinCls}}">{{.PastebinCode}}</code></pre>
                 {{end}}
             {{end}}
