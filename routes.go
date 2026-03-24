@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"html/template"
 	"io"
+	"os"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -69,7 +70,7 @@ var defaultExpiryTimes = []ExpiryOption{
 
 func (a *App) baseData(r *http.Request) TemplateData {
 	return TemplateData{
-		Version:     "2.0",
+		Version:     os.Getenv("VERSION"),
 		CSSImports:  a.plugins.CSSImports,
 		JSImports:   a.plugins.JSImports,
 		JSInits:     a.plugins.JSInits,
@@ -102,11 +103,20 @@ func (a *App) decodeFromStorage(stored string) ([]byte, error) {
 func (a *App) router() http.Handler {
 	r := chi.NewRouter()
 
+	// Access log — wraps every route including swagger and config.
+	r.Use(accessLogMiddleware)
+
 	r.Get("/", a.handleNewPaste)
 	r.Post("/", a.handleCreatePaste)
 	r.Get("/config", a.handleConfig)
 	r.Get("/raw/{id}", a.handleRaw)
 	r.Get("/download/{id}", a.handleDownload)
+
+	// API documentation
+	r.Get("/openapi.json", a.handleOpenAPISpec)
+	r.Get("/swagger-ui", a.handleSwaggerUI)
+
+	// /{id} must be last — it is a catch-all wildcard.
 	r.Get("/{id}", a.handleView)
 	r.Delete("/{id}", a.handleDelete)
 
