@@ -1,9 +1,10 @@
-package main
+package main_test
 
 import (
 	"strings"
 	"sync"
 	"testing"
+	"github.com/GAS85/ownPastebin"
 )
 
 func TestConcurrentRequests(t *testing.T) {

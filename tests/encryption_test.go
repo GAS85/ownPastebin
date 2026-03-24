@@ -1,9 +1,10 @@
-package main
+package main_test
 
 import (
 	"os"
 	"strings"
 	"testing"
+	"github.com/GAS85/ownPastebin"
 )
 
 func TestEncryption(t *testing.T) {
