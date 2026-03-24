@@ -1,6 +1,6 @@
 services:
   pastebin:
-    build: .
+    image: gas85/ownpastebin:latest
     container_name: pastebin
     ports:
       - "8080:8080"

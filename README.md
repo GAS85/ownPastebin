@@ -2,6 +2,10 @@
 
 A minimal, RAM-friendly paste service with support for raw uploads, TTL, burn-after-read, optional encryption, and **pluggable storage backends**.
 
+## Demo
+
+https://sitnikov.eu/ownpastebin/
+
 ## ✨ Features
 
 * ⚡ Fast and lightweight
@@ -78,10 +82,9 @@ The application automatically selects the first available backend:
 | Format       | Example |
 |:-------------|:-------:|
 | Seconds      | `3600`  |
-| Minutes      | `30M`   |
 | Hours        | `1h`    |
 | Days         | `1d`    |
-| Months (30d) | `1m`    |
+| Months (30d) | `1mo`    |
 
 ## 📏 Limits
 
@@ -123,15 +126,15 @@ docker run -e GENERATE_KEY=true gas85/ownpastebin:latest
 
 | Config                  | Backend Used |
 | ----------------------- | ------------ |
-| `PASTEBIN_REDIS_URL` set         | Redis        |
-| Only `PASTEBIN_POSTGRES_URL` set | PostgreSQL   |
+| `PASTEBIN_REDIS_URL`    | Redis        |
+| `PASTEBIN_POSTGRES_URL` | PostgreSQL   |
 | None set                | SQLite       |
 
 ### Notes
 
 * Redis = fastest, but memory-based storage. Fits good for Local network usage.
-* PostgreSQL = persistent, scalable. Fits good for Local network and Internet usage.
-* SQLite = zero-config, minimal RAM usage. Default simple storage fits to all.
+* PostgreSQL = persistent, scalable. Fits good for Local network and Internet usage, distributed, high performance.
+* SQLite = zero-config, minimal RAM usage. Default, simple fast storage fits to all.
 
 ## 🚀 Run
 
@@ -140,6 +143,8 @@ docker compose up -d
 ```
 
 ## 📦 Pastebin API
+
+You can find API documentation under `swagger-ui` e.g. https://sitnikov.eu/ownpastebin/swagger-ui
 
 ### 🚀 Create Paste - `POST /`
 
