@@ -1,0 +1,66 @@
+services:
+  pastebin:
+    image: gas85/ownpastebin:latest
+    container_name: pastebin
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./data:/app/data
+    environment:
+      # BACKEND SELECTION
+      # Uncomment ONLY what you want to use
+      # Redis
+      #- PASTEBIN_REDIS_URL=redis://redis:6379/0
+      # PostgreSQL
+      # Format is `postgresql://<user>:<password>@<service name>:5432/<DB>`
+      #- PASTEBIN_POSTGRES_URL=postgresql://paste:paste@postgres:5432/pastebin
+      # SQLite (default)
+      # You can set path where to store DB
+      #- PASTEBIN_SQLITE_PATH=/app/data/pastes.db
+      # APP SETTINGS
+      #- PASTEBIN_HOST=0.0.0.0
+      #- PASTEBIN_PORT=8080
+      #- PASTEBIN_MAX_TTL=360d
+      # Base URL should be set to the public URL where your service will be accessible. For local testing, http://localhost:8080 is fine, but in production, it should be the actual domain or IP address.
+      - PASTEBIN_BASE_URL=http://localhost:8080
+      #- PASTEBIN_SERVER_SIDE_ENCRYPTION_ENABLED=true
+      # You can generate a random 32-byte key using: `openssl rand -base64 32` or docker container 'docker exec -it ownpastebin openssl rand -base64 32'
+      #- PASTEBIN_SERVER_SIDE_ENCRYPTION_KEY=your_base64_encoded_32_byte_key_here
+    restart: always
+#    depends_on:
+#      - redis
+#      - postgres
+
+
+  # # REDIS (OPTIONAL)
+  # redis:
+  #   image: redis:7
+  #   container_name: pastebin-redis
+  #   restart: always
+  #   volumes:
+  #     - ./data:/data
+  #   command: redis-server --appendonly yes
+  #   healthcheck:
+  #     test: ["CMD", "redis-cli", "ping"]
+  #     interval: 20s
+  #     timeout: 3s
+  #     retries: 5
+
+  # # POSTGRES (OPTIONAL)
+  # postgres:
+  #   image: postgres:17
+  #   container_name: pastebin-postgres
+  #   restart: always
+  #   environment:
+  #     POSTGRES_DB: pastebin
+  #     POSTGRES_USER: paste
+  #     POSTGRES_PASSWORD: paste
+  #   volumes:
+  #     - ./data_postgres:/var/lib/postgresql/data
+  #   ports:
+  #     - "5432:5432"
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "pg_isready -U paste -d pastebin"]
+  #     interval: 20s
+  #     timeout: 5s
+  #     retries: 5
