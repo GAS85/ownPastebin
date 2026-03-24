@@ -4,47 +4,45 @@
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
         <meta name="description" content="Simple, fast and standalone pastebin service">
-        <meta name="author" content="Georgiy Sitnikov">
 
-        <title>Your own Pastebin</title>
+        <title>Pastebin</title>
 
-        <link rel="icon" href="/static/favicon.ico">
+        <link rel="icon" href="{{.URIPrefix}}/static/favicon.ico">
 
-        {% for url in css_imports %}
-        <link href="{{ url }}" rel="stylesheet" />
-        {% endfor %}
-
+        {{range .CSSImports}}
+        <link href="{{.}}" rel="stylesheet" />
+        {{end}}
     </head>
 
     <body>
         <nav class="navbar navbar-expand-md navbar-dark fixed-top bg-dark">
-            <a class="navbar-brand" href="{{ uri_prefix }}/">PASTEBIN</a>
+            <a class="navbar-brand" href="{{.URIPrefix}}/">PASTEBIN</a>
             <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarCollapse" aria-controls="navbarCollapse" aria-expanded="false" aria-label="Toggle navigation">
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarCollapse">
                 <ul class="navbar-nav mr-auto">
                     <li class="nav-item active">
-                        <a class="nav-link" href="{{ uri_prefix }}/">New <span class="sr-only">(current)</span></a>
+                        <a class="nav-link" href="{{.URIPrefix}}/">New <span class="sr-only">(current)</span></a>
                     </li>
-                    {% if is_created %}
-                        {% if not is_burned %}
+                    {{if .IsCreated}}
+                        {{if not .IsBurned}}
                             <li class="nav-item">
-                              <a class="nav-link" href="#" id="remove-btn">Remove</a>
+                                <a class="nav-link" href="#" id="remove-btn">Remove</a>
                             </li>
                             <!-- <li class="nav-item">
-                                 <a class="nav-link" href="{{ uri_prefix }}/?id={{ pastebin_id }}" id="clone-btn">Clone</a>
+                                <a class="nav-link" href="{{.URIPrefix}}/?clone={{.PastebinID}}" id="clone-btn">Clone</a>
                             </li> -->
-                        {% endif %}
-                    {% endif %}
+                        {{end}}
+                    {{end}}
 
-                    {% if is_editable %}
+                    {{if .IsEditable}}
                     <li class="nav-item dropdown">
-                        <a id="expiry-dropdown-btn" class="nav-link dropdown-toggle" data-toggle="dropdown" href="#" role="button" aria-haspopup="true" aria-expanded="false">Expires: {{ ui_expiry_default }}</a>
+                        <a id="expiry-dropdown-btn" class="nav-link dropdown-toggle" data-toggle="dropdown" href="#" role="button" aria-haspopup="true" aria-expanded="false">Expires: 1d</a>
                         <div class="dropdown-menu" id="expiry-dropdown">
-                            {% for time in ui_expiry_times %}
-                            <a class="dropdown-item" href="{{ time[1] }}">{{ time[0] }}</a>
-                            {% endfor %}
+                            {{range .ExpiryTimes}}
+                            <a class="dropdown-item" href="{{.Value}}">{{.Label}}</a>
+                            {{end}}
                         </div>
                     </li>
 
@@ -55,13 +53,13 @@
                             <a class="dropdown-item" href="false">No</a>
                         </div>
                     </li>
-                    {% endif %}
+                    {{end}}
                 </ul>
 
                 <div class="form-inline">
-                    {% if is_editable %}
+                    {{if .IsEditable}}
                     <input class="form-control" id="pastebin-password" type="password" placeholder="Password (optional)" aria-label="Password (optional)">
-                    {% endif %}
+                    {{end}}
                     <select class="form-control ml-md-2 mt-2 mt-md-0" id="language-selector">
                         <option value="markup">Markup</option>
                         <option value="css">CSS</option>
@@ -147,6 +145,7 @@
                         <option value="markup-templating">Markup templating</option>
                         <option value="matlab">MATLAB</option>
                         <option value="mel">MEL</option>
+                        <option value="mermaid">Mermaid</option>
                         <option value="mizar">Mizar</option>
                         <option value="monkey">Monkey</option>
                         <option value="n4js">N4JS</option>
@@ -217,22 +216,22 @@
                         <option value="xquery">XQuery</option>
                         <option value="yaml">YAML</option>
                     </select>
-                    {% if is_created %}
-                        <!-- <a id="copy-btn" class="form-control btn btn-outline-success mt-2 mt-md-0 mb-md-0 ml-md-2 ml-sm-2" href="#">Copy</a> -->
-                        {% if not is_burned %}
-                            <a class="form-control btn btn-outline-success mt-2 mt-md-0 mb-md-0 ml-md-2 ml-sm-2" href="{{ uri_prefix }}/raw/{{ pastebin_id }}">Raw</a>
-                            <a class="form-control btn btn-outline-success mt-2 mt-md-0 mb-md-0 ml-md-2 ml-sm-2" href="{{ uri_prefix }}/download/{{ pastebin_id }}">Download</a>
-                        {% endif %}
-                    {% endif %}
-                    {% if is_editable %}
+                    {{if .IsCreated}}
+                        <a id="copy-btn" class="form-control btn btn-outline-success mt-2 mt-md-0 mb-md-0 ml-md-2 ml-sm-2" href="#">Copy</a>
+                        {{if not .IsBurned}}
+                            <a class="form-control btn btn-outline-success mt-2 mt-md-0 mb-md-0 ml-md-2 ml-sm-2" href="{{.URIPrefix}}/raw/{{.PastebinID}}">Raw</a>
+                            <a class="form-control btn btn-outline-success mt-2 mt-md-0 mb-md-0 ml-md-2 ml-sm-2" href="{{.URIPrefix}}/download/{{.PastebinID}}">Download</a>
+                        {{end}}
+                    {{end}}
+                    {{if .IsEditable}}
                         <a id="send-btn" class="form-control btn btn-outline-success mt-2 mt-md-0 mb-md-0 ml-md-2 ml-sm-2" href="#">Send</a>
-                    {% endif %}
+                    {{end}}
                 </div>
             </div>
         </nav>
 
         <main class="container-fluid">
-            {% if is_error %}
+            {{if .IsError}}
             <div class="container">
                 <div class="row justify-content-center">
                     <div class="col-md-12 text-center">
@@ -242,36 +241,51 @@
                     </div>
                 </div>
             </div>
-            {% else %}
-                {% if msg %}
-                <div class="mt-3 alert alert-{{ level }} alert-dismissible fade show" role="alert">
-                    {% if glyph %}<i class="{{ glyph }}"></i>{% endif %}
-                    {% if url %}{{ msg }} <a href="{{ url }}">{{ url }}</a>{% else %}{{ msg }}{% endif %}
+            {{else}}
+                {{if .Msg}}
+                <div class="mt-3 alert alert-{{.Level}} alert-dismissible fade show" role="alert">
+                    {{if .Glyph}}<i class="{{.Glyph}}"></i>{{end}}
+                    {{if .FlashURL}}{{.Msg}} <a href="{{.FlashURL}}">{{.FlashURL}}</a>{{else}}{{.Msg}}{{end}}
                     <button type="button" class="close" data-dismiss="alert" aria-label="Close">
                         <span aria-hidden="true">&times;</span>
                     </button>
                 </div>
-                {% endif %}
+                {{end}}
 
-                <div id="paste-container">
-                    {% if is_editable %}
-                    <div class="form-group">
-                        <textarea autofocus class="form-control" id="content-textarea" rows="25">{{ pastebin_code | e }}</textarea>
-                    </div>
-                    {% endif %}
-
-                    {% if is_created or (is_clone | default(false)) %}
-                    <pre><code id="pastebin-code-block" class="{{ pastebin_cls }}">{{ pastebin_code | e }}</code></pre>
-                    {% endif %}
+                {{if .IsEditable}}
+                <div class="form-group">
+                    <textarea autofocus class="form-control" id="content-textarea" rows="25">{{.PastebinCode}}</textarea>
                 </div>
-            {% endif %}
+                {{end}}
+                {{if or .IsCreated .IsClone}}
+                    {{if .IsBurn}}
+                    <div class="alert alert-danger mt-3" role="alert">
+                        <i class="fas fa-fire"></i>
+                        <strong>For your eyes only.</strong>
+                        This paste has been permanently deleted after this view.
+                    </div>
+                    {{end}}
+
+                    {{if .ExpireAt}}
+                    <div class="alert alert-warning mt-3" role="alert">
+                        <i class="fas fa-clock"></i>
+                        This paste will expire on <strong>{{formatTime .ExpireAt}}</strong>.
+                    </div>
+                    {{end}}
+                    {{if eq .PastebinCls "language-mermaid"}}
+                        <div class="mermaid">{{.PastebinCode}}</div>
+                    {{else}}
+                        <pre><code id="pastebin-code-block" class="{{.PastebinCls}}">{{.PastebinCode}}</code></pre>
+                    {{end}}
+                {{end}}
+            {{end}}
         </main>
 
         <footer class="footer">
-            <span class="text-muted ml-4"><a href="https://github.com/GAS85/ownPastebin"><i class="fab fa-github"></i></a> - ownPastebin v{{ version }}</span>
+            <span class="text-muted ml-4"><a href="https://github.com/GAS85/ownPastebinFa"><i class="fab fa-github"></i></a> - Your own Pastebin {{.Version}}</span>
         </footer>
 
-        {% if is_encrypted %}
+        {{if .IsEncrypted}}
         <div class="modal fade" id="password-modal" tabindex="-1" role="dialog" aria-labelledby="password-modal-label" aria-hidden="true">
             <div class="modal-dialog" role="document">
                 <div class="modal-content">
@@ -302,9 +316,9 @@
                 </div>
             </div>
         </div>
-        {% endif %}
+        {{end}}
 
-        {% if is_created %}
+        {{if .IsCreated}}
         <div class="modal fade hide" id="deletion-modal" tabindex="-1" role="dialog" aria-labelledby="deletion-modal-label" aria-hidden="true">
             <div class="modal-dialog modal-dialog-centered modal-sm" role="document">
                 <div class="modal-content">
@@ -324,19 +338,18 @@
                 </div>
             </div>
         </div>
-        {% endif %}
+        {{end}}
 
         <script>
-            var uri_prefix = "{{ uri_prefix }}";
+            var uri_prefix = "{{.URIPrefix}}";
 
             function init_plugins() {
-                {% for fn in js_init %}
-                    {{ fn }}
-                {% endfor %}
+                {{range .JSInits}}{{. | safeJS}}
+                {{end}}
             }
         </script>
-        {% for url in js_imports %}
-        <script src="{{ url }}"></script>
-        {% endfor %}
+        {{range .JSImports}}
+        <script src="{{.}}"></script>
+        {{end}}
     </body>
 </html>

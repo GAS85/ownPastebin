@@ -10,29 +10,29 @@ services:
       # BACKEND SELECTION
       # Uncomment ONLY what you want to use
       # Redis
-      #- REDIS_URL=redis://redis:6379/0
+      #- PASTEBIN_REDIS_URL=redis://redis:6379/0
       # PostgreSQL
       # Format is `postgresql://<user>:<password>@<service name>:5432/<DB>`
-      #- POSTGRES_URL=postgresql://paste:paste@postgres:5432/pastebin
+      #- PASTEBIN_POSTGRES_URL=postgresql://paste:paste@postgres:5432/pastebin
       # SQLite (default)
       # You can set path where to store DB
-      #- SQLITE_PATH=/app/data/pastes.db
+      #- PASTEBIN_SQLITE_PATH=/app/data/pastes.db
       # APP SETTINGS
-      #- UVICORN_HOST=0.0.0.0
-      #- UVICORN_PORT=8080
-      - MAX_TTL=360d
+      #- PASTEBIN_HOST=0.0.0.0
+      #- PASTEBIN_PORT=8080
+      #- PASTEBIN_MAX_TTL=360d
       # Base URL should be set to the public URL where your service will be accessible. For local testing, http://localhost:8080 is fine, but in production, it should be the actual domain or IP address.
-      - BASE_URL=http://localhost:8080
-      #- SERVER_SIDE_ENCRYPTION_ENABLED=true
+      - PASTEBIN_BASE_URL=http://localhost:8080
+      #- PASTEBIN_SERVER_SIDE_ENCRYPTION_ENABLED=true
       # You can generate a random 32-byte key using: `openssl rand -base64 32` or docker container 'docker exec -it ownpastebin openssl rand -base64 32'
-      #- SERVER_SIDE_ENCRYPTION_KEY=your_base64_encoded_32_byte_key_here
+      #- PASTEBIN_SERVER_SIDE_ENCRYPTION_KEY=your_base64_encoded_32_byte_key_here
     restart: always
 #    depends_on:
 #      - redis
 #      - postgres
 
 
-  # REDIS (OPTIONAL)
+  # # REDIS (OPTIONAL)
   # redis:
   #   image: redis:7
   #   container_name: pastebin-redis
