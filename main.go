@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"pastebin/plugins"
+	"github.com/GAS85/ownPastebin/plugins"
 )
 
 //go:embed templates/index.html
