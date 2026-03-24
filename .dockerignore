@@ -1,7 +1,8 @@
 .git
 .github
+data
 README.md
 Dockerfile
 docker-compose.yml
-data
-tests
+*_test.go
+testutil.go
