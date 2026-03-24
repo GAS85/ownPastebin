@@ -74,4 +74,4 @@ ENTRYPOINT ["/entrypoint.sh"]
 HEALTHCHECK --interval=1m \
             --timeout=5s \
             --retries=1 \
-            CMD "pgrep pastebin"
+            CMD pgrep pastebin
