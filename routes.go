@@ -73,14 +73,15 @@ var defaultExpiryTimes = []ExpiryOption{
 func (a *App) baseData(r *http.Request) TemplateData {
 	return TemplateData{
 		Version:     os.Getenv("VERSION"),
+		URIPrefix:   a.cfg.PathPrefix,
 		CSSImports:  a.plugins.CSSImports,
 		JSImports:   a.plugins.JSImports,
 		JSInits:     a.plugins.JSInits,
 		ExpiryTimes: defaultExpiryTimes,
-		Level:    r.URL.Query().Get("level"),
-		Msg:      r.URL.Query().Get("msg"),
-		Glyph:    r.URL.Query().Get("glyph"),
-		FlashURL: r.URL.Query().Get("url"),
+		Level:       r.URL.Query().Get("level"),
+		Msg:         r.URL.Query().Get("msg"),
+		Glyph:       r.URL.Query().Get("glyph"),
+		FlashURL:    r.URL.Query().Get("url"),
 	}
 }
 
@@ -193,6 +194,8 @@ func (a *App) handleCreatePaste(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// cfg.BaseURL already contains the full base including any path prefix,
+	// e.g. "http://localhost:8080/pastebin" — so no extra joining is needed.
 	url := a.cfg.BaseURL + "/" + id
 	w.Header().Set("Location", url)
 	w.Header().Set("Content-Type", "application/json")

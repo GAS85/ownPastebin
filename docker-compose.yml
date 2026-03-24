@@ -32,7 +32,7 @@ services:
 #      - postgres
 
 
-  # REDIS (OPTIONAL)
+  # # REDIS (OPTIONAL)
   # redis:
   #   image: redis:7
   #   container_name: pastebin-redis

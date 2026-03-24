@@ -5,10 +5,10 @@ import "io/fs"
 // MermaidPlugin adds Mermaid diagram rendering.
 type MermaidPlugin struct{}
 
-func (p *MermaidPlugin) CSSImports() []string { return nil }
-func (p *MermaidPlugin) JSImports() []string {
+func (p *MermaidPlugin) CSSImports(prefix string) []string { return nil }
+func (p *MermaidPlugin) JSImports(prefix string) []string {
 	return []string{
-		"/static/mermaid.min.js",
+		prefix + "/static/mermaid.min.js",
 	}
 }
 func (p *MermaidPlugin) JSInit() string {

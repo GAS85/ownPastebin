@@ -57,6 +57,10 @@ The application automatically selects the first available backend:
   http://localhost:8080
   ```
 
+  * No prefix `PASTEBIN_BASE_URL=http://localhost:8080`
+  * Behind nginx at /pastebin `PASTEBIN_BASE_URL=https://myserver.com/pastebin`
+  * Behind nginx at /tools/paste `PASTEBIN_BASE_URL=https://myserver.com/tools/paste`
+
 * `PASTEBIN_HOST` - Bind address. Default: `0.0.0.0`
 * `PASTEBIN_PORT` - Port. Default: `8080`
 * `PASTEBIN_TLS_KEY` - Provide path to TLS Key to enable TLS Support directly on a service.

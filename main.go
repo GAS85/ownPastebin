@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"pastebin/plugins"
@@ -53,7 +54,9 @@ func main() {
 		&plugins.PrismPlugin{EmbeddedFS: prismFS},
 		&plugins.MermaidPlugin{},
 	}
-	mgr := plugins.NewManager(plugins.DefaultBase(), activePlugins)
+
+	// Forward PathPrefix to the plugins
+	mgr := plugins.NewManager(plugins.DefaultBase(cfg.PathPrefix), activePlugins)
 
 	// ── Templates ─────────────────────────────────────────────────────────────
 	funcMap := template.FuncMap{
@@ -95,14 +98,26 @@ func main() {
 
 	mux := app.router()
 
-	// Attach static handler. Chi won't match /static/* so we wrap the mux.
-	finalHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if len(r.URL.Path) >= 8 && r.URL.Path[:8] == "/static/" {
-			http.StripPrefix("/static/", staticHandler).ServeHTTP(w, r)
+	// staticPrefix is e.g. "/pastebin/static" or "/static".
+	staticPrefix := cfg.PathPrefix + "/static/"
+
+	// prefixHandler strips PathPrefix before handing off to the Chi router,
+	// so all route definitions stay as plain "/" paths regardless of deployment.
+	// Static files are handled before stripping so their full path is intact.
+	prefixHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, staticPrefix) {
+			http.StripPrefix(staticPrefix, staticHandler).ServeHTTP(w, r)
+			return
+		}
+		// Strip the path prefix so Chi sees e.g. "/" instead of "/pastebin/"
+		if cfg.PathPrefix != "" {
+			http.StripPrefix(cfg.PathPrefix, mux).ServeHTTP(w, r)
 			return
 		}
 		mux.ServeHTTP(w, r)
 	})
+
+	finalHandler := prefixHandler
 
 	// ── Server ────────────────────────────────────────────────────────────────
 	host := os.Getenv("PASTEBIN_HOST") // reuse existing env var names for drop-in compat

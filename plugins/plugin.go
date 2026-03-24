@@ -4,14 +4,15 @@ import "io/fs"
 
 // Plugin contributes CSS, JS, init snippets, and embedded static files.
 type Plugin interface {
-	CSSImports() []string
-	JSImports() []string
-	JSInit() string // empty string = no init snippet
-	StaticFS() fs.FS // nil = no embedded files
+	CSSImports(prefix string) []string
+	JSImports(prefix string)  []string
+	JSInit()     string // empty string = no init snippet
+	StaticFS()   fs.FS // nil = no embedded files
 }
 
 // Manager merges all registered plugins with base assets.
 type Manager struct {
+	PathPrefix      string
 	CSSImports      []string
 	JSImports       []string
 	JSInits         []string
@@ -26,8 +27,9 @@ func NewManager(base *Base, plugins []Plugin) *Manager {
 	m.JSImports = append(m.JSImports, base.JSImports...)
 
 	for _, p := range plugins {
-		m.CSSImports = append(m.CSSImports, p.CSSImports()...)
-		m.JSImports = append(m.JSImports, p.JSImports()...)
+		m.CSSImports = append(m.CSSImports, p.CSSImports(base.PathPrefix)...)
+		m.JSImports = append(m.JSImports, p.JSImports(base.PathPrefix)...)
+
 		if s := p.JSInit(); s != "" {
 			m.JSInits = append(m.JSInits, s)
 		}
@@ -41,24 +43,28 @@ func NewManager(base *Base, plugins []Plugin) *Manager {
 
 // Base holds the core CDN assets shared by all deployments.
 type Base struct {
+	PathPrefix string
 	CSSImports []string
 	JSImports  []string
 }
 
-func DefaultBase() *Base {
+func DefaultBase(prefix string) *Base {
+	static := prefix + "/static"
+
 	return &Base{
+		PathPrefix: prefix,
 		CSSImports: []string{
-			"/static/bootstrap.min.css",
-			"/static/all.min.css",
-			"/static/custom.css",
+			static + "/bootstrap.min.css",
+			static + "/all.min.css",
+			static + "/custom.css",
 		},
 		JSImports: []string{
-			"/static/jquery.min.js",
-			"/static/crypto-js.min.js",
-			"/static/popper.min.js",
-			"/static/bootstrap.min.js",
-			"/static/clipboard.min.js",
-			"/static/custom.js",
+			static + "/jquery.min.js",
+			static + "/crypto-js.min.js",
+			static + "/popper.min.js",
+			static + "/bootstrap.min.js",
+			static + "/clipboard.min.js",
+			static + "/custom.js",
 		},
 	}
 }

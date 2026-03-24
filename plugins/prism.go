@@ -11,8 +11,8 @@ type PrismPlugin struct {
 	EmbeddedFS fs.FS // embed.FS sub-tree containing static/prism.*
 }
 
-func (p *PrismPlugin) CSSImports() []string { return []string{"/static/prism.css"} }
-func (p *PrismPlugin) JSImports() []string  { return []string{"/static/prism.js"} }
+func (p *PrismPlugin) CSSImports(prefix string) []string { return []string{prefix + "/static/prism.css"} }
+func (p *PrismPlugin) JSImports(prefix string) []string  { return []string{prefix + "/static/prism.js"} }
 func (p *PrismPlugin) JSInit() string {
 	return "var holder = document.getElementById('pastebin-code-block'); " +
 		"if (holder) { Prism.highlightElement(holder); }"

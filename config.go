@@ -15,11 +15,12 @@ type Settings struct {
 
 	// App
 	BaseURL      string
+	PathPrefix   string // e.g. "" for http://host:port  or  "/pastebin" for http://host:port/pastebin
 	DefaultTTL   time.Duration
 	MaxTTL       time.Duration
 	SlugLen      int
 	MaxPasteSize int64
-	Version 	 string
+	Version      string
 
 	// Security
 	ServerSideEncryptionEnabled bool
@@ -27,19 +28,22 @@ type Settings struct {
 }
 
 func loadSettings() *Settings {
+	baseURL := getEnv("PASTEBIN_BASE_URL", "http://localhost:8080")
+
 	s := &Settings{
 		RedisURL:    os.Getenv("PASTEBIN_REDIS_URL"),
 		PostgresURL: os.Getenv("PASTEBIN_POSTGRES_URL"),
 		SQLitePath:  getEnv("PASTEBIN_SQLITE_PATH", "/app/data/pastes.db"),
 
-		BaseURL:      getEnv("PASTEBIN_BASE_URL", "http://localhost:8080"),
+		BaseURL:      baseURL,
+		PathPrefix:   extractPathPrefix(baseURL),
 		SlugLen:      getEnvInt("PASTEBIN_SLUG_LEN", 20),
 		MaxPasteSize: parseSize(getEnv("PASTEBIN_MAX_PASTE_SIZE", "5MB")),
 
 		ServerSideEncryptionEnabled: getEnvBool("PASTEBIN_SERVER_SIDE_ENCRYPTION_ENABLED", false),
 		ServerSideEncryptionKey:     os.Getenv("PASTEBIN_SERVER_SIDE_ENCRYPTION_KEY"),
 
-		Version:					 os.Getenv("VERSION"),
+		Version: os.Getenv("VERSION"),
 	}
 
 	// "m" = months to avoid the minutes ambiguity from the Python version —
@@ -134,4 +138,31 @@ func (s *Settings) resolveTTL(requested time.Duration) time.Duration {
 		return s.MaxTTL
 	}
 	return requested
+}
+
+// extractPathPrefix pulls the path component out of a full base URL and
+// normalises it for use as a router prefix:
+//
+//	"http://localhost:8080"           → ""
+//	"http://localhost:8080/"          → ""
+//	"http://localhost:8080/pastebin"  → "/pastebin"
+//	"http://localhost:8080/a/b/"      → "/a/b"
+//
+// It never returns a trailing slash so it can be safely prepended to paths:
+// prefix + "/static/..." always produces a valid path.
+func extractPathPrefix(rawURL string) string {
+	// Strip scheme so we don't need net/url just for this.
+	s := rawURL
+	if i := strings.Index(s, "://"); i >= 0 {
+		s = s[i+3:]
+	}
+	// Strip host:port — everything up to the first /
+	if i := strings.Index(s, "/"); i >= 0 {
+		s = s[i:]
+	} else {
+		return ""
+	}
+	// Trim trailing slashes
+	s = strings.TrimRight(s, "/")
+	return s
 }

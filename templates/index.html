@@ -145,6 +145,7 @@
                         <option value="markup-templating">Markup templating</option>
                         <option value="matlab">MATLAB</option>
                         <option value="mel">MEL</option>
+                        <option value="mermaid">Mermaid</option>
                         <option value="mizar">Mizar</option>
                         <option value="monkey">Monkey</option>
                         <option value="n4js">N4JS</option>
@@ -271,7 +272,11 @@
                         This paste will expire on <strong>{{formatTime .ExpireAt}}</strong>.
                     </div>
                     {{end}}
-                <pre><code id="pastebin-code-block" class="{{.PastebinCls}}">{{.PastebinCode}}</code></pre>
+                    {{if eq .PastebinCls "language-mermaid"}}
+                        <div class="mermaid">{{.PastebinCode}}</div>
+                    {{else}}
+                        <pre><code id="pastebin-code-block" class="{{.PastebinCls}}">{{.PastebinCode}}</code></pre>
+                    {{end}}
                 {{end}}
             {{end}}
         </main>

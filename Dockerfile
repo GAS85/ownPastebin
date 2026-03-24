@@ -27,9 +27,9 @@ ADD https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.6.2/js/bootstrap.
 ADD https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js ./static
 ADD https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.16.1/umd/popper.min.js ./static
 ADD https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.11/clipboard.min.js ./static
-ADD https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.6.1/mermaid.min.js ./static
+ADD https://cdnjs.cloudflare.com/ajax/libs/mermaid/11.12.0/mermaid.min.js ./static
 # Replace relative links to static
-RUN sed -i 's|../webfonts|/static|g' ./static/all.min.css
+RUN sed -i 's|../webfonts/||g' ./static/all.min.css
 RUN mkdir -p /usr/local/go/src/pastebin/plugins && cp plugins/*.* /usr/local/go/src/pastebin/plugins
 RUN go mod download
 
