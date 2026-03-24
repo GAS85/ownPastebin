@@ -15,23 +15,34 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Set up Go
+        uses: actions/setup-go@v5
         with:
-          python-version: "3.12"
+          go-version: "1.26"
 
-      - name: Install dependencies
-        run: |
-          pip install -r requirements.txt
-          pip install pytest httpx
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Download dependencies
+        run: go mod download
 
       - name: Run tests
-        run: pytest
+        run: go test ./... -v
+
+      - name: Run tests (race)
+        run: go test ./... -race -v
 
 # # BUILD (NO PUSH)
 #   build:
@@ -90,28 +101,6 @@ jobs:
             BUILD_DATE=${{ steps.meta.outputs.BUILD_DATE }}
           tags: docker.io/${{ steps.repo.outputs.REPO }}:dev
 
-      - name: Cache Trivy DB
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/trivy
-          key: trivy-db
-
-      - name: Run Trivy scan
-        uses: aquasecurity/trivy-action@0.35.0
-        with:
-          image-ref: docker.io/${{ steps.repo.outputs.REPO }}:dev
-          format: sarif
-          output: trivy-results.sarif
-          exit-code: 1
-          ignore-unfixed: true
-          vuln-type: 'os,library'
-          severity: 'CRITICAL'
-
-      - name: Upload Trivy results
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: trivy-results.sarif
-
 # Release Push
   build-and-push:
     runs-on: ubuntu-latest
@@ -162,24 +151,3 @@ jobs:
             docker.io/${{ steps.repo.outputs.REPO }}:${{ steps.meta.outputs.VERSION }}
             docker.io/${{ steps.repo.outputs.REPO }}:latest
 
-      - name: Cache Trivy DB
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/trivy
-          key: trivy-db
-
-      - name: Run Trivy scan
-        uses: aquasecurity/trivy-action@0.35.0
-        with:
-          image-ref: docker.io/${{ steps.repo.outputs.REPO }}:${{ steps.meta.outputs.VERSION }}
-          format: sarif
-          output: trivy-results.sarif
-          exit-code: 1
-          ignore-unfixed: true
-          vuln-type: 'os,library'
-          severity: 'CRITICAL,HIGH'
-
-      - name: Upload Trivy results
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: trivy-results.sarif

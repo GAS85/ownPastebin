@@ -4,3 +4,5 @@ README.md
 Dockerfile
 docker-compose.yml
 data
+*_test.go
+*_helpers.go

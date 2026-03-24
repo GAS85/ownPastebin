@@ -15,7 +15,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	gonanoid "github.com/matoous/go-nanoid/v2"
 
-	"pastebin/plugins"
+	"github.com/GAS85/ownPastebin/plugins"
 )
 
 // App holds all shared dependencies for handlers.
