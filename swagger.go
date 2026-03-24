@@ -256,7 +256,7 @@ const swaggerUIHTML = `<!DOCTYPE html>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/5.17.14/swagger-ui-bundle.min.js"></script>
   <script>
     SwaggerUIBundle({
-      url: "/openapi.json",
+      url: "openapi.json",
       dom_id: "#swagger-ui",
       presets: [SwaggerUIBundle.presets.apis, SwaggerUIBundle.SwaggerUIStandalonePreset],
       layout: "BaseLayout",
