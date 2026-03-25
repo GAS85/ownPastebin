@@ -1,7 +1,7 @@
 # Pastebin
 
 [![Dev Build](https://github.com/GAS85/ownPastebin/actions/workflows/docker-dev.yml/badge.svg?branch=dev)](https://github.com/GAS85/ownPastebin/actions/workflows/docker-dev.yml)
-[![Release Build and Push to Dockerhub](https://github.com/GAS85/ownPastebin/actions/workflows/docker-release.yml/badge.svg)](https://github.com/GAS85/ownPastebin/actions/workflows/docker-release.yml)
+[![Release Build and Push to Dockerhub](https://github.com/GAS85/ownPastebin/actions/workflows/docker-release.yml/badge.svg)](https://github.com/GAS85/ownPastebin/actions/workflows/docker-release.yml?branch=main)
 ![Release](https://img.shields.io/github/actions/workflow/status/GAS85/ownPastebin/docker-release.yml?label=release&logo=github)
 [![Docker hub](https://img.shields.io/badge/Docker--hub-grey?logo=docker)][docker-hub]
 [![Docker Pulls][docker-pulls]][docker-hub]
@@ -11,9 +11,9 @@
 [docker-pulls]: https://img.shields.io/docker/pulls/gas85/ownpastebin
 [docker-size]: https://img.shields.io/docker/image-size/gas85/ownpastebin/latest
 
-----
-
 A minimal, RAM-friendly paste service with support for raw uploads, TTL, burn-after-read, optional encryption, and **pluggable storage backends**.
+
+----
 
 ## Demo
 
