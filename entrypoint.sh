@@ -48,6 +48,8 @@ elif [ -n "${PASTEBIN_POSTGRES_URL+x}" ]; then
     DB_INFO="PostgreSQL"
 else
     DB_INFO="SQLite ($PASTEBIN_SQLITE_PATH)"
+    DB_SIZE="$(du -h $PASTEBIN_SQLITE_PATH | awk '{ print $1 }')"
+    echo $DB_SIZE
     SQLITE_DIR=$(dirname "$PASTEBIN_SQLITE_PATH")
     if [ ! -w "$SQLITE_DIR" ]; then
         log ERROR "$SQLITE_DIR is not writable by UID $(id -u). Exiting."
@@ -65,6 +67,9 @@ fi
 # ── Startup summary ───────────────────────────────────────────────────────────
 log INFO "Welcome to own Pastebin $VERSION"
 log INFO "Storage:                $DB_INFO"
+if [ -z "${DB_SIZE+x}" ]; then
+    log INFO "Storage size:           ${DB_SIZE}"
+fi
 log INFO "Listen:                 ${PASTEBIN_HOST}:${PASTEBIN_PORT}"
 log INFO "Base URL:               $PASTEBIN_BASE_URL"
 log INFO "Server side Encryption: $PASTEBIN_SERVER_SIDE_ENCRYPTION_ENABLED"
