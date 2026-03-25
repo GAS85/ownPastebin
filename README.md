@@ -1,10 +1,19 @@
 # Pastebin
 
+[![Dev Build](https://github.com/GAS85/ownPastebin/actions/workflows/docker-dev.yml/badge.svg?branch=dev)](https://github.com/GAS85/ownPastebin/actions/workflows/docker-dev.yml)
+[![Release Build and Push to Dockerhub](https://github.com/GAS85/ownPastebin/actions/workflows/docker-release.yml/badge.svg?branch=master)](https://github.com/GAS85/ownPastebin/actions/workflows/docker-release.yml)
+[![Docker Pulls][docker-pulls]][docker-hub]
+[![Docker Image Size][docker-size]][docker-hub]
+
+[docker-hub]: https://hub.docker.com/r/gas85/ownpastebin
+[docker-pulls]: https://img.shields.io/docker/pulls/gas85/ownpastebin
+[docker-size]: https://img.shields.io/docker/image-size/gas85/ownpastebin/latest
+
 A minimal, RAM-friendly paste service with support for raw uploads, TTL, burn-after-read, optional encryption, and **pluggable storage backends**.
 
 ## Demo
 
-https://sitnikov.eu/ownpastebin/
+https://sitnikov.eu/pastebin/
 
 ## ✨ Features
 
@@ -118,7 +127,7 @@ docker run -e GENERATE_KEY=true gas85/ownpastebin:latest
 
 ## 🕒 Misc
 
-* `PASTEBIN_SLUG_LEN` - Uniq URL Length. Default to `20`. It is not recommended to go below this value to avoid collision and Link guessing attack.
+* `PASTEBIN_SLUG_LEN` - Uniq URL Length. Default to `20`. It is not recommended to go below this value to avoid possible collision and Link guessing attack.
 * `PASTEBIN_DATE_FORMAT` - Log timestamp format. Default: `%Y-%m-%d %H:%M:%S`
 * `TZ` - Timezone. Default `Europe/Zurich`
 
@@ -130,6 +139,8 @@ docker run -e GENERATE_KEY=true gas85/ownpastebin:latest
 | `PASTEBIN_POSTGRES_URL` | PostgreSQL   |
 | None set                | SQLite       |
 
+ You can still set custom SQLite DB location via `PASTEBIN_SQLITE_PATH`.
+
 ### Notes
 
 * Redis = fastest, but memory-based storage. Fits good for Local network usage.
@@ -138,13 +149,28 @@ docker run -e GENERATE_KEY=true gas85/ownpastebin:latest
 
 ## 🚀 Run
 
+### Docker
+
+```shell
+docker run -d \
+  --name pastebin \
+  -p 8080:8080 \
+  -v ./data:/app/data \
+  -e PASTEBIN_MAX_TTL=360d \
+  -e PASTEBIN_BASE_URL=http://localhost:8080 \
+  --restart always \
+  gas85/ownpastebin:latest
+```
+
+### Docker Compose
+
 ```bash
 docker compose up -d
 ```
 
 ## 📦 Pastebin API
 
-You can find API documentation under `swagger-ui` e.g. https://sitnikov.eu/ownpastebin/swagger-ui
+You can find API documentation under `/swagger-ui` e.g. https://sitnikov.eu/pastebin/swagger-ui
 
 ### 🚀 Create Paste - `POST /`
 
@@ -163,7 +189,7 @@ Create a new paste.
 | ----------- | ---- | ------------------------------------ |
 | `ttl`       | int  | Time to live (seconds)               |
 | `burn`      | bool | Delete after first read              |
-| `encrypted` | bool | Marks paste as client-side encrypted |
+| `encrypted` | bool | Marks paste as client-side encrypted. It is only being used to give UI a trigger to offer Decryption directly in Browser. Otherwise encrypted data will be shown. |
 
 ### Examples
 
@@ -181,7 +207,7 @@ curl "http://localhost:8080?burn=true&ttl=60" --data-binary "@file.txt"
 
 #### Response
 
-As Response you will get JSON with URL to the webUI for this paste and paste ID that you can use e.g. to call `/raw` endpoint.
+As Response you will get JSON with URL to the webUI for this paste and paste ID that you can use e.g. to call `/raw` or `/download` endpoint.
 
 ```json
 {
@@ -189,12 +215,6 @@ As Response you will get JSON with URL to the webUI for this paste and paste ID 
   "id": "abc123",
   "lang": "text"
 }
-```
-
-Headers:
-
-```plain
-Location: http://localhost:8080/abc123
 ```
 
 ### 📖 View Paste - `GET /{paste_id}`
@@ -247,7 +267,7 @@ If `burn=true`:
 Example:
 
 ```plain
-2026-03-18 21:30:21 - INFO - uvicorn.access - 192.168.1.1:36854 - "POST / HTTP/1.1" 201
+2026-03-25 09:55:57 - INFO - pastebin - access method=GET path=/ status=200 duration=1.077ms bytes=15044 ip=192.168.65.1:57801
 ```
 
 ## 🛠️ Notes
