@@ -11,6 +11,8 @@
 [docker-pulls]: https://img.shields.io/docker/pulls/gas85/ownpastebin
 [docker-size]: https://img.shields.io/docker/image-size/gas85/ownpastebin/latest
 
+----
+
 A minimal, RAM-friendly paste service with support for raw uploads, TTL, burn-after-read, optional encryption, and **pluggable storage backends**.
 
 ----
