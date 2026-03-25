@@ -11,21 +11,18 @@ COPY . .
 
 # Download static data to host it locally
 # Will be used in a plugin.go
+# Check for updates under https://cdnjs.com
 # CSS
-ADD https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css ./static
-ADD https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css ./static
+ADD https://cdnjs.cloudflare.com/ajax/libs/bootstrap/4.6.2/css/bootstrap.min.css ./static
+ADD https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css ./static
 # Fonts
-ADD https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/webfonts/fa-solid-900.woff2 ./static
-ADD https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/webfonts/fa-solid-900.woff ./static
-ADD https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/webfonts/fa-solid-900.ttf  ./static
-ADD https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/webfonts/fa-brands-400.woff2 ./static
-ADD https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/webfonts/fa-brands-400.woff ./static
-ADD https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/webfonts/fa-brands-400.ttf ./static
+ADD https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/webfonts/fa-solid-900.woff2 ./static
+ADD https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/webfonts/fa-brands-400.woff2 ./static
 # JS
-ADD https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.0/jquery.min.js ./static
-ADD https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.6.2/js/bootstrap.min.js ./static
+ADD https://cdnjs.cloudflare.com/ajax/libs/bootstrap/4.6.2/js/bootstrap.min.js ./static
+ADD https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js ./static
 ADD https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js ./static
-ADD https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.16.1/umd/popper.min.js ./static
+ADD https://cdnjs.cloudflare.com/ajax/libs/popper.js/2.11.8/umd/popper.min.js ./static
 ADD https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.11/clipboard.min.js ./static
 ADD https://cdnjs.cloudflare.com/ajax/libs/mermaid/11.12.0/mermaid.min.js ./static
 # Replace relative links to static
