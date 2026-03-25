@@ -1,13 +1,17 @@
 # Pastebin
 
 [![Dev Build](https://github.com/GAS85/ownPastebin/actions/workflows/docker-dev.yml/badge.svg?branch=dev)](https://github.com/GAS85/ownPastebin/actions/workflows/docker-dev.yml)
-[![Release Build and Push to Dockerhub](https://github.com/GAS85/ownPastebin/actions/workflows/docker-release.yml/badge.svg?branch=master)](https://github.com/GAS85/ownPastebin/actions/workflows/docker-release.yml)
+[![Release Build and Push to Dockerhub](https://github.com/GAS85/ownPastebin/actions/workflows/docker-release.yml/badge.svg)](https://github.com/GAS85/ownPastebin/actions/workflows/docker-release.yml)
+![Release](https://img.shields.io/github/actions/workflow/status/GAS85/ownPastebin/docker-release.yml?label=release&logo=github)
+[![Docker hub](https://img.shields.io/badge/Docker--hub-grey?logo=docker)][docker-hub]
 [![Docker Pulls][docker-pulls]][docker-hub]
 [![Docker Image Size][docker-size]][docker-hub]
 
 [docker-hub]: https://hub.docker.com/r/gas85/ownpastebin
 [docker-pulls]: https://img.shields.io/docker/pulls/gas85/ownpastebin
 [docker-size]: https://img.shields.io/docker/image-size/gas85/ownpastebin/latest
+
+----
 
 A minimal, RAM-friendly paste service with support for raw uploads, TTL, burn-after-read, optional encryption, and **pluggable storage backends**.
 
@@ -44,13 +48,13 @@ The application automatically selects the first available backend:
 
 ### Variables
 
-* `PASTEBIN_REDIS_URL` - Redis connection string. **No default** → if not set, Redis is disabled. Example:
+* `PASTEBIN_REDIS_URL` - Redis connection string. No default - if not set, Redis is disabled. Example:
 
   ```plain
   redis://redis:6379/0
   ```
 
-* `PASTEBIN_POSTGRES_URL` - PostgreSQL connection string. Used if Redis is not configured. Example:
+* `PASTEBIN_POSTGRES_URL` - PostgreSQL connection string. Used if Redis is not configured. No default - if not set, PostgreSQL is disabled. Example:
 
    ```plain
    postgresql://user:pass@postgres:5432/pastebin
@@ -70,9 +74,11 @@ The application automatically selects the first available backend:
   http://localhost:8080
   ```
 
+  Following prefixes are supported:
+
   * No prefix `PASTEBIN_BASE_URL=http://localhost:8080`
-  * Behind nginx at /pastebin `PASTEBIN_BASE_URL=https://myserver.com/pastebin`
-  * Behind nginx at /tools/paste `PASTEBIN_BASE_URL=https://myserver.com/tools/paste`
+  * Behind nginx at `/pastebin` - `PASTEBIN_BASE_URL=https://myserver.com/pastebin`
+  * Behind nginx at `/tools/paste` - `PASTEBIN_BASE_URL=https://myserver.com/tools/paste`
 
 * `PASTEBIN_HOST` - Bind address. Default: `0.0.0.0`
 * `PASTEBIN_PORT` - Port. Default: `8080`
