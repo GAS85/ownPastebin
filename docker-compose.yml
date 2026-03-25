@@ -5,6 +5,7 @@ services:
     ports:
       - "8080:8080"
     volumes:
+      # Persist paste data in case of SQLite selection
       - ./data:/app/data
     environment:
       # BACKEND SELECTION
@@ -18,19 +19,26 @@ services:
       # You can set path where to store DB
       #- PASTEBIN_SQLITE_PATH=/app/data/pastes.db
       # APP SETTINGS
-      #- PASTEBIN_HOST=0.0.0.0
-      #- PASTEBIN_PORT=8080
-      #- PASTEBIN_MAX_TTL=360d
       # Base URL should be set to the public URL where your service will be accessible. For local testing, http://localhost:8080 is fine, but in production, it should be the actual domain or IP address.
       - PASTEBIN_BASE_URL=http://localhost:8080
+      #- PASTEBIN_HOST=0.0.0.0
+      #- PASTEBIN_PORT=8080
+      #- PASTEBIN_TLS_KEY=/path/to/tls.pem
+      #- PASTEBIN_TLS_CERT=/path/to/tls.cer
+      #- PASTEBIN_DEFAULT_TTL=30d
+      #- PASTEBIN_MAX_PASTE_SIZE=10Mb
+      #- PASTEBIN_MAX_TTL=360d
       #- PASTEBIN_SERVER_SIDE_ENCRYPTION_ENABLED=true
       # You can generate a random 32-byte key using: `openssl rand -base64 32` or docker container 'docker exec -it ownpastebin openssl rand -base64 32'
       #- PASTEBIN_SERVER_SIDE_ENCRYPTION_KEY=your_base64_encoded_32_byte_key_here
+      # Date format for the Go application
+      #- PASTEBIN_DATE_FORMAT="2006-01-02 15:04:05"
+      # Date format for the shell
+      #- PASTEBIN_SHELL_DATE_FORMAT="%Y-%m-%d %H:%M:%S"
     restart: always
 #    depends_on:
 #      - redis
 #      - postgres
-
 
   # # REDIS (OPTIONAL)
   # redis:
