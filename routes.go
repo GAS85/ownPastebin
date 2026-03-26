@@ -25,6 +25,7 @@ type App struct {
 	crypto  *Crypto // nil if encryption disabled
 	tmpl    *template.Template
 	plugins *plugins.Manager
+	uploadSem  chan struct{}
 }
 
 // TemplateData is passed to index.html for every render.
@@ -135,13 +136,21 @@ func (a *App) handleNewPaste(w http.ResponseWriter, r *http.Request) {
 
 // POST /
 func (a *App) handleCreatePaste(w http.ResponseWriter, r *http.Request) {
-	raw, err := io.ReadAll(io.LimitReader(r.Body, a.cfg.MaxPasteSize+1))
-	if err != nil {
-		http.Error(w, "read error", http.StatusInternalServerError)
+	// Acquire a slot. If the channel is full, reject immediately.
+	select {
+	case a.uploadSem <- struct{}{}:
+		defer func() { <-a.uploadSem }() // release on return
+	default:
+		http.Error(w, "server busy, try again", http.StatusServiceUnavailable)
 		return
 	}
-	if int64(len(raw)) > a.cfg.MaxPasteSize {
+	if r.ContentLength > a.cfg.MaxPasteSize {
 		http.Error(w, "paste too large", http.StatusRequestEntityTooLarge)
+		return
+	}
+	raw, err := io.ReadAll(io.LimitReader(r.Body, a.cfg.MaxPasteSize))
+	if err != nil {
+		http.Error(w, "read error", http.StatusInternalServerError)
 		return
 	}
 	if len(raw) == 0 {
@@ -150,6 +159,7 @@ func (a *App) handleCreatePaste(w http.ResponseWriter, r *http.Request) {
 	}
 
 	content, err := a.encodeForStorage(raw)
+	raw = nil // allow GC of the original before marshal + DB write
 	if err != nil {
 		slog.Error("encrypt error", "err", err)
 		http.Error(w, "encryption error", http.StatusInternalServerError)

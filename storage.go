@@ -36,6 +36,15 @@ type Storage interface {
 	Close() error
 }
 
+var burnScript = redis.NewScript(`
+    local ttl = redis.call('PTTL', KEYS[1])
+    local val = redis.call('GETDEL', KEYS[1])
+    if val == false then
+        return {false, 0}
+    end
+    return {val, ttl}
+`)
+
 // ---- helpers ----------------------------------------------------------------
 
 func marshalPaste(d *PasteData) ([]byte, error) {
@@ -340,29 +349,32 @@ func (s *RedisStorage) Delete(key string) error {
 func (s *RedisStorage) GetAndDelete(key string) (*PasteData, error) {
 	ctx := context.Background()
 
-	pipe := s.client.Pipeline()
-	ttlCmd := pipe.TTL(ctx, key)
-	delCmd := pipe.GetDel(ctx, key)
-	if _, err := pipe.Exec(ctx); err != nil && err != redis.Nil {
+	// Run returns the raw []interface{} from the Lua table.
+	res, err := burnScript.Run(ctx, s.client, []string{key}).Slice()
+	if err != nil {
+		if err == redis.Nil {
+			return nil, nil // key did not exist
+		}
 		return nil, err
 	}
 
-	b, err := delCmd.Bytes()
-	if err == redis.Nil {
-		return nil, nil
+	// res[0] is the raw value (string), res[1] is PTTL in milliseconds.
+	raw, ok := res[0].(string)
+	if !ok || raw == "" {
+		return nil, nil // Lua returned false → key was missing
 	}
+
+	paste, err := unmarshalPaste([]byte(raw))
 	if err != nil {
 		return nil, err
 	}
 
-	paste, err := unmarshalPaste(b)
-	if err != nil {
-		return nil, err
-	}
-	if ttl := ttlCmd.Val(); ttl > 0 {
-		t := time.Now().Add(ttl)
+	// PTTL returns -1 (no expiry) or -2 (key gone) or ms remaining.
+	if pttl, ok := res[1].(int64); ok && pttl > 0 {
+		t := time.Now().Add(time.Duration(pttl) * time.Millisecond)
 		paste.ExpireAt = &t
 	}
+
 	return paste, nil
 }
 
