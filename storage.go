@@ -36,6 +36,15 @@ type Storage interface {
 	Close() error
 }
 
+var burnScript = redis.NewScript(`
+	local ttl = redis.call('PTTL', KEYS[1])
+	local val = redis.call('GETDEL', KEYS[1])
+	if val == false then
+		return {false, 0}
+	end
+	return {val, ttl}
+`)
+
 // ---- helpers ----------------------------------------------------------------
 
 func marshalPaste(d *PasteData) ([]byte, error) {
@@ -54,6 +63,8 @@ func unmarshalPaste(b []byte) (*PasteData, error) {
 type SQLiteStorage struct {
 	db   *sql.DB
 	mu   sync.Mutex
+	stop chan struct{}
+	wg   sync.WaitGroup
 }
 
 func newSQLiteStorage(path string) (*SQLiteStorage, error) {
@@ -61,7 +72,7 @@ func newSQLiteStorage(path string) (*SQLiteStorage, error) {
 	if err != nil {
 		return nil, err
 	}
-	db.SetMaxOpenConns(1) // SQLite is single-writer; WAL handles concurrent readers
+	db.SetMaxOpenConns(1)
 
 	_, err = db.Exec(`CREATE TABLE IF NOT EXISTS pastes (
 		id        TEXT PRIMARY KEY,
@@ -72,9 +83,69 @@ func newSQLiteStorage(path string) (*SQLiteStorage, error) {
 		return nil, err
 	}
 
-	s := &SQLiteStorage{db: db}
+	if err := ensureIncrementalVacuum(db); err != nil {
+		return nil, err
+	}
+
+	s := &SQLiteStorage{
+		db:   db,
+		stop: make(chan struct{}),
+	}
+	s.wg.Add(1)
 	go s.cleanupLoop()
 	return s, nil
+}
+
+// ensureIncrementalVacuum checks the current auto_vacuum mode and migrates the
+// DB if needed. Migration requires a full VACUUM to rewrite the file header —
+// this is a one-time cost logged clearly so operators know what happened.
+//
+// auto_vacuum modes: 0 = none (default), 1 = full, 2 = incremental.
+func ensureIncrementalVacuum(db *sql.DB) error {
+	var mode int
+	if err := db.QueryRow(`PRAGMA auto_vacuum`).Scan(&mode); err != nil {
+		return fmt.Errorf("read auto_vacuum mode: %w", err)
+	}
+
+	if mode == 2 {
+		slog.Debug("SQLite auto_vacuum already incremental, no migration needed")
+		return nil
+	}
+
+	// Mode is 0 (none) or 1 (full) — needs migration.
+	// Setting the PRAGMA alone does nothing on an existing file; only a
+	// subsequent VACUUM rewrites the file header to activate the new mode.
+	slog.Info("SQLite auto_vacuum migration starting",
+		"current_mode", mode,
+		"target_mode", 2,
+	)
+
+	if _, err := db.Exec(`PRAGMA auto_vacuum=INCREMENTAL`); err != nil {
+		return fmt.Errorf("set auto_vacuum=INCREMENTAL: %w", err)
+	}
+
+	slog.Info("running one-time VACUUM to activate incremental auto_vacuum (may take a moment on large DBs)")
+	if _, err := db.Exec(`VACUUM`); err != nil {
+		return fmt.Errorf("migration VACUUM failed: %w", err)
+	}
+
+	// Verify the mode actually changed — VACUUM on a WAL-mode DB with active
+	// readers will silently fail to change the header, so we confirm.
+	if err := db.QueryRow(`PRAGMA auto_vacuum`).Scan(&mode); err != nil {
+		return fmt.Errorf("verify auto_vacuum after migration: %w", err)
+	}
+	if mode != 2 {
+		// This can happen if another connection had the DB open during VACUUM.
+		// It is not fatal — incremental_vacuum calls will simply be no-ops
+		// until the next restart, at which point migration will retry.
+		slog.Warn("auto_vacuum mode did not change after VACUUM — another process may have the DB open; will retry on next startup",
+			"mode", mode,
+		)
+		return nil
+	}
+
+	slog.Info("SQLite auto_vacuum migration complete", "mode", mode)
+	return nil
 }
 
 func (s *SQLiteStorage) Save(key string, d *PasteData, ttl time.Duration) error {
@@ -161,14 +232,94 @@ func (s *SQLiteStorage) GetAndDelete(key string) (*PasteData, error) {
 	return paste, nil
 }
 
-func (s *SQLiteStorage) Close() error { return s.db.Close() }
+func (s *SQLiteStorage) Close() error {
+	close(s.stop)
+	s.wg.Wait()
+	// The goroutine is fully stopped — no mutex needed from here on.
+
+	var freelistBefore, freelistAfter int
+	s.db.QueryRow(`PRAGMA freelist_count`).Scan(&freelistBefore)
+
+	if freelistBefore > 0 {
+		if _, err := s.db.Exec(`PRAGMA incremental_vacuum`); err != nil {
+			slog.Warn("final incremental vacuum failed", "err", err)
+		}
+		s.db.QueryRow(`PRAGMA freelist_count`).Scan(&freelistAfter)
+		slog.Info("SQLite shutdown vacuum",
+			"pages_freed", freelistBefore-freelistAfter,
+			"pages_remaining", freelistAfter,
+		)
+	}
+
+	return s.db.Close()
+}
 
 func (s *SQLiteStorage) cleanupLoop() {
+	defer s.wg.Done()
+
+	cleanupTicker := time.NewTicker(time.Hour)
+	defer cleanupTicker.Stop()
+
+	vacuumTicker := time.NewTicker(24 * time.Hour)
+	defer vacuumTicker.Stop()
+
+	// Add an initial vacuum after startup
+	s.mu.Lock()
+	_, err := s.db.Exec(`PRAGMA incremental_vacuum(1000)`)
+	s.mu.Unlock()
+	if err != nil {
+		slog.Error("initial incremental vacuum failed", "err", err)
+	} else {
+		slog.Debug("initial incremental vacuum completed")
+	}
+
 	for {
-		time.Sleep(time.Hour)
-		s.mu.Lock()
-		s.db.Exec(`DELETE FROM pastes WHERE expire_at IS NOT NULL AND expire_at < ?`, time.Now().Unix()) //nolint
-		s.mu.Unlock()
+		select {
+		case <-cleanupTicker.C:
+			s.mu.Lock()
+			result, err := s.db.Exec(
+				`DELETE FROM pastes WHERE expire_at IS NOT NULL AND expire_at < ?`,
+				time.Now().Unix(),
+			)
+			s.mu.Unlock()
+			if err != nil {
+				slog.Error("cleanup delete failed", "err", err)
+				continue
+			}
+			if n, _ := result.RowsAffected(); n > 0 {
+				slog.Debug("deleted expired pastes", "rows_deleted", n)
+			}
+
+		case <-vacuumTicker.C:
+			s.mu.Lock()
+			
+			// First, check if there are free pages to reclaim
+			var freelistPages int
+			err := s.db.QueryRow(`PRAGMA freelist_count`).Scan(&freelistPages)
+			if err == nil && freelistPages > 0 {
+				slog.Debug("free pages available", "count", freelistPages)
+				
+				// Reclaim up to 1000 pages
+				_, err := s.db.Exec(`PRAGMA incremental_vacuum(1000)`)
+				if err != nil {
+					slog.Error("incremental vacuum failed", "err", err)
+				} else {
+					// Check remaining freelist
+					var remaining int
+					s.db.QueryRow(`PRAGMA freelist_count`).Scan(&remaining)
+					slog.Debug("incremental vacuum completed", 
+						"pages_reclaimed", freelistPages-remaining,
+						"remaining", remaining)
+				}
+			} else {
+				slog.Debug("no free pages to reclaim")
+			}
+			
+			s.mu.Unlock()
+
+		case <-s.stop:
+			return
+		}
 	}
 }
 
@@ -340,29 +491,32 @@ func (s *RedisStorage) Delete(key string) error {
 func (s *RedisStorage) GetAndDelete(key string) (*PasteData, error) {
 	ctx := context.Background()
 
-	pipe := s.client.Pipeline()
-	ttlCmd := pipe.TTL(ctx, key)
-	delCmd := pipe.GetDel(ctx, key)
-	if _, err := pipe.Exec(ctx); err != nil && err != redis.Nil {
+	// Run returns the raw []interface{} from the Lua table.
+	res, err := burnScript.Run(ctx, s.client, []string{key}).Slice()
+	if err != nil {
+		if err == redis.Nil {
+			return nil, nil // key did not exist
+		}
 		return nil, err
 	}
 
-	b, err := delCmd.Bytes()
-	if err == redis.Nil {
-		return nil, nil
+	// res[0] is the raw value (string), res[1] is PTTL in milliseconds.
+	raw, ok := res[0].(string)
+	if !ok || raw == "" {
+		return nil, nil // Lua returned false → key was missing
 	}
+
+	paste, err := unmarshalPaste([]byte(raw))
 	if err != nil {
 		return nil, err
 	}
 
-	paste, err := unmarshalPaste(b)
-	if err != nil {
-		return nil, err
-	}
-	if ttl := ttlCmd.Val(); ttl > 0 {
-		t := time.Now().Add(ttl)
+	// PTTL returns -1 (no expiry) or -2 (key gone) or ms remaining.
+	if pttl, ok := res[1].(int64); ok && pttl > 0 {
+		t := time.Now().Add(time.Duration(pttl) * time.Millisecond)
 		paste.ExpireAt = &t
 	}
+
 	return paste, nil
 }
 

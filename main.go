@@ -85,6 +85,7 @@ func main() {
 		crypto:  cry,
 		tmpl:    tmpl,
 		plugins: mgr,
+		uploadSem: make(chan struct{}, cfg.SlugLen),
 	}
 
 	// ── Static file server ────────────────────────────────────────────────────

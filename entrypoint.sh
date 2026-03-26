@@ -6,6 +6,7 @@ export PASTEBIN_BASE_URL="${PASTEBIN_BASE_URL:-http://localhost:8080}"
 export PASTEBIN_SQLITE_PATH="${PASTEBIN_SQLITE_PATH:-/app/data/pastes.db}"
 export PASTEBIN_DEFAULT_TTL="${PASTEBIN_DEFAULT_TTL:-0}"
 export PASTEBIN_SLUG_LEN="${PASTEBIN_SLUG_LEN:-20}"
+export PASTEBIN_MAX_PARALLEL_UPLOADS="${PASTEBIN_MAX_PARALLEL_UPLOADS:-20}"
 export PASTEBIN_MAX_PASTE_SIZE="${PASTEBIN_MAX_PASTE_SIZE:-5MB}"
 export PASTEBIN_SERVER_SIDE_ENCRYPTION_ENABLED="${PASTEBIN_SERVER_SIDE_ENCRYPTION_ENABLED:-false}"
 export PASTEBIN_HOST="${PASTEBIN_HOST:-0.0.0.0}"
@@ -67,7 +68,7 @@ fi
 # ── Startup summary ───────────────────────────────────────────────────────────
 log INFO "Welcome to own Pastebin $VERSION"
 log INFO "Storage:                $DB_INFO"
-if [ -z "${DB_SIZE+x}" ]; then
+if [ ! -z "${DB_SIZE+x}" ]; then
     log INFO "Storage size:           ${DB_SIZE}"
 fi
 log INFO "Listen:                 ${PASTEBIN_HOST}:${PASTEBIN_PORT}"
@@ -76,6 +77,7 @@ log INFO "Server side Encryption: $PASTEBIN_SERVER_SIDE_ENCRYPTION_ENABLED"
 log INFO "Max TTL:                ${PASTEBIN_MAX_TTL:-unlimited}"
 log INFO "Default TTL:            $PASTEBIN_DEFAULT_TTL"
 log INFO "Max paste:              $PASTEBIN_MAX_PASTE_SIZE"
+log INFO "Max Parallel Uploads:   $PASTEBIN_MAX_PARALLEL_UPLOADS"
 log INFO "Uniq URL Length:        $PASTEBIN_SLUG_LEN"
 log INFO "TLS key:                ${PASTEBIN_TLS_KEY:-not set}"
 log INFO "TLS cert:               ${PASTEBIN_TLS_CERT:-not set}"
