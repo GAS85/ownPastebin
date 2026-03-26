@@ -103,6 +103,7 @@ The application automatically selects the first available backend:
 
 ## 📏 Limits
 
+* `PASTEBIN_MAX_PARALLEL_UPLOADS` - Max amount of parallel POST requests. Default `20`. Be aware that each requests needs memory. E.g. if `PASTEBIN_MAX_PASTE_SIZE=5MB` and `PASTEBIN_MAX_PARALLEL_UPLOADS=20`, that needs around 5 * 20 * 3,3 (roughly amount of modifications) = 400 Mb of RAM and with `PASTEBIN_MAX_PASTE_SIZE=30MB` around 2 GB of RAM.
 * `PASTEBIN_MAX_PASTE_SIZE` - Max upload size. Default: `5MB`
 
 ### Supported Formats

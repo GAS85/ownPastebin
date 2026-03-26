@@ -85,10 +85,7 @@ func main() {
 		crypto:  cry,
 		tmpl:    tmpl,
 		plugins: mgr,
-		uploadSem: make(chan struct{}, 50), // 50 concurrent uploads max
-											// You will need 2 GB RAM for 25 MB pastes
-											// uploadSem = RAM / Max Upload size
-											// uploadSem = 1,5GB / 30 MB = 50
+		uploadSem: make(chan struct{}, cfg.SlugLen),
 	}
 
 	// ── Static file server ────────────────────────────────────────────────────

@@ -14,13 +14,14 @@ type Settings struct {
 	SQLitePath  string
 
 	// App
-	BaseURL      string
-	PathPrefix   string // e.g. "" for http://host:port  or  "/pastebin" for http://host:port/pastebin
-	DefaultTTL   time.Duration
-	MaxTTL       time.Duration
-	SlugLen      int
-	MaxPasteSize int64
-	Version      string
+	BaseURL            string
+	PathPrefix         string // e.g. "" for http://host:port  or  "/pastebin" for http://host:port/pastebin
+	DefaultTTL         time.Duration
+	MaxTTL             time.Duration
+	SlugLen            int
+	MaxPasteSize       int64
+	MaxParallelUploads int
+	Version            string
 
 	// Security
 	ServerSideEncryptionEnabled bool
@@ -39,6 +40,10 @@ func loadSettings() *Settings {
 		PathPrefix:   extractPathPrefix(baseURL),
 		SlugLen:      getEnvInt("PASTEBIN_SLUG_LEN", 20),
 		MaxPasteSize: parseSize(getEnv("PASTEBIN_MAX_PASTE_SIZE", "5MB")),
+		MaxParallelUploads: getEnvInt("PASTEBIN_MAX_PARALLEL_UPLOADS", 20), // 50 concurrent uploads max
+																			// It needs 2 GB RAM for 25 MB pastes
+																			// uploadSem = RAM / Max Upload size
+																			// uploadSem = 1,5GB / 30 MB = 50
 
 		ServerSideEncryptionEnabled: getEnvBool("PASTEBIN_SERVER_SIDE_ENCRYPTION_ENABLED", false),
 		ServerSideEncryptionKey:     os.Getenv("PASTEBIN_SERVER_SIDE_ENCRYPTION_KEY"),

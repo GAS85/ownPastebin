@@ -26,6 +26,8 @@ type TestConfig struct {
 	PathPrefix string
 	// MaxPasteSize defaults to 5MB if 0.
 	MaxPasteSize int64
+	// MaxParallelUploads defaults to 20
+	MaxParallelUploads int 
 }
 
 // NewAppForTest builds a fully wired *App backed by a throwaway SQLite DB.
@@ -49,6 +51,10 @@ func NewAppForTest(t *testing.T, tc TestConfig) (*App, http.Handler) {
 	maxSize := tc.MaxPasteSize
 	if maxSize == 0 {
 		maxSize = 5 * 1024 * 1024
+	}
+	maxUploads := tc.MaxParallelUploads
+	if maxUploads == 0 {
+		maxUploads = 50
 	}
 	cfg := &Settings{
 		SQLitePath:                  dbPath,
@@ -116,6 +122,7 @@ func NewAppForTest(t *testing.T, tc TestConfig) (*App, http.Handler) {
 		crypto:  cry,
 		tmpl:    tmpl,
 		plugins: mgr,
+		uploadSem: make(chan struct{}, maxUploads),
 	}
 
 	return app, app.router()
