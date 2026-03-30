@@ -1,0 +1,475 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Simple, fast and standalone pastebin service">
+
+    <title>Pastebin</title>
+
+    <link rel="icon" href="static/favicon.ico">
+    <!-- W3.CSS Framework -->
+    <link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css">
+
+    <!-- Font Awesome (for GitHub icon) -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css" rel="stylesheet" />
+
+    <!-- Prism for syntax highlighting -->
+    <link href="static/prism.css" rel="stylesheet" />
+
+    <link rel="stylesheet" href="static/custom.css">
+
+</head>
+
+<body>
+    <!-- Navigation Bar using W3.CSS -->
+
+    <div class="w3-container w3-bar w3-dark-grey w3-large">
+        <a href="" class="w3-bar-item w3-button w3-round">PASTEBIN</a>
+
+        <!-- Mobile menu button -->
+        <a href="javascript:void(0)" class="w3-bar-item w3-button w3-right w3-hide-large" onclick="openNav()">☰</a>
+        <a id="send-btn" class="w3-bar-item w3-button w3-display-topmiddle w3-green w3-hover-light-green w3-hide-large" href="#">Send</a>
+        <!-- END Mobile menu button -->
+
+        <!-- Navigation items -->
+        <div id="navMenu" class="w3-hide-small w3-hide-medium">
+            <a href="" class="w3-bar-item w3-button w3-round">New</a>
+
+            <!-- Expiry Dropdown -->
+            <div class="w3-dropdown-hover">
+                <button class="w3-button w3-round">Expires: 1d</button>
+                <div class="w3-dropdown-content w3-bar-block w3-card-4">
+                    <a href="0" class="w3-bar-item w3-button">Never</a>
+                    <a href="300" class="w3-bar-item w3-button">5 min</a>
+                    <a href="600" class="w3-bar-item w3-button">10 min</a>
+                    <a href="3600" class="w3-bar-item w3-button">1 hour</a>
+                    <a href="86400" class="w3-bar-item w3-button">1 day</a>
+                    <a href="604800" class="w3-bar-item w3-button">1 week</a>
+                    <a href="18144000" class="w3-bar-item w3-button">1 month</a>
+                    <a href="220752000" class="w3-bar-item w3-button">1 year</a>
+                </div>
+            </div>
+
+            <!-- Burn Dropdown -->
+            <div class="w3-dropdown-hover">
+                <button class="w3-button w3-round">Burn: No</button>
+                <div class="w3-dropdown-content w3-bar-block w3-card-4">
+                    <a href="true" class="w3-bar-item w3-button">Yes</a>
+                    <a href="false" class="w3-bar-item w3-button">No</a>
+                </div>
+            </div>
+
+            <!-- Right-aligned form elements -->
+
+            <a id="send-btn" class="w3-button w3-green w3-right w3-round w3-hover-light-green" href="#">Send</a>
+
+            <select class="w3-bar-item w3-select w3-right w3-margin-right w3-round" style="padding-bottom: 12px;" id="language-selector">
+                <option value="markup">Markup</option>
+                <option value="css">CSS</option>
+                <option value="clike">C-like</option>
+                <option value="javascript">JavaScript</option>
+                <option disabled>──────────</option>
+                <option value="abap">ABAP</option>
+                <option value="actionscript">ActionScript</option>
+                <option value="ada">Ada</option>
+                <option value="apacheconf">Apache Configuration</option>
+                <option value="apl">APL</option>
+                <option value="applescript">AppleScript</option>
+                <option value="arduino">Arduino</option>
+                <option value="arff">ARFF</option>
+                <option value="asciidoc">AsciiDoc</option>
+                <option value="asm6502">6502 Assembly</option>
+                <option value="aspnet">ASP.NET (C#)</option>
+                <option value="autohotkey">AutoHotkey</option>
+                <option value="autoit">AutoIt</option>
+                <option value="bash">Bash</option>
+                <option value="basic">BASIC</option>
+                <option value="batch">Batch</option>
+                <option value="bison">Bison</option>
+                <option value="brainfuck">Brainfuck</option>
+                <option value="bro">Bro</option>
+                <option value="c">C</option>
+                <option value="csharp">C#</option>
+                <option value="cpp">C++</option>
+                <option value="coffeescript">CoffeeScript</option>
+                <option value="clojure">Clojure</option>
+                <option value="crystal">Crystal</option>
+                <option value="csp">Content-Security-Policy</option>
+                <option value="css-extras">CSS Extras</option>
+                <option value="d">D</option>
+                <option value="dart">Dart</option>
+                <option value="diff">Diff</option>
+                <option value="django">Django/Jinja2</option>
+                <option value="docker">Docker</option>
+                <option value="eiffel">Eiffel</option>
+                <option value="elixir">Elixir</option>
+                <option value="elm">Elm</option>
+                <option value="erb">ERB</option>
+                <option value="erlang">Erlang</option>
+                <option value="fsharp">F#</option>
+                <option value="flow">Flow</option>
+                <option value="fortran">Fortran</option>
+                <option value="gedcom">GEDCOM</option>
+                <option value="gherkin">Gherkin</option>
+                <option value="git">Git</option>
+                <option value="glsl">GLSL</option>
+                <option value="gml">GameMaker</option>
+                <option value="go">Go</option>
+                <option value="graphql">GraphQL</option>
+                <option value="groovy">Groovy</option>
+                <option value="haml">Haml</option>
+                <option value="handlebars">Handlebars</option>
+                <option value="haskell">Haskell</option>
+                <option value="haxe">Haxe</option>
+                <option value="http">HTTP</option>
+                <option value="hpkp">HTTP Public-Key-Pins</option>
+                <option value="hsts">HTTP STS</option>
+                <option value="ichigojam">IchigoJam</option>
+                <option value="icon">Icon</option>
+                <option value="inform7">Inform 7</option>
+                <option value="ini">Ini</option>
+                <option value="io">Io</option>
+                <option value="j">J</option>
+                <option value="java">Java</option>
+                <option value="jolie">Jolie</option>
+                <option value="json">JSON</option>
+                <option value="julia">Julia</option>
+                <option value="keyman">Keyman</option>
+                <option value="kotlin">Kotlin</option>
+                <option value="latex">LaTeX</option>
+                <option value="less">Less</option>
+                <option value="liquid">Liquid</option>
+                <option value="lisp">Lisp</option>
+                <option value="livescript">LiveScript</option>
+                <option value="lolcode">LOLCODE</option>
+                <option value="lua">Lua</option>
+                <option value="makefile">Makefile</option>
+                <option value="markdown">Markdown</option>
+                <option value="markup-templating">Markup templating</option>
+                <option value="matlab">MATLAB</option>
+                <option value="mel">MEL</option>
+                <option value="mermaid">Mermaid</option>
+                <option value="mizar">Mizar</option>
+                <option value="monkey">Monkey</option>
+                <option value="n4js">N4JS</option>
+                <option value="nasm">NASM</option>
+                <option value="nginx">nginx</option>
+                <option value="nim">Nim</option>
+                <option value="nix">Nix</option>
+                <option value="nsis">NSIS</option>
+                <option value="objectivec">Objective-C</option>
+                <option value="ocaml">OCaml</option>
+                <option value="opencl">OpenCL</option>
+                <option value="oz">Oz</option>
+                <option value="parigp">PARI/GP</option>
+                <option value="parser">Parser</option>
+                <option value="pascal">Pascal</option>
+                <option value="perl">Perl</option>
+                <option value="php">PHP</option>
+                <option value="php-extras">PHP Extras</option>
+                <option value="plsql">PL/SQL</option>
+                <option value="powershell">PowerShell</option>
+                <option value="processing">Processing</option>
+                <option value="prolog">Prolog</option>
+                <option value="properties">.properties</option>
+                <option value="protobuf">Protocol Buffers</option>
+                <option value="pug">Pug</option>
+                <option value="puppet">Puppet</option>
+                <option value="pure">Pure</option>
+                <option value="python">Python</option>
+                <option value="q">Q (kdb+ database)</option>
+                <option value="qore">Qore</option>
+                <option value="r">R</option>
+                <option value="jsx">React JSX</option>
+                <option value="tsx">React TSX</option>
+                <option value="renpy">Ren'py</option>
+                <option value="reason">Reason</option>
+                <option value="rest">reST (reStructuredText)</option>
+                <option value="rip">Rip</option>
+                <option value="roboconf">Roboconf</option>
+                <option value="ruby">Ruby</option>
+                <option value="rust">Rust</option>
+                <option value="sas">SAS</option>
+                <option value="sass">Sass (Sass)</option>
+                <option value="scss">Sass (Scss)</option>
+                <option value="scala">Scala</option>
+                <option value="scheme">Scheme</option>
+                <option value="smalltalk">Smalltalk</option>
+                <option value="smarty">Smarty</option>
+                <option value="sql">SQL</option>
+                <option value="soy">Soy (Closure Template)</option>
+                <option value="stylus">Stylus</option>
+                <option value="swift">Swift</option>
+                <option value="tap">TAP</option>
+                <option value="tcl">Tcl</option>
+                <option value="textile">Textile</option>
+                <option value="tt2">Template Toolkit 2</option>
+                <option value="twig">Twig</option>
+                <option value="typescript">TypeScript</option>
+                <option value="vbnet">VB.Net</option>
+                <option value="velocity">Velocity</option>
+                <option value="verilog">Verilog</option>
+                <option value="vhdl">VHDL</option>
+                <option value="vim">vim</option>
+                <option value="visual-basic">Visual Basic</option>
+                <option value="wasm">WebAssembly</option>
+                <option value="wiki">Wiki markup</option>
+                <option value="xeora">Xeora</option>
+                <option value="xojo">Xojo (REALbasic)</option>
+                <option value="xquery">XQuery</option>
+                <option value="yaml">YAML</option>
+            </select>
+
+            <input class="w3-bar-item w3-input w3-right w3-margin-right w3-round" id="pastebin-password" type="password" placeholder="Password (optional)">
+        </div>
+    </div>
+
+    <!-- Mobile Navigation Menu -->
+    <div id="mobileMenu" class="w3-bar-block w3-dark-grey w3-center w3-hide" style="margin-top: 46px; position: fixed; width: 100%; z-index: 999;">
+        <a href="" class="w3-bar-item w3-button w3-green w3-hide-large">New</a>
+
+        <!-- Mobile Expiry Dropdown -->
+        <div class="w3-dropdown-hover w3-hide-large">
+            <button class="w3-button">Expires: 1d</button>
+            <div class="w3-dropdown-content w3-bar-block w3-card-4">
+                <a href="0" class="w3-bar-item w3-button">Never</a>
+                <a href="300" class="w3-bar-item w3-button">5 min</a>
+                <a href="600" class="w3-bar-item w3-button">10 min</a>
+                <a href="3600" class="w3-bar-item w3-button">1 hour</a>
+                <a href="86400" class="w3-bar-item w3-button">1 day</a>
+                <a href="604800" class="w3-bar-item w3-button">1 week</a>
+                <a href="18144000" class="w3-bar-item w3-button">1 month</a>
+                <a href="220752000" class="w3-bar-item w3-button">1 year</a>
+            </div>
+        </div>
+
+        <!-- Mobile Burn Dropdown -->
+
+        <div class="w3-dropdown-hover w3-hide-large">
+            <button class="w3-button">Burn: No</button>
+            <div class="w3-dropdown-content w3-bar-block w3-card-4">
+                <a href="true" class="w3-bar-item w3-button">Yes</a>
+                <a href="false" class="w3-bar-item w3-button">No</a>
+            </div>
+        </div>
+
+
+        <input class="w3-bar-item w3-input w3-hide-large" id="pastebin-password" type="password" placeholder="Password (optional)">
+
+        <select class="w3-bar-item w3-select w3-hide-large" style="padding-bottom: 12px;" id="language-selector">
+            <option value="markup">Markup</option>
+            <option value="css">CSS</option>
+            <option value="clike">C-like</option>
+            <option value="javascript">JavaScript</option>
+            <option disabled>──────────</option>
+            <option value="abap">ABAP</option>
+            <option value="actionscript">ActionScript</option>
+            <option value="ada">Ada</option>
+            <option value="apacheconf">Apache Configuration</option>
+            <option value="apl">APL</option>
+            <option value="applescript">AppleScript</option>
+            <option value="arduino">Arduino</option>
+            <option value="arff">ARFF</option>
+            <option value="asciidoc">AsciiDoc</option>
+            <option value="asm6502">6502 Assembly</option>
+            <option value="aspnet">ASP.NET (C#)</option>
+            <option value="autohotkey">AutoHotkey</option>
+            <option value="autoit">AutoIt</option>
+            <option value="bash">Bash</option>
+            <option value="basic">BASIC</option>
+            <option value="batch">Batch</option>
+            <option value="bison">Bison</option>
+            <option value="brainfuck">Brainfuck</option>
+            <option value="bro">Bro</option>
+            <option value="c">C</option>
+            <option value="csharp">C#</option>
+            <option value="cpp">C++</option>
+            <option value="coffeescript">CoffeeScript</option>
+            <option value="clojure">Clojure</option>
+            <option value="crystal">Crystal</option>
+            <option value="csp">Content-Security-Policy</option>
+            <option value="css-extras">CSS Extras</option>
+            <option value="d">D</option>
+            <option value="dart">Dart</option>
+            <option value="diff">Diff</option>
+            <option value="django">Django/Jinja2</option>
+            <option value="docker">Docker</option>
+            <option value="eiffel">Eiffel</option>
+            <option value="elixir">Elixir</option>
+            <option value="elm">Elm</option>
+            <option value="erb">ERB</option>
+            <option value="erlang">Erlang</option>
+            <option value="fsharp">F#</option>
+            <option value="flow">Flow</option>
+            <option value="fortran">Fortran</option>
+            <option value="gedcom">GEDCOM</option>
+            <option value="gherkin">Gherkin</option>
+            <option value="git">Git</option>
+            <option value="glsl">GLSL</option>
+            <option value="gml">GameMaker</option>
+            <option value="go">Go</option>
+            <option value="graphql">GraphQL</option>
+            <option value="groovy">Groovy</option>
+            <option value="haml">Haml</option>
+            <option value="handlebars">Handlebars</option>
+            <option value="haskell">Haskell</option>
+            <option value="haxe">Haxe</option>
+            <option value="http">HTTP</option>
+            <option value="hpkp">HTTP Public-Key-Pins</option>
+            <option value="hsts">HTTP STS</option>
+            <option value="ichigojam">IchigoJam</option>
+            <option value="icon">Icon</option>
+            <option value="inform7">Inform 7</option>
+            <option value="ini">Ini</option>
+            <option value="io">Io</option>
+            <option value="j">J</option>
+            <option value="java">Java</option>
+            <option value="jolie">Jolie</option>
+            <option value="json">JSON</option>
+            <option value="julia">Julia</option>
+            <option value="keyman">Keyman</option>
+            <option value="kotlin">Kotlin</option>
+            <option value="latex">LaTeX</option>
+            <option value="less">Less</option>
+            <option value="liquid">Liquid</option>
+            <option value="lisp">Lisp</option>
+            <option value="livescript">LiveScript</option>
+            <option value="lolcode">LOLCODE</option>
+            <option value="lua">Lua</option>
+            <option value="makefile">Makefile</option>
+            <option value="markdown">Markdown</option>
+            <option value="markup-templating">Markup templating</option>
+            <option value="matlab">MATLAB</option>
+            <option value="mel">MEL</option>
+            <option value="mermaid">Mermaid</option>
+            <option value="mizar">Mizar</option>
+            <option value="monkey">Monkey</option>
+            <option value="n4js">N4JS</option>
+            <option value="nasm">NASM</option>
+            <option value="nginx">nginx</option>
+            <option value="nim">Nim</option>
+            <option value="nix">Nix</option>
+            <option value="nsis">NSIS</option>
+            <option value="objectivec">Objective-C</option>
+            <option value="ocaml">OCaml</option>
+            <option value="opencl">OpenCL</option>
+            <option value="oz">Oz</option>
+            <option value="parigp">PARI/GP</option>
+            <option value="parser">Parser</option>
+            <option value="pascal">Pascal</option>
+            <option value="perl">Perl</option>
+            <option value="php">PHP</option>
+            <option value="php-extras">PHP Extras</option>
+            <option value="plsql">PL/SQL</option>
+            <option value="powershell">PowerShell</option>
+            <option value="processing">Processing</option>
+            <option value="prolog">Prolog</option>
+            <option value="properties">.properties</option>
+            <option value="protobuf">Protocol Buffers</option>
+            <option value="pug">Pug</option>
+            <option value="puppet">Puppet</option>
+            <option value="pure">Pure</option>
+            <option value="python">Python</option>
+            <option value="q">Q (kdb+ database)</option>
+            <option value="qore">Qore</option>
+            <option value="r">R</option>
+            <option value="jsx">React JSX</option>
+            <option value="tsx">React TSX</option>
+            <option value="renpy">Ren'py</option>
+            <option value="reason">Reason</option>
+            <option value="rest">reST (reStructuredText)</option>
+            <option value="rip">Rip</option>
+            <option value="roboconf">Roboconf</option>
+            <option value="ruby">Ruby</option>
+            <option value="rust">Rust</option>
+            <option value="sas">SAS</option>
+            <option value="sass">Sass (Sass)</option>
+            <option value="scss">Sass (Scss)</option>
+            <option value="scala">Scala</option>
+            <option value="scheme">Scheme</option>
+            <option value="smalltalk">Smalltalk</option>
+            <option value="smarty">Smarty</option>
+            <option value="sql">SQL</option>
+            <option value="soy">Soy (Closure Template)</option>
+            <option value="stylus">Stylus</option>
+            <option value="swift">Swift</option>
+            <option value="tap">TAP</option>
+            <option value="tcl">Tcl</option>
+            <option value="textile">Textile</option>
+            <option value="tt2">Template Toolkit 2</option>
+            <option value="twig">Twig</option>
+            <option value="typescript">TypeScript</option>
+            <option value="vbnet">VB.Net</option>
+            <option value="velocity">Velocity</option>
+            <option value="verilog">Verilog</option>
+            <option value="vhdl">VHDL</option>
+            <option value="vim">vim</option>
+            <option value="visual-basic">Visual Basic</option>
+            <option value="wasm">WebAssembly</option>
+            <option value="wiki">Wiki markup</option>
+            <option value="xeora">Xeora</option>
+            <option value="xojo">Xojo (REALbasic)</option>
+            <option value="xquery">XQuery</option>
+            <option value="yaml">YAML</option>
+        </select>
+    </div>
+
+    <!-- Main Content -->
+    <main class="w3-container" style="display:flex; flex-direction:column;">
+        <div class="w3-section">
+            <div class="w3-panel w3-pale-green w3-round w3-display-container" role="alert">
+                <span onclick="this.parentElement.style.display='none'" class="w3-button w3-display-topright w3-round">X</span>
+                <p><i class="fas fa-info"></i> The paste has been successfully created: <a
+                       href="https://sitnikov.eu/pastebin/4fLGi_q5nh8m74V_eVVe">https://sitnikov.eu/pastebin/4fLGi_q5nh8m74V_eVVe</a></p>
+            </div>
+
+            <div class="w3-panel w3-pale-red w3-round w3-display-container" role="alert">
+                <span onclick="this.parentElement.style.display='none'" class="w3-button w3-display-topright w3-round">X</span>
+                <p><i class="fas fa-fire"></i><strong> For your eyes only.</strong> This paste has been permanently deleted. You can't view it again</p>
+            </div>
+
+
+
+            <div class="w3-panel w3-khaki w3-round w3-display-container" role="alert">
+                <span onclick="this.parentElement.style.display='none'" class="w3-button w3-display-topright w3-round">X</span>
+                <p><i class="fas fa-clock"></i> This paste will expire on <strong>2026-09-03 12:51:46 UTC</strong>.</p>
+            </div>
+        </div>
+
+        <textarea autofocus class="w3-input w3-border w3-round" id="content-textarea" style="font-family: 'Courier New', monospace;"></textarea>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="w3-container w3-bar w3-light-grey w3-padding w3-margin-top w3-text-grey w3-large">
+        <a href="https://hub.docker.com/r/gas85/ownpastebin" class="w3-bar-item w3-button w3-hover-text-black"><i class="fab fa-docker"></i>
+            <a href="https://github.com/GAS85/ownPastebin" class="w3-bar-item w3-button w3-hover-text-black"><i class="fab fa-github"></i></a>
+            <span class="w3-bar-item w3-hide-small">Your own Pastebin v1.2.0</span>
+            <a href="swagger-ui" class="w3-bar-item w3-button w3-hover-text-black w3-right">API Documentation</a>
+    </footer>
+
+    <script>
+        // Used to toggle the menu on smaller screens when clicking on the menu button
+        function openNav() {
+            var x = document.getElementById("mobileMenu");
+            if (x.className.indexOf("w3-show") == -1) {
+                x.className += " w3-show";
+            } else {
+                x.className = x.className.replace(" w3-show", "");
+            }
+        }
+    </script>
+
+    <!-- Third-party scripts -->
+    <script src="static/jquery.min.js"></script>
+    <script src="static/crypto-js.min.js"></script>
+    <script src="static/popper.min.js"></script>
+    <script src="static/clipboard.min.js"></script>
+    <script src="static/custom.js"></script>
+    <script src="static/prism.js"></script>
+    <script src="static/mermaid.min.js"></script>
+</body>
+
+</html>

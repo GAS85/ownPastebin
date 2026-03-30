@@ -54,7 +54,7 @@ func DefaultBase(prefix string) *Base {
 	return &Base{
 		PathPrefix: prefix,
 		CSSImports: []string{
-			static + "/bootstrap.min.css",
+			static + "/w3.css",
 			static + "/all.min.css",
 			static + "/custom.css",
 		},
@@ -62,7 +62,6 @@ func DefaultBase(prefix string) *Base {
 			static + "/jquery.min.js",
 			static + "/crypto-js.min.js",
 			static + "/popper.min.js",
-			static + "/bootstrap.min.js",
 			static + "/clipboard.min.js",
 			static + "/custom.js",
 		},

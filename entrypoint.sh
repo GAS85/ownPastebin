@@ -49,7 +49,7 @@ elif [ -n "${PASTEBIN_POSTGRES_URL+x}" ]; then
     DB_INFO="PostgreSQL"
 else
     DB_INFO="SQLite ($PASTEBIN_SQLITE_PATH)"
-    DB_SIZE="$(du -h $PASTEBIN_SQLITE_PATH | awk '{ print $1 }')"
+    DB_SIZE="$(du -h $PASTEBIN_SQLITE_PATH | awk '{ print $1 }' 2>/dev/null)"
     echo $DB_SIZE
     SQLITE_DIR=$(dirname "$PASTEBIN_SQLITE_PATH")
     if [ ! -w "$SQLITE_DIR" ]; then

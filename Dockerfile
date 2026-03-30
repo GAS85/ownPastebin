@@ -13,13 +13,12 @@ COPY . .
 # Will be used in a plugin.go
 # Check for updates under https://cdnjs.com
 # CSS
-ADD https://cdnjs.cloudflare.com/ajax/libs/bootstrap/4.6.2/css/bootstrap.min.css ./static
+ADD https://www.w3schools.com/w3css/4/w3.css ./static
 ADD https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css ./static
 # Fonts
 ADD https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/webfonts/fa-solid-900.woff2 ./static
 ADD https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/webfonts/fa-brands-400.woff2 ./static
 # JS
-ADD https://cdnjs.cloudflare.com/ajax/libs/bootstrap/4.6.2/js/bootstrap.min.js ./static
 ADD https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js ./static
 ADD https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js ./static
 ADD https://cdnjs.cloudflare.com/ajax/libs/popper.js/2.11.8/umd/popper.min.js ./static

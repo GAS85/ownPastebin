@@ -4,5 +4,6 @@ data
 README.md
 Dockerfile
 docker-compose.yml
+templates/index_full.html
 *_test.go
 testutil.go
