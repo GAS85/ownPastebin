@@ -5,6 +5,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="description" content="Simple, fast and standalone pastebin service">
+    <!-- <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com; style-src https://www.w3schools.com;"> -->
 
     <title>Pastebin</title>
 
@@ -31,7 +32,7 @@
         <!-- Mobile menu button -->
         <a href="javascript:void(0)" class="w3-bar-item w3-button w3-right w3-hide-large" onclick="openNav()">☰</a>
 
-        <a id="send-btn" class="w3-bar-item w3-button w3-display-topmiddle w3-green w3-hover-light-green w3-hide-large" href="#">Send</a>
+        <button id="send-btn" class="w3-bar-item w3-button w3-display-topmiddle w3-green w3-hover-light-green w3-hide-large" href="#">Send</button>
 
         <a id="copy-btn" class="w3-bar-item w3-button w3-round w3-right w3-hide-large" href="#">Copy</a>
         <a class="w3-bar-item w3-button w3-round w3-right w3-hide-large" href="/pastebin/raw/TgBJ0c5mw_GreKmCaRX6">Raw</a>
@@ -488,6 +489,29 @@
 
             <footer class="w3-container w3-blue-gray">
                 <button type="button" class="w3-button w3-green w3-hover-light-green w3-right w3-round w3-margin" id="decrypt-btn">Decrypt</button>
+            </footer>
+        </div>
+    </div>
+
+    <!-- Delete this paste Prompt -->
+
+    <button onclick="document.getElementById('deletion-modal').style.display='block'"
+            class="w3-button">Open Password Prompt</button>
+
+    <div id="deletion-modal" class="w3-modal">
+        <div class="w3-modal-content w3-animate-top">
+            <header class="w3-container w3-blue-gray">
+                <span onclick="document.getElementById('deletion-modal').style.display='none'"
+                      class="w3-button w3-display-topright">&times;</span>
+                <h2><i class="fas fa-trash"></i>Delete this paste?</h2>
+            </header>
+            <div class="w3-container">
+                <p>This paste will be permanently deleted. Link can't be reused anymore.</p>
+            </div>
+
+            <footer class="w3-container">
+                <button type="button" class="w3-button w3-green w3-hover-light-green w3-left w3-round w3-margin" id="deletion-confirm-btn" onclick="document.getElementById('deletion-modal').style.display='none'">Cancel</button>
+                <button type="button" class="w3-button w3-red w3-hover-orange w3-right w3-round w3-margin" id="deletion-confirm-btn">Delete</button>
             </footer>
         </div>
     </div>
