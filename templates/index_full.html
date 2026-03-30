@@ -30,12 +30,17 @@
 
         <!-- Mobile menu button -->
         <a href="javascript:void(0)" class="w3-bar-item w3-button w3-right w3-hide-large" onclick="openNav()">☰</a>
+
         <a id="send-btn" class="w3-bar-item w3-button w3-display-topmiddle w3-green w3-hover-light-green w3-hide-large" href="#">Send</a>
+
+        <a id="copy-btn" class="w3-bar-item w3-button w3-round w3-right w3-hide-large" href="#">Copy</a>
+        <a class="w3-bar-item w3-button w3-round w3-right w3-hide-large" href="/pastebin/raw/TgBJ0c5mw_GreKmCaRX6">Raw</a>
         <!-- END Mobile menu button -->
 
         <!-- Navigation items -->
         <div id="navMenu" class="w3-hide-small w3-hide-medium">
             <a href="" class="w3-bar-item w3-button w3-round">New</a>
+            <a id="remove-btn" href="#" class="w3-bar-item w3-button w3-round">Remove</a>
 
             <!-- Expiry Dropdown -->
             <div class="w3-dropdown-hover">
@@ -67,9 +72,12 @@
 
             <select class="w3-bar-item w3-select w3-right w3-margin-right w3-round" style="padding-bottom: 12px;" id="language-selector">
                 <option value="markup">Markup</option>
+                <option value="bash">Bash</option>
                 <option value="css">CSS</option>
-                <option value="clike">C-like</option>
+                <option value="docker">Docker</option>
                 <option value="javascript">JavaScript</option>
+                <option value="json">JSON</option>
+                <option value="yaml">YAML</option>
                 <option disabled>──────────</option>
                 <option value="abap">ABAP</option>
                 <option value="actionscript">ActionScript</option>
@@ -84,7 +92,6 @@
                 <option value="aspnet">ASP.NET (C#)</option>
                 <option value="autohotkey">AutoHotkey</option>
                 <option value="autoit">AutoIt</option>
-                <option value="bash">Bash</option>
                 <option value="basic">BASIC</option>
                 <option value="batch">Batch</option>
                 <option value="bison">Bison</option>
@@ -102,7 +109,6 @@
                 <option value="dart">Dart</option>
                 <option value="diff">Diff</option>
                 <option value="django">Django/Jinja2</option>
-                <option value="docker">Docker</option>
                 <option value="eiffel">Eiffel</option>
                 <option value="elixir">Elixir</option>
                 <option value="elm">Elm</option>
@@ -134,7 +140,6 @@
                 <option value="j">J</option>
                 <option value="java">Java</option>
                 <option value="jolie">Jolie</option>
-                <option value="json">JSON</option>
                 <option value="julia">Julia</option>
                 <option value="keyman">Keyman</option>
                 <option value="kotlin">Kotlin</option>
@@ -219,15 +224,21 @@
                 <option value="xeora">Xeora</option>
                 <option value="xojo">Xojo (REALbasic)</option>
                 <option value="xquery">XQuery</option>
-                <option value="yaml">YAML</option>
             </select>
 
             <input class="w3-bar-item w3-input w3-right w3-margin-right w3-round" id="pastebin-password" type="password" placeholder="Password (optional)">
+
+            <a id="copy-btn" class="w3-bar-item w3-button w3-round w3-right" href="#">Copy</a>
+            <a class="w3-bar-item w3-button w3-round w3-right" href="/pastebin/raw/TgBJ0c5mw_GreKmCaRX6">Raw</a>
+            <a class="w3-bar-item w3-button w3-round w3-right" href="/pastebin/download/TgBJ0c5mw_GreKmCaRX6">Download</a>
         </div>
     </div>
 
     <!-- Mobile Navigation Menu -->
     <div id="mobileMenu" class="w3-bar-block w3-dark-grey w3-center w3-hide" style="margin-top: 46px; position: fixed; width: 100%; z-index: 999;">
+
+        <a class="w3-bar-item w3-button w3-round w3-hide-large" href="/pastebin/download/TgBJ0c5mw_GreKmCaRX6">Download</a>
+
         <a href="" class="w3-bar-item w3-button w3-green w3-hide-large">New</a>
 
         <!-- Mobile Expiry Dropdown -->
@@ -260,9 +271,12 @@
 
         <select class="w3-bar-item w3-select w3-hide-large" style="padding-bottom: 12px;" id="language-selector">
             <option value="markup">Markup</option>
+            <option value="bash">Bash</option>
             <option value="css">CSS</option>
-            <option value="clike">C-like</option>
+            <option value="docker">Docker</option>
             <option value="javascript">JavaScript</option>
+            <option value="json">JSON</option>
+            <option value="yaml">YAML</option>
             <option disabled>──────────</option>
             <option value="abap">ABAP</option>
             <option value="actionscript">ActionScript</option>
@@ -277,7 +291,6 @@
             <option value="aspnet">ASP.NET (C#)</option>
             <option value="autohotkey">AutoHotkey</option>
             <option value="autoit">AutoIt</option>
-            <option value="bash">Bash</option>
             <option value="basic">BASIC</option>
             <option value="batch">Batch</option>
             <option value="bison">Bison</option>
@@ -295,7 +308,6 @@
             <option value="dart">Dart</option>
             <option value="diff">Diff</option>
             <option value="django">Django/Jinja2</option>
-            <option value="docker">Docker</option>
             <option value="eiffel">Eiffel</option>
             <option value="elixir">Elixir</option>
             <option value="elm">Elm</option>
@@ -327,7 +339,6 @@
             <option value="j">J</option>
             <option value="java">Java</option>
             <option value="jolie">Jolie</option>
-            <option value="json">JSON</option>
             <option value="julia">Julia</option>
             <option value="keyman">Keyman</option>
             <option value="kotlin">Kotlin</option>
@@ -412,7 +423,6 @@
             <option value="xeora">Xeora</option>
             <option value="xojo">Xojo (REALbasic)</option>
             <option value="xquery">XQuery</option>
-            <option value="yaml">YAML</option>
         </select>
     </div>
 
@@ -427,14 +437,17 @@
 
             <div class="w3-panel w3-pale-red w3-round w3-display-container" role="alert">
                 <span onclick="this.parentElement.style.display='none'" class="w3-button w3-display-topright w3-round">X</span>
-                <p><i class="fas fa-fire"></i><strong> For your eyes only.</strong> This paste has been permanently deleted. You can't view it again</p>
+                <p><i class="fas fa-fire"></i><strong> For your eyes only.</strong> This paste has been permanently deleted. You can't view it again if you refresh the page.</p>
             </div>
-
-
 
             <div class="w3-panel w3-khaki w3-round w3-display-container" role="alert">
                 <span onclick="this.parentElement.style.display='none'" class="w3-button w3-display-topright w3-round">X</span>
                 <p><i class="fas fa-clock"></i> This paste will expire on <strong>2026-09-03 12:51:46 UTC</strong>.</p>
+            </div>
+
+            <div class="w3-panel w3-khaki w3-round w3-display-container" role="alert">
+                <span onclick="this.parentElement.style.display='none'" class="w3-button w3-display-topright w3-round">X</span>
+                <p><i class="fas fa-file-circle-xmark"></i><span class="w3-xxlarge w3-display-middle">404</span> The page you are looking for was not found.</p>
             </div>
         </div>
 
@@ -444,11 +457,40 @@
 
     <!-- Footer -->
     <footer class="w3-container w3-bar w3-light-grey w3-padding w3-margin-top w3-text-grey w3-large">
-        <a href="https://hub.docker.com/r/gas85/ownpastebin" class="w3-bar-item w3-button w3-hover-text-black"><i class="fab fa-docker"></i>
-            <a href="https://github.com/GAS85/ownPastebin" class="w3-bar-item w3-button w3-hover-text-black"><i class="fab fa-github"></i></a>
-            <span class="w3-bar-item w3-hide-small">Your own Pastebin v1.2.0</span>
-            <a href="swagger-ui" class="w3-bar-item w3-button w3-hover-text-black w3-right">API Documentation</a>
+        <a href="https://hub.docker.com/r/gas85/ownpastebin" class="w3-bar-item w3-button w3-hover-text-black"><i class="fab fa-docker"></i></a>
+        <a href="https://github.com/GAS85/ownPastebin" class="w3-bar-item w3-button w3-hover-text-black"><i class="fab fa-github"></i></a>
+        <span class="w3-bar-item w3-hide-small">Your own Pastebin v1.2.0</span>
+        <a href="swagger-ui" class="w3-bar-item w3-button w3-hover-text-black w3-right">API Documentation</a>
     </footer>
+
+    <!-- Password Prompt -->
+    <button onclick="document.getElementById('password-modal').style.display='block'"
+            class="w3-button">Open Modal</button>
+
+    <div id="password-modal" class="w3-modal">
+        <div class="w3-modal-content w3-animate-top">
+            <header class="w3-container w3-blue-gray">
+                <span onclick="document.getElementById('password-modal').style.display='none'"
+                      class="w3-button w3-display-topright">&times;</span>
+                <h2><i class="fas fa-key"></i>Password protected</h2>
+            </header>
+            <div class="w3-container">
+                <p>This paste was marked as E2E Encrypted, please enter the password to decrypt content.</p>
+                <p>You can also copy encrypted data and decrypt it local with command<br><code
+                          class="w3-codespan">echo "U2Fsd..." | openssl enc -aes-256-cbc -d -a -md md5 -pass pass:YOUR_PASSWORD</code></p>
+                <label><b>Password</b></label>
+                <input class="w3-input w3-round w3-margin-bottom w3-bottombar" type="password" placeholder="Enter Password" name="psw" required>
+                <div class="w3-panel w3-pale-yellow w3-border w3-round w3-large w3-margin w3-hide" role="alert" id="modal-alert">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    Could not decrypt data. Wrong password?
+                </div>
+            </div>
+
+            <footer class="w3-container w3-blue-gray">
+                <button type="button" class="w3-button w3-green w3-hover-light-green w3-right w3-round w3-margin" id="decrypt-btn">Decrypt</button>
+            </footer>
+        </div>
+    </div>
 
     <script>
         // Used to toggle the menu on smaller screens when clicking on the menu button
