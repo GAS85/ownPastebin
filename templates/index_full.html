@@ -2,540 +2,491 @@
 <html lang="en">
 
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="Simple, fast and standalone pastebin service">
-    <!-- <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com; style-src https://www.w3schools.com;"> -->
+  <!-- <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://www.w3scools.com https://cdnjs.cloudflare.com;"> -->
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Simple, fast and standalone pastebin service">
 
-    <title>Pastebin</title>
+  <link rel="icon" href="/static/favicon.ico">
+  <title>Pastebin [TEST]</title>
 
-    <link rel="icon" href="static/favicon.ico">
-    <!-- W3.CSS Framework -->
-    <link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css">
+  <!-- W3.CSS + FontAwesome from CDN for standalone test -->
+  <link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <!-- Prism from CDN -->
+  <link rel="stylesheet" href="/static/prism.css">
 
-    <!-- Font Awesome (for GitHub icon) -->
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/custom.css">
+  <style>
+    /* === Dev state switcher (not in production) === */
+    #dev-switcher {
+      position: fixed;
+      bottom: 10px;
+      right: 10px;
+      z-index: 9999;
+      background: #333;
+      color: #fff;
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
 
-    <!-- Prism for syntax highlighting -->
-    <link href="static/prism.css" rel="stylesheet" />
+    #dev-switcher strong {
+      margin-bottom: 4px;
+    }
 
-    <link rel="stylesheet" href="static/custom.css">
+    #dev-switcher button {
+      background: #555;
+      color: #fff;
+      border: none;
+      padding: 3px 8px;
+      cursor: pointer;
+      border-radius: 3px;
+      font-size: 11px;
+    }
 
+    #dev-switcher button:hover {
+      background: #888;
+    }
+  </style>
 </head>
 
 <body>
-    <!-- Navigation Bar using W3.CSS -->
+  <a href="javascript:void(0)" class="w3-button w3-gray w3-round w3-display-topright w3-xlarge w3-hide-large" style="z-index: 3;" onclick="toggleMobileMenu()">☰</a>
 
-    <div class="w3-container w3-bar w3-dark-grey w3-large">
-        <a href="" class="w3-bar-item w3-button w3-round">PASTEBIN</a>
+  <!-- TOP NAV -->
+  <div class="w3-container w3-bar w3-dark-grey w3-large" id="navbar">
 
-        <!-- Mobile menu button -->
-        <a href="javascript:void(0)" class="w3-bar-item w3-button w3-right w3-hide-large" onclick="openNav()">☰</a>
+    <a href="/" class="w3-bar-item w3-button w3-round w3-margin w3-mobile">PASTEBIN</a>
 
-        <button id="send-btn" class="w3-bar-item w3-button w3-display-topmiddle w3-green w3-hover-light-green w3-hide-large" href="#">Send</button>
+    <div id="desktopNav">
+      <a href="/" class="w3-bar-item w3-button w3-round w3-margin w3-mobile">New</a>
 
-        <a id="copy-btn" class="w3-bar-item w3-button w3-round w3-right w3-hide-large" href="#">Copy</a>
-        <a class="w3-bar-item w3-button w3-round w3-right w3-hide-large" href="/pastebin/raw/TgBJ0c5mw_GreKmCaRX6">Raw</a>
-        <!-- END Mobile menu button -->
+      <!-- Remove btn: shown on view state -->
+      <a id="remove-btn" href="#" class="w3-bar-item w3-button w3-round w3-margin w3-mobile">Remove</a>
 
-        <!-- Navigation items -->
-        <div id="navMenu" class="w3-hide-small w3-hide-medium">
-            <a href="" class="w3-bar-item w3-button w3-round">New</a>
-            <a id="remove-btn" href="#" class="w3-bar-item w3-button w3-round">Remove</a>
+      <!-- Expiry + Burn dropdowns: shown on new/edit state -->
 
-            <!-- Expiry Dropdown -->
-            <div class="w3-dropdown-hover">
-                <button class="w3-button w3-round">Expires: 1d</button>
-                <div class="w3-dropdown-content w3-bar-block w3-card-4">
-                    <a href="0" class="w3-bar-item w3-button">Never</a>
-                    <a href="300" class="w3-bar-item w3-button">5 min</a>
-                    <a href="600" class="w3-bar-item w3-button">10 min</a>
-                    <a href="3600" class="w3-bar-item w3-button">1 hour</a>
-                    <a href="86400" class="w3-bar-item w3-button">1 day</a>
-                    <a href="604800" class="w3-bar-item w3-button">1 week</a>
-                    <a href="18144000" class="w3-bar-item w3-button">1 month</a>
-                    <a href="220752000" class="w3-bar-item w3-button">1 year</a>
-                </div>
-            </div>
-
-            <!-- Burn Dropdown -->
-            <div class="w3-dropdown-hover">
-                <button class="w3-button w3-round">Burn: No</button>
-                <div class="w3-dropdown-content w3-bar-block w3-card-4">
-                    <a href="true" class="w3-bar-item w3-button">Yes</a>
-                    <a href="false" class="w3-bar-item w3-button">No</a>
-                </div>
-            </div>
-
-            <!-- Right-aligned form elements -->
-
-            <a id="send-btn" class="w3-button w3-green w3-right w3-round w3-hover-light-green" href="#">Send</a>
-
-            <select class="w3-bar-item w3-select w3-right w3-margin-right w3-round" style="padding-bottom: 12px;" id="language-selector">
-                <option value="markup">Markup</option>
-                <option value="bash">Bash</option>
-                <option value="css">CSS</option>
-                <option value="docker">Docker</option>
-                <option value="javascript">JavaScript</option>
-                <option value="json">JSON</option>
-                <option value="yaml">YAML</option>
-                <option disabled>──────────</option>
-                <option value="abap">ABAP</option>
-                <option value="actionscript">ActionScript</option>
-                <option value="ada">Ada</option>
-                <option value="apacheconf">Apache Configuration</option>
-                <option value="apl">APL</option>
-                <option value="applescript">AppleScript</option>
-                <option value="arduino">Arduino</option>
-                <option value="arff">ARFF</option>
-                <option value="asciidoc">AsciiDoc</option>
-                <option value="asm6502">6502 Assembly</option>
-                <option value="aspnet">ASP.NET (C#)</option>
-                <option value="autohotkey">AutoHotkey</option>
-                <option value="autoit">AutoIt</option>
-                <option value="basic">BASIC</option>
-                <option value="batch">Batch</option>
-                <option value="bison">Bison</option>
-                <option value="brainfuck">Brainfuck</option>
-                <option value="bro">Bro</option>
-                <option value="c">C</option>
-                <option value="csharp">C#</option>
-                <option value="cpp">C++</option>
-                <option value="coffeescript">CoffeeScript</option>
-                <option value="clojure">Clojure</option>
-                <option value="crystal">Crystal</option>
-                <option value="csp">Content-Security-Policy</option>
-                <option value="css-extras">CSS Extras</option>
-                <option value="d">D</option>
-                <option value="dart">Dart</option>
-                <option value="diff">Diff</option>
-                <option value="django">Django/Jinja2</option>
-                <option value="eiffel">Eiffel</option>
-                <option value="elixir">Elixir</option>
-                <option value="elm">Elm</option>
-                <option value="erb">ERB</option>
-                <option value="erlang">Erlang</option>
-                <option value="fsharp">F#</option>
-                <option value="flow">Flow</option>
-                <option value="fortran">Fortran</option>
-                <option value="gedcom">GEDCOM</option>
-                <option value="gherkin">Gherkin</option>
-                <option value="git">Git</option>
-                <option value="glsl">GLSL</option>
-                <option value="gml">GameMaker</option>
-                <option value="go">Go</option>
-                <option value="graphql">GraphQL</option>
-                <option value="groovy">Groovy</option>
-                <option value="haml">Haml</option>
-                <option value="handlebars">Handlebars</option>
-                <option value="haskell">Haskell</option>
-                <option value="haxe">Haxe</option>
-                <option value="http">HTTP</option>
-                <option value="hpkp">HTTP Public-Key-Pins</option>
-                <option value="hsts">HTTP STS</option>
-                <option value="ichigojam">IchigoJam</option>
-                <option value="icon">Icon</option>
-                <option value="inform7">Inform 7</option>
-                <option value="ini">Ini</option>
-                <option value="io">Io</option>
-                <option value="j">J</option>
-                <option value="java">Java</option>
-                <option value="jolie">Jolie</option>
-                <option value="julia">Julia</option>
-                <option value="keyman">Keyman</option>
-                <option value="kotlin">Kotlin</option>
-                <option value="latex">LaTeX</option>
-                <option value="less">Less</option>
-                <option value="liquid">Liquid</option>
-                <option value="lisp">Lisp</option>
-                <option value="livescript">LiveScript</option>
-                <option value="lolcode">LOLCODE</option>
-                <option value="lua">Lua</option>
-                <option value="makefile">Makefile</option>
-                <option value="markdown">Markdown</option>
-                <option value="markup-templating">Markup templating</option>
-                <option value="matlab">MATLAB</option>
-                <option value="mel">MEL</option>
-                <option value="mermaid">Mermaid</option>
-                <option value="mizar">Mizar</option>
-                <option value="monkey">Monkey</option>
-                <option value="n4js">N4JS</option>
-                <option value="nasm">NASM</option>
-                <option value="nginx">nginx</option>
-                <option value="nim">Nim</option>
-                <option value="nix">Nix</option>
-                <option value="nsis">NSIS</option>
-                <option value="objectivec">Objective-C</option>
-                <option value="ocaml">OCaml</option>
-                <option value="opencl">OpenCL</option>
-                <option value="oz">Oz</option>
-                <option value="parigp">PARI/GP</option>
-                <option value="parser">Parser</option>
-                <option value="pascal">Pascal</option>
-                <option value="perl">Perl</option>
-                <option value="php">PHP</option>
-                <option value="php-extras">PHP Extras</option>
-                <option value="plsql">PL/SQL</option>
-                <option value="powershell">PowerShell</option>
-                <option value="processing">Processing</option>
-                <option value="prolog">Prolog</option>
-                <option value="properties">.properties</option>
-                <option value="protobuf">Protocol Buffers</option>
-                <option value="pug">Pug</option>
-                <option value="puppet">Puppet</option>
-                <option value="pure">Pure</option>
-                <option value="python">Python</option>
-                <option value="q">Q (kdb+ database)</option>
-                <option value="qore">Qore</option>
-                <option value="r">R</option>
-                <option value="jsx">React JSX</option>
-                <option value="tsx">React TSX</option>
-                <option value="renpy">Ren'py</option>
-                <option value="reason">Reason</option>
-                <option value="rest">reST (reStructuredText)</option>
-                <option value="rip">Rip</option>
-                <option value="roboconf">Roboconf</option>
-                <option value="ruby">Ruby</option>
-                <option value="rust">Rust</option>
-                <option value="sas">SAS</option>
-                <option value="sass">Sass (Sass)</option>
-                <option value="scss">Sass (Scss)</option>
-                <option value="scala">Scala</option>
-                <option value="scheme">Scheme</option>
-                <option value="smalltalk">Smalltalk</option>
-                <option value="smarty">Smarty</option>
-                <option value="sql">SQL</option>
-                <option value="soy">Soy (Closure Template)</option>
-                <option value="stylus">Stylus</option>
-                <option value="swift">Swift</option>
-                <option value="tap">TAP</option>
-                <option value="tcl">Tcl</option>
-                <option value="textile">Textile</option>
-                <option value="tt2">Template Toolkit 2</option>
-                <option value="twig">Twig</option>
-                <option value="typescript">TypeScript</option>
-                <option value="vbnet">VB.Net</option>
-                <option value="velocity">Velocity</option>
-                <option value="verilog">Verilog</option>
-                <option value="vhdl">VHDL</option>
-                <option value="vim">vim</option>
-                <option value="visual-basic">Visual Basic</option>
-                <option value="wasm">WebAssembly</option>
-                <option value="wiki">Wiki markup</option>
-                <option value="xeora">Xeora</option>
-                <option value="xojo">Xojo (REALbasic)</option>
-                <option value="xquery">XQuery</option>
-            </select>
-
-            <input class="w3-bar-item w3-input w3-right w3-margin-right w3-round" id="pastebin-password" type="password" placeholder="Password (optional)">
-
-            <a id="copy-btn" class="w3-bar-item w3-button w3-round w3-right" href="#">Copy</a>
-            <a class="w3-bar-item w3-button w3-round w3-right" href="/pastebin/raw/TgBJ0c5mw_GreKmCaRX6">Raw</a>
-            <a class="w3-bar-item w3-button w3-round w3-right" href="/pastebin/download/TgBJ0c5mw_GreKmCaRX6">Download</a>
+      <div id="expiry-burn-controls-expire" class="w3-dropdown-hover w3-margin w3-mobile">
+        <button id="expiry-dropdown-btn" class="w3-button w3-round">Expires: 1d</button>
+        <div class="w3-dropdown-content w3-bar-block w3-card-4" id="expiry-dropdown">
+          <a class="w3-bar-item w3-button" href="0">Never</a>
+          <a class="w3-bar-item w3-button" href="300">5 min</a>
+          <a class="w3-bar-item w3-button" href="600">10 min</a>
+          <a class="w3-bar-item w3-button" href="3600">1 hour</a>
+          <a class="w3-bar-item w3-button" href="86400">1 day</a>
+          <a class="w3-bar-item w3-button" href="604800">1 week</a>
+          <a class="w3-bar-item w3-button" href="18144000">1 month</a>
+          <a class="w3-bar-item w3-button" href="220752000">1 year</a>
         </div>
+      </div>
+      <div id="expiry-burn-controls-burn" class="w3-dropdown-hover w3-margin w3-mobile">
+        <button id="burn-dropdown-btn" class="w3-button w3-round">Burn: No</button>
+        <div class="w3-dropdown-content w3-bar-block w3-card-4" id="burn-dropdown">
+          <a class="w3-bar-item w3-button" href="true">Yes</a>
+          <a class="w3-bar-item w3-button" href="false">No</a>
+        </div>
+      </div>
+
+      <!-- Copy/Raw/Download (view state) -->
+      <div id="view-controls" style="display:none;">
+        <a id="copy-btn" class="w3-bar-item w3-button w3-round w3-margin w3-border w3-border-green w3-hover-light-green w3-mobile" href="#">Copy</a>
+        <a class="w3-bar-item w3-button w3-round w3-margin w3-border w3-border-green w3-hover-light-green w3-mobile" href="#">Raw</a>
+        <a class="w3-bar-item w3-button w3-round w3-margin w3-border w3-border-green w3-hover-light-green w3-mobile" href="#">Download</a>
+      </div>
+
+      <select class="w3-bar-item w3-select w3-round w3-margin w3-mobile"
+              style="width:auto;padding-bottom:12px;" id="language-selector">
+        <option value="markup">Markup</option>
+        <option value="bash">Bash</option>
+        <option value="css">CSS</option>
+        <option value="docker">Docker</option>
+        <option value="javascript">JavaScript</option>
+        <option value="json">JSON</option>
+        <option value="yaml">YAML</option>
+        <option disabled>──────────</option>
+        <option value="abap">ABAP</option>
+        <option value="actionscript">ActionScript</option>
+        <option value="ada">Ada</option>
+        <option value="apacheconf">Apache Configuration</option>
+        <option value="apl">APL</option>
+        <option value="applescript">AppleScript</option>
+        <option value="arduino">Arduino</option>
+        <option value="arff">ARFF</option>
+        <option value="asciidoc">AsciiDoc</option>
+        <option value="asm6502">6502 Assembly</option>
+        <option value="aspnet">ASP.NET (C#)</option>
+        <option value="autohotkey">AutoHotkey</option>
+        <option value="autoit">AutoIt</option>
+        <option value="basic">BASIC</option>
+        <option value="batch">Batch</option>
+        <option value="bison">Bison</option>
+        <option value="brainfuck">Brainfuck</option>
+        <option value="bro">Bro</option>
+        <option value="c">C</option>
+        <option value="csharp">C#</option>
+        <option value="cpp">C++</option>
+        <option value="clike">C-like</option>
+        <option value="coffeescript">CoffeeScript</option>
+        <option value="clojure">Clojure</option>
+        <option value="crystal">Crystal</option>
+        <option value="csp">Content-Security-Policy</option>
+        <option value="css-extras">CSS Extras</option>
+        <option value="d">D</option>
+        <option value="dart">Dart</option>
+        <option value="diff">Diff</option>
+        <option value="django">Django/Jinja2</option>
+        <option value="eiffel">Eiffel</option>
+        <option value="elixir">Elixir</option>
+        <option value="elm">Elm</option>
+        <option value="erb">ERB</option>
+        <option value="erlang">Erlang</option>
+        <option value="fsharp">F#</option>
+        <option value="flow">Flow</option>
+        <option value="fortran">Fortran</option>
+        <option value="gedcom">GEDCOM</option>
+        <option value="gherkin">Gherkin</option>
+        <option value="git">Git</option>
+        <option value="glsl">GLSL</option>
+        <option value="gml">GameMaker</option>
+        <option value="go">Go</option>
+        <option value="graphql">GraphQL</option>
+        <option value="groovy">Groovy</option>
+        <option value="haml">Haml</option>
+        <option value="handlebars">Handlebars</option>
+        <option value="haskell">Haskell</option>
+        <option value="haxe">Haxe</option>
+        <option value="http">HTTP</option>
+        <option value="hpkp">HTTP Public-Key-Pins</option>
+        <option value="hsts">HTTP STS</option>
+        <option value="ichigojam">IchigoJam</option>
+        <option value="icon">Icon</option>
+        <option value="inform7">Inform 7</option>
+        <option value="ini">Ini</option>
+        <option value="io">Io</option>
+        <option value="j">J</option>
+        <option value="java">Java</option>
+        <option value="jolie">Jolie</option>
+        <option value="julia">Julia</option>
+        <option value="keyman">Keyman</option>
+        <option value="kotlin">Kotlin</option>
+        <option value="latex">LaTeX</option>
+        <option value="less">Less</option>
+        <option value="liquid">Liquid</option>
+        <option value="lisp">Lisp</option>
+        <option value="livescript">LiveScript</option>
+        <option value="lolcode">LOLCODE</option>
+        <option value="lua">Lua</option>
+        <option value="makefile">Makefile</option>
+        <option value="markdown">Markdown</option>
+        <option value="markup-templating">Markup templating</option>
+        <option value="matlab">MATLAB</option>
+        <option value="mel">MEL</option>
+        <option value="mermaid">Mermaid</option>
+        <option value="mizar">Mizar</option>
+        <option value="monkey">Monkey</option>
+        <option value="n4js">N4JS</option>
+        <option value="nasm">NASM</option>
+        <option value="nginx">nginx</option>
+        <option value="nim">Nim</option>
+        <option value="nix">Nix</option>
+        <option value="nsis">NSIS</option>
+        <option value="objectivec">Objective-C</option>
+        <option value="ocaml">OCaml</option>
+        <option value="opencl">OpenCL</option>
+        <option value="oz">Oz</option>
+        <option value="parigp">PARI/GP</option>
+        <option value="parser">Parser</option>
+        <option value="pascal">Pascal</option>
+        <option value="perl">Perl</option>
+        <option value="php">PHP</option>
+        <option value="php-extras">PHP Extras</option>
+        <option value="plsql">PL/SQL</option>
+        <option value="powershell">PowerShell</option>
+        <option value="processing">Processing</option>
+        <option value="prolog">Prolog</option>
+        <option value="properties">.properties</option>
+        <option value="protobuf">Protocol Buffers</option>
+        <option value="pug">Pug</option>
+        <option value="puppet">Puppet</option>
+        <option value="pure">Pure</option>
+        <option value="python">Python</option>
+        <option value="q">Q (kdb+ database)</option>
+        <option value="qore">Qore</option>
+        <option value="r">R</option>
+        <option value="jsx">React JSX</option>
+        <option value="tsx">React TSX</option>
+        <option value="renpy">Ren'py</option>
+        <option value="reason">Reason</option>
+        <option value="rest">reST (reStructuredText)</option>
+        <option value="rip">Rip</option>
+        <option value="roboconf">Roboconf</option>
+        <option value="ruby">Ruby</option>
+        <option value="rust">Rust</option>
+        <option value="sas">SAS</option>
+        <option value="sass">Sass (Sass)</option>
+        <option value="scss">Sass (Scss)</option>
+        <option value="scala">Scala</option>
+        <option value="scheme">Scheme</option>
+        <option value="smalltalk">Smalltalk</option>
+        <option value="smarty">Smarty</option>
+        <option value="sql">SQL</option>
+        <option value="soy">Soy (Closure Template)</option>
+        <option value="stylus">Stylus</option>
+        <option value="swift">Swift</option>
+        <option value="tap">TAP</option>
+        <option value="tcl">Tcl</option>
+        <option value="textile">Textile</option>
+        <option value="tt2">Template Toolkit 2</option>
+        <option value="twig">Twig</option>
+        <option value="typescript">TypeScript</option>
+        <option value="vbnet">VB.Net</option>
+        <option value="velocity">Velocity</option>
+        <option value="verilog">Verilog</option>
+        <option value="vhdl">VHDL</option>
+        <option value="vim">vim</option>
+        <option value="visual-basic">Visual Basic</option>
+        <option value="wasm">WebAssembly</option>
+        <option value="wiki">Wiki markup</option>
+        <option value="xeora">Xeora</option>
+        <option value="xojo">Xojo (REALbasic)</option>
+        <option value="xquery">XQuery</option>
+      </select>
+
+      <!-- Send + Password (new state) -->
+      <input class="w3-bar-item w3-input w3-margin w3-round w3-mobile" id="pastebin-password" type="password" placeholder="Password (optional)">
+
+      <button id="send-btn" class="w3-bar-item w3-button w3-margin w3-green w3-hover-light-green w3-round w3-mobile">Send</button>
+
+
+    </div>
+  </div>
+
+
+  <!-- MAIN -->
+  <main class="w3-container" id="main-content">
+
+    <!-- 404 view -->
+    <div id="error-region" style="display:none;" class="w3-section w3-center">
+      <span class="w3-xxxlarge w3-text-grey">404</span>
+      <p class="w3-large">The page you are looking for was not found.</p>
+      <a href="/" class="w3-button w3-dark-grey w3-round">Back to Home</a>
     </div>
 
-    <!-- Mobile Navigation Menu -->
-    <div id="mobileMenu" class="w3-bar-block w3-dark-grey w3-center w3-hide" style="margin-top: 46px; position: fixed; width: 100%; z-index: 999;">
+    <!-- Alerts region (toggled by dev switcher) -->
+    <div id="alert-region"></div>
 
-        <a class="w3-bar-item w3-button w3-round w3-hide-large" href="/pastebin/download/TgBJ0c5mw_GreKmCaRX6">Download</a>
-
-        <a href="" class="w3-bar-item w3-button w3-green w3-hide-large">New</a>
-
-        <!-- Mobile Expiry Dropdown -->
-        <div class="w3-dropdown-hover w3-hide-large">
-            <button class="w3-button">Expires: 1d</button>
-            <div class="w3-dropdown-content w3-bar-block w3-card-4">
-                <a href="0" class="w3-bar-item w3-button">Never</a>
-                <a href="300" class="w3-bar-item w3-button">5 min</a>
-                <a href="600" class="w3-bar-item w3-button">10 min</a>
-                <a href="3600" class="w3-bar-item w3-button">1 hour</a>
-                <a href="86400" class="w3-bar-item w3-button">1 day</a>
-                <a href="604800" class="w3-bar-item w3-button">1 week</a>
-                <a href="18144000" class="w3-bar-item w3-button">1 month</a>
-                <a href="220752000" class="w3-bar-item w3-button">1 year</a>
-            </div>
-        </div>
-
-        <!-- Mobile Burn Dropdown -->
-
-        <div class="w3-dropdown-hover w3-hide-large">
-            <button class="w3-button">Burn: No</button>
-            <div class="w3-dropdown-content w3-bar-block w3-card-4">
-                <a href="true" class="w3-bar-item w3-button">Yes</a>
-                <a href="false" class="w3-bar-item w3-button">No</a>
-            </div>
-        </div>
-
-
-        <input class="w3-bar-item w3-input w3-hide-large" id="pastebin-password" type="password" placeholder="Password (optional)">
-
-        <select class="w3-bar-item w3-select w3-hide-large" style="padding-bottom: 12px;" id="language-selector">
-            <option value="markup">Markup</option>
-            <option value="bash">Bash</option>
-            <option value="css">CSS</option>
-            <option value="docker">Docker</option>
-            <option value="javascript">JavaScript</option>
-            <option value="json">JSON</option>
-            <option value="yaml">YAML</option>
-            <option disabled>──────────</option>
-            <option value="abap">ABAP</option>
-            <option value="actionscript">ActionScript</option>
-            <option value="ada">Ada</option>
-            <option value="apacheconf">Apache Configuration</option>
-            <option value="apl">APL</option>
-            <option value="applescript">AppleScript</option>
-            <option value="arduino">Arduino</option>
-            <option value="arff">ARFF</option>
-            <option value="asciidoc">AsciiDoc</option>
-            <option value="asm6502">6502 Assembly</option>
-            <option value="aspnet">ASP.NET (C#)</option>
-            <option value="autohotkey">AutoHotkey</option>
-            <option value="autoit">AutoIt</option>
-            <option value="basic">BASIC</option>
-            <option value="batch">Batch</option>
-            <option value="bison">Bison</option>
-            <option value="brainfuck">Brainfuck</option>
-            <option value="bro">Bro</option>
-            <option value="c">C</option>
-            <option value="csharp">C#</option>
-            <option value="cpp">C++</option>
-            <option value="coffeescript">CoffeeScript</option>
-            <option value="clojure">Clojure</option>
-            <option value="crystal">Crystal</option>
-            <option value="csp">Content-Security-Policy</option>
-            <option value="css-extras">CSS Extras</option>
-            <option value="d">D</option>
-            <option value="dart">Dart</option>
-            <option value="diff">Diff</option>
-            <option value="django">Django/Jinja2</option>
-            <option value="eiffel">Eiffel</option>
-            <option value="elixir">Elixir</option>
-            <option value="elm">Elm</option>
-            <option value="erb">ERB</option>
-            <option value="erlang">Erlang</option>
-            <option value="fsharp">F#</option>
-            <option value="flow">Flow</option>
-            <option value="fortran">Fortran</option>
-            <option value="gedcom">GEDCOM</option>
-            <option value="gherkin">Gherkin</option>
-            <option value="git">Git</option>
-            <option value="glsl">GLSL</option>
-            <option value="gml">GameMaker</option>
-            <option value="go">Go</option>
-            <option value="graphql">GraphQL</option>
-            <option value="groovy">Groovy</option>
-            <option value="haml">Haml</option>
-            <option value="handlebars">Handlebars</option>
-            <option value="haskell">Haskell</option>
-            <option value="haxe">Haxe</option>
-            <option value="http">HTTP</option>
-            <option value="hpkp">HTTP Public-Key-Pins</option>
-            <option value="hsts">HTTP STS</option>
-            <option value="ichigojam">IchigoJam</option>
-            <option value="icon">Icon</option>
-            <option value="inform7">Inform 7</option>
-            <option value="ini">Ini</option>
-            <option value="io">Io</option>
-            <option value="j">J</option>
-            <option value="java">Java</option>
-            <option value="jolie">Jolie</option>
-            <option value="julia">Julia</option>
-            <option value="keyman">Keyman</option>
-            <option value="kotlin">Kotlin</option>
-            <option value="latex">LaTeX</option>
-            <option value="less">Less</option>
-            <option value="liquid">Liquid</option>
-            <option value="lisp">Lisp</option>
-            <option value="livescript">LiveScript</option>
-            <option value="lolcode">LOLCODE</option>
-            <option value="lua">Lua</option>
-            <option value="makefile">Makefile</option>
-            <option value="markdown">Markdown</option>
-            <option value="markup-templating">Markup templating</option>
-            <option value="matlab">MATLAB</option>
-            <option value="mel">MEL</option>
-            <option value="mermaid">Mermaid</option>
-            <option value="mizar">Mizar</option>
-            <option value="monkey">Monkey</option>
-            <option value="n4js">N4JS</option>
-            <option value="nasm">NASM</option>
-            <option value="nginx">nginx</option>
-            <option value="nim">Nim</option>
-            <option value="nix">Nix</option>
-            <option value="nsis">NSIS</option>
-            <option value="objectivec">Objective-C</option>
-            <option value="ocaml">OCaml</option>
-            <option value="opencl">OpenCL</option>
-            <option value="oz">Oz</option>
-            <option value="parigp">PARI/GP</option>
-            <option value="parser">Parser</option>
-            <option value="pascal">Pascal</option>
-            <option value="perl">Perl</option>
-            <option value="php">PHP</option>
-            <option value="php-extras">PHP Extras</option>
-            <option value="plsql">PL/SQL</option>
-            <option value="powershell">PowerShell</option>
-            <option value="processing">Processing</option>
-            <option value="prolog">Prolog</option>
-            <option value="properties">.properties</option>
-            <option value="protobuf">Protocol Buffers</option>
-            <option value="pug">Pug</option>
-            <option value="puppet">Puppet</option>
-            <option value="pure">Pure</option>
-            <option value="python">Python</option>
-            <option value="q">Q (kdb+ database)</option>
-            <option value="qore">Qore</option>
-            <option value="r">R</option>
-            <option value="jsx">React JSX</option>
-            <option value="tsx">React TSX</option>
-            <option value="renpy">Ren'py</option>
-            <option value="reason">Reason</option>
-            <option value="rest">reST (reStructuredText)</option>
-            <option value="rip">Rip</option>
-            <option value="roboconf">Roboconf</option>
-            <option value="ruby">Ruby</option>
-            <option value="rust">Rust</option>
-            <option value="sas">SAS</option>
-            <option value="sass">Sass (Sass)</option>
-            <option value="scss">Sass (Scss)</option>
-            <option value="scala">Scala</option>
-            <option value="scheme">Scheme</option>
-            <option value="smalltalk">Smalltalk</option>
-            <option value="smarty">Smarty</option>
-            <option value="sql">SQL</option>
-            <option value="soy">Soy (Closure Template)</option>
-            <option value="stylus">Stylus</option>
-            <option value="swift">Swift</option>
-            <option value="tap">TAP</option>
-            <option value="tcl">Tcl</option>
-            <option value="textile">Textile</option>
-            <option value="tt2">Template Toolkit 2</option>
-            <option value="twig">Twig</option>
-            <option value="typescript">TypeScript</option>
-            <option value="vbnet">VB.Net</option>
-            <option value="velocity">Velocity</option>
-            <option value="verilog">Verilog</option>
-            <option value="vhdl">VHDL</option>
-            <option value="vim">vim</option>
-            <option value="visual-basic">Visual Basic</option>
-            <option value="wasm">WebAssembly</option>
-            <option value="wiki">Wiki markup</option>
-            <option value="xeora">Xeora</option>
-            <option value="xojo">Xojo (REALbasic)</option>
-            <option value="xquery">XQuery</option>
-        </select>
+    <!-- New paste textarea (shown in "new" state) -->
+    <div class="w3-section" id="textarea-region">
+      <textarea autofocus class="w3-input w3-border w3-border-grey w3-round w3-margin-top" id="content-textarea"
+                style="font-family:'Courier New',monospace; font-size: 0.5cm"></textarea>
     </div>
 
-    <!-- Main Content -->
-    <main class="w3-container" style="display:flex; flex-direction:column;">
-        <div class="w3-section">
-            <div class="w3-panel w3-pale-green w3-round w3-display-container" role="alert">
-                <span onclick="this.parentElement.style.display='none'" class="w3-button w3-display-topright w3-round">X</span>
-                <p><i class="fas fa-info"></i> The paste has been successfully created: <a
-                       href="https://sitnikov.eu/pastebin/4fLGi_q5nh8m74V_eVVe">https://sitnikov.eu/pastebin/4fLGi_q5nh8m74V_eVVe</a></p>
-            </div>
-
-            <div class="w3-panel w3-pale-red w3-round w3-display-container" role="alert">
-                <span onclick="this.parentElement.style.display='none'" class="w3-button w3-display-topright w3-round">X</span>
-                <p><i class="fas fa-fire"></i><strong> For your eyes only.</strong> This paste has been permanently deleted. You can't view it again if you refresh the page.</p>
-            </div>
-
-            <div class="w3-panel w3-khaki w3-round w3-display-container" role="alert">
-                <span onclick="this.parentElement.style.display='none'" class="w3-button w3-display-topright w3-round">X</span>
-                <p><i class="fas fa-clock"></i> This paste will expire on <strong>2026-09-03 12:51:46 UTC</strong>.</p>
-            </div>
-
-            <div class="w3-panel w3-khaki w3-round w3-display-container" role="alert">
-                <span onclick="this.parentElement.style.display='none'" class="w3-button w3-display-topright w3-round">X</span>
-                <p><i class="fas fa-file-circle-xmark"></i><span class="w3-xxlarge w3-display-middle">404</span> The page you are looking for was not found.</p>
-            </div>
-        </div>
-
-        <textarea autofocus class="w3-input w3-border w3-round" id="content-textarea" style="font-family: 'Courier New', monospace;"></textarea>
-
-    </main>
-
-    <!-- Footer -->
-    <footer class="w3-container w3-bar w3-light-grey w3-padding w3-margin-top w3-text-grey w3-large">
-        <a href="https://hub.docker.com/r/gas85/ownpastebin" class="w3-bar-item w3-button w3-hover-text-black"><i class="fab fa-docker"></i></a>
-        <a href="https://github.com/GAS85/ownPastebin" class="w3-bar-item w3-button w3-hover-text-black"><i class="fab fa-github"></i></a>
-        <span class="w3-bar-item w3-hide-small">Your own Pastebin v1.2.0</span>
-        <a href="swagger-ui" class="w3-bar-item w3-button w3-hover-text-black w3-right">API Documentation</a>
-    </footer>
-
-    <!-- Password Prompt -->
-    <button onclick="document.getElementById('password-modal').style.display='block'"
-            class="w3-button">Open Modal</button>
-
-    <div id="password-modal" class="w3-modal">
-        <div class="w3-modal-content w3-animate-top">
-            <header class="w3-container w3-blue-gray">
-                <span onclick="document.getElementById('password-modal').style.display='none'"
-                      class="w3-button w3-display-topright">&times;</span>
-                <h2><i class="fas fa-key"></i>Password protected</h2>
-            </header>
-            <div class="w3-container">
-                <p>This paste was marked as E2E Encrypted, please enter the password to decrypt content.</p>
-                <p>You can also copy encrypted data and decrypt it local with command<br><code
-                          class="w3-codespan">echo "U2Fsd..." | openssl enc -aes-256-cbc -d -a -md md5 -pass pass:YOUR_PASSWORD</code></p>
-                <label><b>Password</b></label>
-                <input class="w3-input w3-round w3-margin-bottom w3-bottombar" type="password" placeholder="Enter Password" name="psw" required>
-                <div class="w3-panel w3-pale-yellow w3-border w3-round w3-large w3-margin w3-hide" role="alert" id="modal-alert">
-                    <i class="fas fa-exclamation-triangle"></i>
-                    Could not decrypt data. Wrong password?
-                </div>
-            </div>
-
-            <footer class="w3-container w3-blue-gray">
-                <button type="button" class="w3-button w3-green w3-hover-light-green w3-right w3-round w3-margin" id="decrypt-btn">Decrypt</button>
-            </footer>
-        </div>
+    <!-- Created paste view (shown in "view" state) -->
+    <div id="paste-view-region" style="display:none;">
+      <div id="burn-alert" class="w3-panel w3-pale-red w3-round w3-display-container w3-card-4 w3-margin-top" role="alert" style="display:none;">
+        <span onclick="this.parentElement.style.display='none'" class="w3-button w3-display-topright w3-round">&times;</span>
+        <p><i class="fas fa-fire"></i> <strong>For your eyes only.</strong> This paste has been permanently deleted after this view.</p>
+      </div>
+      <div id="expire-alert" class="w3-panel w3-card-4 w3-khaki w3-round w3-display-container w3-margin-top" role="alert" style="display:none;">
+        <span onclick="this.parentElement.style.display='none'" class="w3-button w3-display-topright w3-round">&times;</span>
+        <p><i class="fas fa-clock"></i> This paste will expire on <strong>2026-09-03 12:51:46 UTC</strong>.</p>
+      </div>
+      <pre class="w3-margin-top"><code id="pastebin-code-block" class="language-python">def hello():
+    print("Hello from pastebin!")
+    return 42</code></pre>
     </div>
 
-    <!-- Delete this paste Prompt -->
 
-    <button onclick="document.getElementById('deletion-modal').style.display='block'"
-            class="w3-button">Open Password Prompt</button>
 
-    <div id="deletion-modal" class="w3-modal">
-        <div class="w3-modal-content w3-animate-top">
-            <header class="w3-container w3-blue-gray">
-                <span onclick="document.getElementById('deletion-modal').style.display='none'"
-                      class="w3-button w3-display-topright">&times;</span>
-                <h2><i class="fas fa-trash"></i>Delete this paste?</h2>
-            </header>
-            <div class="w3-container">
-                <p>This paste will be permanently deleted. Link can't be reused anymore.</p>
-            </div>
+  </main>
 
-            <footer class="w3-container">
-                <button type="button" class="w3-button w3-green w3-hover-light-green w3-left w3-round w3-margin" id="deletion-confirm-btn" onclick="document.getElementById('deletion-modal').style.display='none'">Cancel</button>
-                <button type="button" class="w3-button w3-red w3-hover-orange w3-right w3-round w3-margin" id="deletion-confirm-btn">Delete</button>
-            </footer>
+  <!-- FOOTER -->
+  <footer class="w3-container w3-display-container w3-bar w3-light-grey w3-padding w3-margin-top w3-text-grey w3-large w3-hide-small">
+    <a href="https://hub.docker.com/r/gas85/ownpastebin"
+       class="w3-bar-item w3-button w3-hover-text-black w3-round"><i class="fab fa-docker"></i></a>
+    <a href="https://github.com/GAS85/ownPastebin"
+       class="w3-bar-item w3-button w3-hover-text-black w3-round"><i class="fab fa-github"></i></a>
+    <span class="w3-bar-item w3-hide-small w3-display-middle">Your own Pastebin <a href="https://github.com/GAS85/ownPastebin/releases/tag/v1.2.0">v1.2.0</a></span>
+    <a href="/swagger-ui" class="w3-bar-item w3-button w3-hover-text-black w3-right w3-round">API Documentation</a>
+  </footer>
+
+  <!-- PASSWORD MODAL -->
+  <div id="password-modal" class="w3-modal" style="display:none;"
+       role="dialog" aria-modal="true" aria-labelledby="password-modal-title">
+    <div class="w3-modal-content w3-animate-top w3-card-4">
+      <header class="w3-container w3-blue-grey">
+        <button onclick="document.getElementById('password-modal').style.display='none'"
+                class="w3-button w3-display-topright" aria-label="Close">&times;</button>
+        <h4 id="password-modal-title"><i class="fas fa-key"></i> Password Protected</h4>
+      </header>
+      <div class="w3-container w3-padding">
+        <p>This paste is E2E encrypted. Enter the password to decrypt it in your browser.</p>
+        <div class="w3-dropdown-hover w3-margin-bottom">Or decrypt locally with Python.
+          <div class="w3-dropdown-content w3-card-4">
+            <code class="w3-codespan w3-margin">pip install cryptography</code>
+            <br>Then you can execute it:<br>
+            <code class="w3-codespan w3-margin">python3 -c "
+            import base64; from cryptography.hazmat.primitives.ciphers.aead import AESGCM; from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC; from cryptography.hazmat.primitives import hashes;
+            d=base64.b64decode(input('Ciphertext (without v2: prefix): '))
+            pw=input('Password: ').encode()
+            kdf=PBKDF2HMAC(hashes.SHA256(),32,d[:16],200000)
+            print(AESGCM(kdf.derive(pw)).decrypt(d[16:28],d[28:],None).decode())"</code>
+          </div>
         </div>
+        <br>
+        <div class="w3-panel w3-khaki w3-border w3-round w3-padding w3-hide"
+             id="modal-alert" role="alert">
+          <i class="fas fa-exclamation-triangle"></i> Could not decrypt. Wrong password?
+        </div>
+        <label for="modal-password"><strong>Password</strong></label>
+        <input class="w3-input w3-border w3-round w3-margin-bottom" type="password"
+               id="modal-password" placeholder="Enter password"
+               autocomplete="current-password">
+      </div>
+      <footer class="w3-container w3-blue-grey w3-padding">
+        <button type="button" class="w3-button w3-grey w3-round" id="modal-close-btn"
+                onclick="document.getElementById('password-modal').style.display='none'">Close</button>
+        <button type="button"
+                class="w3-button w3-green w3-hover-light-green w3-round w3-right"
+                id="decrypt-btn">Decrypt</button>
+      </footer>
     </div>
+  </div>
 
-    <script>
-        // Used to toggle the menu on smaller screens when clicking on the menu button
-        function openNav() {
-            var x = document.getElementById("mobileMenu");
-            if (x.className.indexOf("w3-show") == -1) {
-                x.className += " w3-show";
-            } else {
-                x.className = x.className.replace(" w3-show", "");
-            }
-        }
-    </script>
+  <!-- DELETE MODAL -->
+  <div id="deletion-modal" class="w3-modal" style="display:none;"
+       role="dialog" aria-modal="true" aria-labelledby="deletion-modal-title">
+    <div class="w3-modal-content w3-animate-top w3-card-4" style="max-width:400px;">
+      <header class="w3-container w3-blue-grey">
+        <button onclick="document.getElementById('deletion-modal').style.display='none'"
+                class="w3-button w3-display-topright" aria-label="Close">&times;</button>
+        <h4 id="deletion-modal-title"><i class="fas fa-trash"></i> Delete this paste?</h4>
+      </header>
+      <div class="w3-container w3-padding">
+        <p>This paste will be permanently deleted. The link cannot be reused.</p>
+      </div>
+      <footer class="w3-container w3-padding w3-blue-grey">
+        <button type="button" class="w3-button w3-grey w3-round"
+                onclick="document.getElementById('deletion-modal').style.display='none'">Cancel</button>
+        <button type="button"
+                class="w3-button w3-red w3-hover-orange w3-round w3-right"
+                id="deletion-confirm-btn">Delete</button>
+      </footer>
+    </div>
+  </div>
 
-    <!-- Third-party scripts -->
-    <script src="static/jquery.min.js"></script>
-    <script src="static/crypto-js.min.js"></script>
-    <script src="static/popper.min.js"></script>
-    <script src="static/clipboard.min.js"></script>
-    <script src="static/custom.js"></script>
-    <script src="static/prism.js"></script>
-    <script src="static/mermaid.min.js"></script>
+  <!-- ============================================================
+         BOOT DATA (matches what Go template injects)
+         ============================================================ -->
+  <script>
+    var uri_prefix = "";   // empty = root-mounted
+
+    function init_plugins() {
+      // In production this is populated by Go plugins.Manager (e.g. Prism.highlightAll())
+      if (typeof Prism !== "undefined") Prism.highlightAll();
+    }
+  </script>
+
+  <!-- custom.js from CDN-less inline copy for standalone test -->
+  <script src="/static/prism.js"></script>
+  <script src="/static/custom.js"></script>
+
+  <!-- ============================================================
+         DEV STATE SWITCHER — not in production template
+       ============================================================ -->
+  <script>
+    // Switches the visible page state so all UI states can be tested
+    // without running the Go backend.
+    function setPageState(state) {
+      var textarea = document.getElementById("textarea-region");
+      var pasteView = document.getElementById("paste-view-region");
+      var errorView = document.getElementById("error-region");
+      var alertReg = document.getElementById("alert-region");
+      var sendCtrl = document.getElementById("pastebin-password", "send-btn");
+      var viewCtrl = document.getElementById("view-controls");
+      var expiryBurn = document.getElementById("expiry-burn-controls-burn", "expiry-burn-controls-expire");
+      var removeBtn = document.getElementById("remove-btn");
+      // var mobileEdit = document.getElementById("mobile-edit-controls");
+      // var mobileView = document.getElementById("mobile-view-controls");
+      var burnAlert = document.getElementById("burn-alert");
+      var expireAlert = document.getElementById("expire-alert");
+      var pwdModal = document.getElementById("password-modal");
+
+      // Hide everything first
+      [textarea, pasteView, errorView, sendCtrl, viewCtrl, expiryBurn,
+        pwdModal].forEach(function (el) {
+          if (el) el.style.display = "none";
+        });
+      if (removeBtn) removeBtn.style.display = "none";
+      alertReg.innerHTML = "";
+
+      if (state === "new") {
+        textarea.style.display = "";
+        sendCtrl.style.display = "";
+        expiryBurn.style.display = "";
+        // mobileEdit.style.display = "";
+
+      } else if (state === "flash-success") {
+        textarea.style.display = "";
+        sendCtrl.style.display = "";
+        expiryBurn.style.display = "";
+        alertReg.innerHTML = '<div class="w3-panel w3-pale-green w3-round w3-display-container w3-card-4  w3-margin-top" role="alert">'
+          + '<span onclick="this.parentElement.style.display=\'none\'" class="w3-button w3-display-topright w3-round">&times;</span>'
+          + '<p><i class="fas fa-check"></i> The paste has been successfully created: '
+          + '<a href="#">https://example.com/pastebin/abc123</a></p></div>';
+
+      } else if (state === "view") {
+        pasteView.style.display = "";
+        viewCtrl.style.display = "";
+        // mobileView.style.display = "";
+        removeBtn.style.display = "";
+        burnAlert.style.display = "none";
+        expireAlert.style.display = "";
+        if (typeof init_plugins === "function") init_plugins();
+
+      } else if (state === "view-burn") {
+        pasteView.style.display = "";
+        viewCtrl.style.display = "";
+        // mobileView.style.display = "";
+        burnAlert.style.display = "";
+        expireAlert.style.display = "none";
+        if (typeof init_plugins === "function") init_plugins();
+
+      } else if (state === "view-encrypted") {
+        pasteView.style.display = "";
+        viewCtrl.style.display = "";
+        removeBtn.style.display = "";
+        // Show encrypted placeholder
+        document.getElementById("pastebin-code-block").textContent = "U2FsdGVkX1+abc123...encrypted...";
+        pwdModal.style.display = "block";
+        if (typeof init_plugins === "function") init_plugins();
+
+      } else if (state === "error") {
+        errorView.style.display = "";
+      }
+    }
+
+    // Default: new paste state
+    document.addEventListener("DOMContentLoaded", function () {
+      setPageState("new");
+    });
+  </script>
+
+  <!-- Dev switcher UI -->
+  <div id="dev-switcher">
+    <strong>🛠 Test state:</strong>
+    <button onclick="setPageState('new')">New paste</button>
+    <button onclick="setPageState('flash-success')">Flash: created</button>
+    <button onclick="setPageState('view')">View paste</button>
+    <button onclick="setPageState('view-burn')">View burn</button>
+    <button onclick="setPageState('view-encrypted')">Encrypted</button>
+    <button onclick="setPageState('error')">404 error</button>
+  </div>
+
 </body>
 
 </html>

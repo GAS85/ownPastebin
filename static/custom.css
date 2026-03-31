@@ -1,19 +1,59 @@
-html,
-body {
+/* ── Root: full viewport height via flex column ── */
+html {
   height: 100%;
+}
+
+body {
+  min-height: 100%;          /* fills viewport; grows with content */
   margin: 0;
   display: flex;
   flex-direction: column;
 }
 
+/* ── Main grows to push footer down AND hosts the stretching textarea ── */
 main {
-  flex: 1;
+  flex: 1 1 auto;            /* grow to fill remaining vertical space */
   display: flex;
   flex-direction: column;
+  /* no padding-bottom here — textarea itself handles internal spacing */
 }
 
+/* ── The w3-section div wrapping the textarea must also stretch ── */
+main > .w3-section {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 0;          /* override W3.CSS default margin so no gap */
+}
+
+/* ── Textarea fills its flex parent completely ── */
 #content-textarea {
-  flex: 1;
+  flex: 1 1 auto;
   resize: none;
-  /* optional */
+  min-height: 300px;         /* fallback floor so it is never tiny */
+  width: 100%;
+  box-sizing: border-box;
+  font-family: "Courier New", Courier, monospace;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+/* ── Code block: horizontal scroll, never overflow ── */
+pre {
+  overflow-x: auto;
+  background: #f8f8f8;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 1rem;
+  margin-bottom: 0;
+}
+
+/* ── Footer stays at the bottom naturally via flex ── */
+footer {
+  flex-shrink: 0;
+}
+
+/* ── Modals sit above the sticky navbar ── */
+.w3-modal {
+  z-index: 200;
 }

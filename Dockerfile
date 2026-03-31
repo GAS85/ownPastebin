@@ -1,6 +1,5 @@
 # ── Build stage ──────────────────────────────────────────────────────────────
 FROM golang:1.26-alpine AS builder
-# 1.26
 
 # CGO is required for go-sqlite3
 RUN apk add --no-cache gcc musl-dev
@@ -19,14 +18,23 @@ ADD https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css ./
 ADD https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/webfonts/fa-solid-900.woff2 ./static
 ADD https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/webfonts/fa-brands-400.woff2 ./static
 # JS
-ADD https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js ./static
-ADD https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js ./static
 ADD https://cdnjs.cloudflare.com/ajax/libs/popper.js/2.11.8/umd/popper.min.js ./static
 ADD https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.11/clipboard.min.js ./static
 ADD https://cdnjs.cloudflare.com/ajax/libs/mermaid/11.12.0/mermaid.min.js ./static
 # Replace relative links to static
 RUN sed -i 's|../webfonts/||g' ./static/all.min.css
-RUN mkdir -p /usr/local/go/src/pastebin/plugins && cp plugins/*.* /usr/local/go/src/pastebin/plugins
+
+# Add local script hashes to the CSP
+RUN apk add --no-cache openssl && \
+    export InternalHashes=$(grep -oE 'onclick="[^"]+"' ./templates/index.html \
+    | sed 's/^onclick="//; s/"$//' \
+    | sort -u \
+    | while IFS= read -r line; do \
+        hash=$(printf "%s" "$line" | openssl dgst -sha256 -binary | openssl base64); \
+        printf "'sha256-%s' " "$hash"; \
+    done) && \
+    sed -i "s|SHA-HASHES|$InternalHashes|g" ./templates/index.html
+
 RUN go mod download
 
 RUN CGO_ENABLED=1 GOOS=linux go build -ldflags="-s -w" -o pastebin .
