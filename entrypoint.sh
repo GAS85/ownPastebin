@@ -49,6 +49,7 @@ elif [ -n "${PASTEBIN_POSTGRES_URL+x}" ]; then
     DB_INFO="PostgreSQL"
 else
     DB_INFO="SQLite ($PASTEBIN_SQLITE_PATH)"
+    # We can only check SQlite DB as it is mounted to the container
     DB_SIZE="$(du -h $PASTEBIN_SQLITE_PATH | awk '{ print $1 }' 2>/dev/null)"
     echo $DB_SIZE
     SQLITE_DIR=$(dirname "$PASTEBIN_SQLITE_PATH")
@@ -76,6 +77,7 @@ log INFO "Base URL:               $PASTEBIN_BASE_URL"
 log INFO "Server side Encryption: $PASTEBIN_SERVER_SIDE_ENCRYPTION_ENABLED"
 log INFO "Max TTL:                ${PASTEBIN_MAX_TTL:-unlimited}"
 log INFO "Default TTL:            $PASTEBIN_DEFAULT_TTL"
+log INFO "Burn by default         ${PASTEBIN_DEFAULT_BURN:-false}"
 log INFO "Max paste:              $PASTEBIN_MAX_PASTE_SIZE"
 log INFO "Max Parallel Uploads:   $PASTEBIN_MAX_PARALLEL_UPLOADS"
 log INFO "Uniq URL Length:        $PASTEBIN_SLUG_LEN"

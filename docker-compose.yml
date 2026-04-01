@@ -26,6 +26,7 @@ services:
       #- PASTEBIN_TLS_KEY=/path/to/tls.pem
       #- PASTEBIN_TLS_CERT=/path/to/tls.cer
       #- PASTEBIN_DEFAULT_TTL=30d
+      #- PASTEBIN_DEFAULT_BURN=true
       #- PASTEBIN_MAX_PASTE_SIZE=10Mb
       #- PASTEBIN_MAX_TTL=360d
       #- PASTEBIN_SERVER_SIDE_ENCRYPTION_ENABLED=true

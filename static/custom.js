@@ -60,7 +60,9 @@ function replaceUrlParam(url, param, value) {
 
 /** Base URL for flash redirects — always the prefix root. */
 function flashBase() {
-  return (typeof uri_prefix !== "undefined" && uri_prefix !== "") ? uri_prefix + "/" : "/";
+  return typeof uri_prefix !== "undefined" && uri_prefix !== ""
+    ? uri_prefix + "/"
+    : "/";
 }
 
 // ── AES-256-GCM + PBKDF2-SHA-256 ─────────────────────────────────────────────
@@ -81,19 +83,19 @@ async function deriveKey(password, salt) {
     enc.encode(password),
     { name: "PBKDF2" },
     false,
-    ["deriveKey"]
+    ["deriveKey"],
   );
   return crypto.subtle.deriveKey(
     {
       name: "PBKDF2",
       salt: salt,
       iterations: PBKDF2_ITERATIONS,
-      hash: "SHA-256"
+      hash: "SHA-256",
     },
     keyMaterial,
     { name: "AES-GCM", length: 256 },
     false,
-    ["encrypt", "decrypt"]
+    ["encrypt", "decrypt"],
   );
 }
 
@@ -105,26 +107,28 @@ async function deriveKey(password, salt) {
  */
 async function aesEncrypt(plaintext, password) {
   var salt = crypto.getRandomValues(new Uint8Array(16));
-  var iv   = crypto.getRandomValues(new Uint8Array(12));
-  var key  = await deriveKey(password, salt);
-  var enc  = new TextEncoder();
+  var iv = crypto.getRandomValues(new Uint8Array(12));
+  var key = await deriveKey(password, salt);
+  var enc = new TextEncoder();
 
   var cipherBuf = await crypto.subtle.encrypt(
     { name: "AES-GCM", iv: iv },
     key,
-    enc.encode(plaintext)
+    enc.encode(plaintext),
   );
 
   // Concatenate: salt(16) + iv(12) + ciphertext+tag
-  var ct  = new Uint8Array(cipherBuf);
+  var ct = new Uint8Array(cipherBuf);
   var out = new Uint8Array(salt.length + iv.length + ct.length);
   out.set(salt, 0);
-  out.set(iv,   salt.length);
-  out.set(ct,   salt.length + iv.length);
+  out.set(iv, salt.length);
+  out.set(ct, salt.length + iv.length);
 
   // Uint8Array → Base64
   var binary = "";
-  for (var i = 0; i < out.length; i++) binary += String.fromCharCode(out[i]);
+  // for (var i = 0; i < out.length; i++) binary += String.fromCharCode(out[i]);
+  // Try to increase BASE64 performance
+  var binary = String.fromCharCode.apply(null, out);
   return FORMAT_PREFIX + btoa(binary);
 }
 
@@ -143,15 +147,15 @@ async function aesDecrypt(cipherText, password) {
     var raw = new Uint8Array(binary.length);
     for (var i = 0; i < binary.length; i++) raw[i] = binary.charCodeAt(i);
 
-    var salt      = raw.slice(0, 16);
-    var iv        = raw.slice(16, 28);
+    var salt = raw.slice(0, 16);
+    var iv = raw.slice(16, 28);
     var cipherBuf = raw.slice(28);
 
     var key = await deriveKey(password, salt);
     var plainBuf = await crypto.subtle.decrypt(
       { name: "AES-GCM", iv: iv },
       key,
-      cipherBuf
+      cipherBuf,
     );
     return new TextDecoder().decode(plainBuf);
   } catch (e) {
@@ -159,10 +163,41 @@ async function aesDecrypt(cipherText, password) {
   }
 }
 
+// ── Get defaults ───────────────────────────────────────────────────────────────
+
+function getMeta(name) {
+  return document.querySelector(`meta[name="${name}"]`)?.content;
+}
+
+const default_expiry = getMeta("default-expiry") || "86400";
+const default_burn = getMeta("default-burn") || "false";
+const uri_prefix = getMeta("uri-prefix") || "";
+
+// ── Render plugin init as JSON ──────────────────────────────────────────────────
+
+function init_plugins() {
+  const el = document.getElementById("plugin-inits");
+  if (!el) return;
+
+  let inits = [];
+  try {
+    inits = JSON.parse(el.textContent);
+  } catch (e) {
+    console.error("Invalid plugin init JSON", e);
+    return;
+  }
+
+  for (const fnName of inits) {
+    if (typeof window[fnName] === "function") {
+      window[fnName]();
+    }
+  }
+}
+
 // ── Mobile menu ───────────────────────────────────────────────────────────────
 
 function toggleMobileMenu() {
-//  var menu = document.getElementById("mobileMenu");
+  //  var menu = document.getElementById("mobileMenu");
   var menu = document.getElementById("desktopNav");
   if (!menu) return;
   if (menu.classList.contains("w3-hide")) {
@@ -177,8 +212,36 @@ function toggleMobileMenu() {
 // ── DOM ready ─────────────────────────────────────────────────────────────────
 
 document.addEventListener("DOMContentLoaded", function () {
+  // var state = { expiry: "86400", burn: "false" };
+  var state = {
+    expiry: default_expiry,
+    burn: default_burn,
+  };
 
-  var state = { expiry: "86400", burn: "false" };
+  // ── Apply default labels ─────────────────────────────
+  (function () {
+    var expiryBtn = document.getElementById("expiry-dropdown-btn");
+    var burnBtn = document.getElementById("burn-dropdown-btn");
+
+    if (expiryBtn) {
+      var expiryMap = {
+        0: "Never",
+        300: "5 min",
+        600: "10 min",
+        3600: "1 hour",
+        86400: "1 day",
+        604800: "1 week",
+        2592000: "1 month",
+        31536000: "1 year",
+      };
+      expiryBtn.textContent =
+        "Expires: " + (expiryMap[state.expiry] || state.expiry);
+    }
+
+    if (burnBtn) {
+      burnBtn.textContent = "Burn: " + (state.burn === "true" ? "Yes" : "No");
+    }
+  })();
 
   // ── Language selector → re-highlight ──────────────────────────────────────
   ["language-selector"].forEach(function (id) {
@@ -251,12 +314,18 @@ document.addEventListener("DOMContentLoaded", function () {
       deleteConfirmBtn.disabled = true;
 
       fetch(window.location.pathname, { method: "DELETE" })
-        .then(function (r) { return r.json(); })
+        .then(function (r) {
+          return r.json();
+        })
         .then(function () {
           var uri = flashBase();
           uri = replaceUrlParam(uri, "level", "info");
           uri = replaceUrlParam(uri, "glyph", "fas fa-info-circle");
-          uri = replaceUrlParam(uri, "msg", "The paste has been successfully removed.");
+          uri = replaceUrlParam(
+            uri,
+            "msg",
+            "The paste has been successfully removed.",
+          );
           window.location.href = encodeURI(uri);
         })
         .catch(function () {
@@ -294,15 +363,21 @@ document.addEventListener("DOMContentLoaded", function () {
           tmp.value = text;
           tmp.style.cssText = "position:fixed;opacity:0";
           document.body.appendChild(tmp);
-          tmp.focus(); tmp.select();
-          try { document.execCommand("copy"); } catch (err) {}
+          tmp.focus();
+          tmp.select();
+          try {
+            document.execCommand("copy");
+          } catch (err) {}
           document.body.removeChild(tmp);
         }
       }
       var original = btn.textContent;
       btn.textContent = "Copied!";
       btn.disabled = true;
-      setTimeout(function () { btn.textContent = original; btn.disabled = false; }, 800);
+      setTimeout(function () {
+        btn.textContent = original;
+        btn.disabled = false;
+      }, 800);
     });
   });
 
@@ -323,29 +398,41 @@ document.addEventListener("DOMContentLoaded", function () {
       if (b) b.disabled = true;
     });
 
-    var langSel  = document.getElementById("language-selector")
-    var passSel  = document.getElementById("pastebin-password")
+    var langSel = document.getElementById("language-selector");
+    var passSel = document.getElementById("pastebin-password");
     var textarea = document.getElementById("content-textarea");
 
-    var uri = (typeof uri_prefix !== "undefined" && uri_prefix !== "")
-                ? uri_prefix + "/" : "/";
+    var uri =
+      typeof uri_prefix !== "undefined" && uri_prefix !== ""
+        ? uri_prefix + "/"
+        : "/";
     if (langSel) uri = replaceUrlParam(uri, "lang", langSel.value);
-    uri = replaceUrlParam(uri, "ttl",  state.expiry);
+    uri = replaceUrlParam(uri, "ttl", state.expiry);
     uri = replaceUrlParam(uri, "burn", state.burn);
 
     var data = textarea ? textarea.value : "";
-    var pass = passSel  ? passSel.value  : "";
+    var pass = passSel ? passSel.value : "";
 
     function doSend(body, encrypted) {
       if (encrypted) uri = replaceUrlParam(uri, "encrypted", "true");
-      fetch(uri, { method: "POST", body: body, headers: { "Content-Type": "text/plain" } })
-        .then(function (r) { return r.json(); })
+      fetch(uri, {
+        method: "POST",
+        body: body,
+        headers: { "Content-Type": "text/plain" },
+      })
+        .then(function (r) {
+          return r.json();
+        })
         .then(function (result) {
           var redirect = flashBase();
-          redirect = replaceUrlParam(redirect, "level",  "success");
-          redirect = replaceUrlParam(redirect, "glyph",  "fas fa-check");
-          redirect = replaceUrlParam(redirect, "msg",    "The paste has been successfully created:");
-          redirect = replaceUrlParam(redirect, "url",    result.url);
+          redirect = replaceUrlParam(redirect, "level", "success");
+          redirect = replaceUrlParam(redirect, "glyph", "fas fa-check");
+          redirect = replaceUrlParam(
+            redirect,
+            "msg",
+            "The paste has been successfully created:",
+          );
+          redirect = replaceUrlParam(redirect, "url", result.url);
           window.location.href = encodeURI(redirect);
         })
         .catch(function () {
@@ -357,13 +444,19 @@ document.addEventListener("DOMContentLoaded", function () {
           });
           var redirect = flashBase();
           redirect = replaceUrlParam(redirect, "level", "danger");
-          redirect = replaceUrlParam(redirect, "msg",   "Failed to create paste.");
+          redirect = replaceUrlParam(
+            redirect,
+            "msg",
+            "Failed to create paste.",
+          );
           window.location.href = encodeURI(redirect);
         });
     }
 
     if (pass.length > 0) {
-      aesEncrypt(data, pass).then(function (encrypted) { doSend(encrypted, true); });
+      aesEncrypt(data, pass).then(function (encrypted) {
+        doSend(encrypted, true);
+      });
     } else {
       doSend(data, false);
     }
@@ -378,14 +471,17 @@ document.addEventListener("DOMContentLoaded", function () {
   var decryptBtn = document.getElementById("decrypt-btn");
   if (decryptBtn) {
     decryptBtn.addEventListener("click", function () {
-      var passInput  = document.getElementById("modal-password");
-      var pass       = passInput ? passInput.value : "";
-      var block      = document.getElementById("pastebin-code-block");
-      var textarea   = document.getElementById("content-textarea");
-      var cipherText = block ? block.textContent.trim()
-//                             : (textarea ? textarea.textContent.trim() : "");
-                             : (textarea ? textarea.value.trim() : "");
-      var alertEl    = document.getElementById("modal-alert");
+      var passInput = document.getElementById("modal-password");
+      var pass = passInput ? passInput.value : "";
+      var block = document.getElementById("pastebin-code-block");
+      var textarea = document.getElementById("content-textarea");
+      var cipherText = block
+        ? block.textContent.trim()
+        : //                             : (textarea ? textarea.textContent.trim() : "");
+          textarea
+          ? textarea.value.trim()
+          : "";
+      var alertEl = document.getElementById("modal-alert");
 
       aesDecrypt(cipherText, pass).then(function (decrypted) {
         if (!decrypted || decrypted.length === 0) {
@@ -395,7 +491,7 @@ document.addEventListener("DOMContentLoaded", function () {
             block.textContent = decrypted;
             if (typeof init_plugins === "function") init_plugins();
           } else if (textarea) {
-//            textarea.textContent = decrypted;
+            //            textarea.textContent = decrypted;
             textarea.value = decrypted;
           }
           document.getElementById("password-modal").style.display = "none";
@@ -424,5 +520,4 @@ document.addEventListener("DOMContentLoaded", function () {
       if (e.target === modal) modal.style.display = "none";
     });
   });
-
 });

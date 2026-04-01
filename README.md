@@ -91,6 +91,7 @@ The application automatically selects the first available backend:
 * `PASTEBIN_MAX_TTL` -  Maximum allowed TTL. It is recommended to set this value for internet accessible sites. If set:
   * caps user-provided TTL
   * used when no TTL is provided
+* `PASTEBIN_DEFAULT_BURN` - If enabled all pastes without `burn=false` will be saved to be viewed only once. You can still set `burn=false` via UI or CLI. Default: `false`.
 
 ### Supported Formats
 

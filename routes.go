@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"html/template"
 	"io"
 	"os"
@@ -30,23 +31,25 @@ type App struct {
 
 // TemplateData is passed to index.html for every render.
 type TemplateData struct {
-	IsEditable   bool
-	IsCreated    bool
-	IsBurned     bool
-	IsBurn       bool       // true = this paste is configured as burn-on-read
-	IsError      bool
-	IsEncrypted  bool
-	IsClone      bool
-	PastebinCode string
-	PastebinID   string
-	PastebinCls  string
-	Version      string
-	ExpireAt     *time.Time // nil = never expires
-	CSSImports   []string
-	JSImports    []string
-	JSInits      []string
-	ExpiryTimes  []ExpiryOption
-	URIPrefix    string
+	IsEditable    bool
+	IsCreated     bool
+	IsBurned      bool
+	IsBurn        bool       // true = this paste is configured as burn-on-read
+	IsError       bool
+	IsEncrypted   bool
+	IsClone       bool
+	PastebinCode  string
+	PastebinID    string
+	PastebinCls   string
+	Version       string
+	ExpireAt      *time.Time // nil = never expires
+	CSSImports    []string
+	JSImports     []string
+	JSInits       []string
+	ExpiryTimes   []ExpiryOption
+	URIPrefix     string
+	DefaultExpiry string
+	DefaultBurn   bool
 
 	// Flash / redirect params (mirroring Python ?level=&msg=&glyph=&url=)
 	Level    string
@@ -67,23 +70,33 @@ var defaultExpiryTimes = []ExpiryOption{
 	{"1 hour", "3600"},
 	{"1 day", "86400"},
 	{"1 week", "604800"},
-	{"1 month", "18144000"},
-	{"1 year", "220752000"},
+	{"1 month", "2592000"},
+	{"1 year", "31536000"},
 }
 
 func (a *App) baseData(r *http.Request) TemplateData {
 	return TemplateData{
-		Version:     os.Getenv("VERSION"),
-		URIPrefix:   a.cfg.PathPrefix,
-		CSSImports:  a.plugins.CSSImports,
-		JSImports:   a.plugins.JSImports,
-		JSInits:     a.plugins.JSInits,
-		ExpiryTimes: defaultExpiryTimes,
-		Level:       r.URL.Query().Get("level"),
-		Msg:         r.URL.Query().Get("msg"),
-		Glyph:       r.URL.Query().Get("glyph"),
-		FlashURL:    r.URL.Query().Get("url"),
+		Version:       os.Getenv("VERSION"),
+		URIPrefix:     a.cfg.PathPrefix,
+		CSSImports:    a.plugins.CSSImports,
+		JSImports:     a.plugins.JSImports,
+		JSInits:       a.plugins.JSInits,
+		ExpiryTimes:   defaultExpiryTimes,
+		DefaultExpiry: strconv.FormatInt(int64(a.cfg.DefaultTTL.Seconds()), 10),
+		DefaultBurn:   a.cfg.DefaultBurn,
+		Level:         r.URL.Query().Get("level"),
+		Msg:           r.URL.Query().Get("msg"),
+		Glyph:         r.URL.Query().Get("glyph"),
+		FlashURL:      r.URL.Query().Get("url"),
 	}
+}
+
+func toJSON(v any) template.JS {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return template.JS("[]") // fallback to empty array
+	}
+	return template.JS(b)
 }
 
 // ---- encode / decode --------------------------------------------------------
@@ -168,6 +181,16 @@ func (a *App) handleCreatePaste(w http.ResponseWriter, r *http.Request) {
 
 	q := r.URL.Query()
 
+	// use default Burn values
+	burnParam := q.Get("burn")
+
+	var burn bool
+	if burnParam == "" {
+		burn = a.cfg.DefaultBurn
+	} else {
+		burn = burnParam == "true"
+	}
+
 	var ttl time.Duration
 	if s := q.Get("ttl"); s != "" {
 		n, err := strconv.ParseInt(s, 10, 64)
@@ -192,7 +215,7 @@ func (a *App) handleCreatePaste(w http.ResponseWriter, r *http.Request) {
 
 	paste := &PasteData{
 		Content:      content,
-		Burn:         q.Get("burn") == "true",
+		Burn:         burn,
 		Encrypted:    a.cfg.ServerSideEncryptionEnabled,
 		E2EEncrypted: q.Get("encrypted") == "true",
 		Lang:         lang,

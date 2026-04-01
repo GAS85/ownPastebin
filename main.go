@@ -71,6 +71,11 @@ func main() {
 			}
 			return t.Format("2006-01-02 15:04:05 UTC")
 		},
+		// {{toJSON .JSInits}} — serialises a Go value to a JSON literal safe for
+		// embedding inside <script type="application/json">. Defined here so the
+		// template parser can resolve it at parse time; the implementation lives
+		// in routes.go as toJSON().
+		"toJSON": toJSON,
 	}
 	tmpl, err := template.New("index.html").Funcs(funcMap).ParseFS(templateFS, "templates/index.html")
 	if err != nil {
