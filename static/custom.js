@@ -333,6 +333,7 @@ document.addEventListener("DOMContentLoaded", function () {
           deleteConfirmBtn.disabled = false;
           var uri = flashBase();
           uri = replaceUrlParam(uri, "level", "danger");
+          uri = replaceUrlParam(uri, "glyph", "fas fa-circle-xmark");
           uri = replaceUrlParam(uri, "msg", "Failed to delete the paste.");
           window.location.href = encodeURI(uri);
         });
@@ -444,6 +445,7 @@ document.addEventListener("DOMContentLoaded", function () {
           });
           var redirect = flashBase();
           redirect = replaceUrlParam(redirect, "level", "danger");
+          redirect = replaceUrlParam(redirect, "glyph", "fas fa-circle-xmark");
           redirect = replaceUrlParam(
             redirect,
             "msg",
