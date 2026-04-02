@@ -26,8 +26,8 @@ type TestConfig struct {
 	PathPrefix string
 	// MaxPasteSize defaults to 5MB if 0.
 	MaxPasteSize int64
-	// MaxParallelUploads defaults to 20
-	MaxParallelUploads int 
+	// MaxParallelUploads defaults to 20.
+	MaxParallelUploads int
 }
 
 // NewAppForTest builds a fully wired *App backed by a throwaway SQLite DB.
@@ -106,6 +106,7 @@ func NewAppForTest(t *testing.T, tc TestConfig) (*App, http.Handler) {
 			}
 			return t.Format(time.RFC3339)
 		},
+		"toJSON": toJSON,
 	}
 	tmpl, err := template.New("index.html").Funcs(funcMap).Parse(stubTmpl)
 	if err != nil {
@@ -113,15 +114,15 @@ func NewAppForTest(t *testing.T, tc TestConfig) (*App, http.Handler) {
 	}
 
 	// ── Plugins ───────────────────────────────────────────────────────────────
-	mgr := plugins.NewManager(plugins.DefaultBase(), nil)
+	mgr := plugins.NewManager(plugins.DefaultBase(cfg.PathPrefix), nil)
 
 	// ── App ───────────────────────────────────────────────────────────────────
 	app := &App{
-		cfg:     cfg,
-		storage: store,
-		crypto:  cry,
-		tmpl:    tmpl,
-		plugins: mgr,
+		cfg:       cfg,
+		storage:   store,
+		crypto:    cry,
+		tmpl:      tmpl,
+		plugins:   mgr,
 		uploadSem: make(chan struct{}, maxUploads),
 	}
 
