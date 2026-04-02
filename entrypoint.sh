@@ -57,6 +57,26 @@ else
         log ERROR "$SQLITE_DIR is not writable by UID $(id -u). Exiting."
         exit 1
     fi
+    # Check if PASTEBIN_SQLITE_PAGE_SIZE set and is between 512 and 65536 and power of 2
+    if [ -n "${PASTEBIN_SQLITE_PAGE_SIZE}" ]; then
+        # Check if it's a number
+        case "${PASTEBIN_SQLITE_PAGE_SIZE}" in
+            *[!0-9]*)
+                log ERROR "$PASTEBIN_SQLITE_PAGE_SIZE is not a valid number. Exiting."
+                exit 1
+                ;;
+        esac
+        # Check range and power of 2
+        if [ "${PASTEBIN_SQLITE_PAGE_SIZE}" -ge 512 ] && \
+           [ "${PASTEBIN_SQLITE_PAGE_SIZE}" -le 65536 ] && \
+           [ $((PASTEBIN_SQLITE_PAGE_SIZE & (PASTEBIN_SQLITE_PAGE_SIZE - 1))) -eq 0 ]; then
+            # Valid value
+            :
+        else
+            log ERROR "$PASTEBIN_SQLITE_PAGE_SIZE has not valid value. Valid values are from 512 to 65536, power of 2. Exiting."
+            exit 1
+        fi
+    fi
 fi
 
 # ── Encryption sanity check ───────────────────────────────────────────────────
@@ -69,8 +89,11 @@ fi
 # ── Startup summary ───────────────────────────────────────────────────────────
 log INFO "Welcome to own Pastebin $VERSION"
 log INFO "Storage:                $DB_INFO"
-if [ ! -z "${DB_SIZE+x}" ]; then
+if [ -n "${DB_SIZE}" ]; then
     log INFO "Storage size:           ${DB_SIZE}"
+fi
+if [ -n "${PASTEBIN_SQLITE_PAGE_SIZE}" ]; then
+    log INFO "Custom SQLite Page size:${PASTEBIN_SQLITE_PAGE_SIZE}"
 fi
 log INFO "Listen:                 ${PASTEBIN_HOST}:${PASTEBIN_PORT}"
 log INFO "Base URL:               $PASTEBIN_BASE_URL"

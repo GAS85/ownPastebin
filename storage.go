@@ -67,21 +67,29 @@ func unmarshalPaste(b []byte) (*PasteData, error) {
 type SQLiteStorage struct {
 	db     *sql.DB
 	dbPath string
-	mu     sync.Mutex
 	stop   chan struct{}
 	wg     sync.WaitGroup
 }
 
-func newSQLiteStorage(path string) (*SQLiteStorage, error) {
+func newSQLiteStorage(path string, cfg *Settings) (*SQLiteStorage, error) {
 	db, err := sql.Open("sqlite3", path+"?_journal_mode=WAL&_busy_timeout=5000")
 	if err != nil {
 		return nil, err
 	}
-	// The mutex serialises all DB access — a pool larger than 1 adds no
-	// throughput and wastes file descriptors.
-	db.SetMaxOpenConns(1)
+	// WAL mode supports 1 writer + N concurrent readers without a Go-level mutex.
+	// _busy_timeout in the DSN makes writers retry on lock contention automatically.
+	db.SetMaxOpenConns(4)
+	db.SetMaxIdleConns(2)
+	db.SetConnMaxLifetime(time.Hour)
 
 	if err := applyPragmas(db); err != nil {
+		db.Close()
+		return nil, err
+	}
+
+	// page_size must be set on a NEW database before the first table is created.
+	// On an existing DB it is silently ignored.
+	if err := applyPageSize(db, cfg.SQLitePageSize); err != nil {
 		db.Close()
 		return nil, err
 	}
@@ -119,7 +127,6 @@ func applyPragmas(db *sql.DB) error {
 		"PRAGMA foreign_keys=ON",
 		"PRAGMA auto_vacuum=INCREMENTAL", // space reclamation (ensureIncrementalVacuum activates it)
 		"PRAGMA cache_size=-20000",       // ~20 MB page cache (negative = KiB)
-		"PRAGMA page_size=4096",           // small pastes - 4k, for large (MB) 8k or 16k
 		"PRAGMA wal_autocheckpoint=1000", // let SQLite auto-manage WAL checkpoints
 	}
 	for _, p := range pragmas {
@@ -127,6 +134,37 @@ func applyPragmas(db *sql.DB) error {
 			return fmt.Errorf("failed to apply %s: %w", p, err)
 		}
 	}
+	return nil
+}
+
+// applyPageSize sets PRAGMA page_size on a new (empty) database.
+// On an existing database SQLite silently ignores this.
+// Changing page_size on a populated DB requires a full VACUUM and will be executed
+// with next VACUUM maximum in 50 hours.
+//
+// Valid values: 512, 1024, 2048, 4096 (default), 8192, 16384, 32768, 65536.
+//   - 4096 (default) — good for typical text pastes (< 100 KB)
+//   - 8192 or 16384  — better when pastes are regularly several MB, because
+//     each paste fits in fewer pages, reducing I/O and B-tree depth
+//
+// 0 or unset → SQLite default (4096). Invalid values are ignored with a warning.
+func applyPageSize(db *sql.DB, size int) error {
+	valid := map[int]bool{512: true, 1024: true, 2048: true, 4096: true,
+		8192: true, 16384: true, 32768: true, 65536: true}
+
+	if size == 0 {
+		return nil // use SQLite default (4096)
+	}
+	if !valid[size] {
+		slog.Warn("PASTEBIN_SQLITE_PAGE_SIZE is not a valid power-of-2 between 512 and 65536; using SQLite default",
+			"requested", size)
+		return nil
+	}
+	if _, err := db.Exec(fmt.Sprintf(`PRAGMA page_size=%d`, size)); err != nil {
+		return fmt.Errorf("set page_size=%d: %w", size, err)
+	}
+	slog.Debug("SQLite page_size set", "size", size,
+		"note", "only effective on a new empty database")
 	return nil
 }
 
@@ -181,8 +219,6 @@ func (s *SQLiteStorage) Save(key string, d *PasteData, ttl time.Duration) error 
 		t := time.Now().Add(ttl).Unix()
 		expireAt = &t
 	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
 	_, err = s.db.Exec(
 		`INSERT OR REPLACE INTO pastes (id, data, expire_at) VALUES (?, ?, ?)`,
 		key, string(b), expireAt,
@@ -191,8 +227,6 @@ func (s *SQLiteStorage) Save(key string, d *PasteData, ttl time.Duration) error 
 }
 
 func (s *SQLiteStorage) Get(key string) (*PasteData, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
 
 	row := s.db.QueryRow(`SELECT data, expire_at FROM pastes WHERE id = ?`, key)
 	var raw string
@@ -220,16 +254,12 @@ func (s *SQLiteStorage) Get(key string) (*PasteData, error) {
 }
 
 func (s *SQLiteStorage) Delete(key string) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
 	_, err := s.db.Exec(`DELETE FROM pastes WHERE id = ?`, key)
 	return err
 }
 
 // GetAndDelete uses RETURNING for atomicity (SQLite ≥ 3.35, 2021).
 func (s *SQLiteStorage) GetAndDelete(key string) (*PasteData, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
 
 	row := s.db.QueryRow(`
 		DELETE FROM pastes
@@ -258,7 +288,7 @@ func (s *SQLiteStorage) GetAndDelete(key string) (*PasteData, error) {
 func (s *SQLiteStorage) Close() error {
 	close(s.stop)
 	s.wg.Wait()
-	// The goroutine is fully stopped — no mutex needed from here on.
+	// The goroutine is fully stopped.
 
 	var freelistBefore, freelistAfter int
 	s.db.QueryRow(`PRAGMA freelist_count`).Scan(&freelistBefore)
@@ -285,14 +315,12 @@ func (s *SQLiteStorage) walFileSize() int64 {
 	return fi.Size()
 }
 
-// vacuumDB reclaims SQLite free pages. Must NOT be called while holding s.mu.
+// vacuumDB reclaims SQLite free pages.
 // If full=true, runs a full VACUUM (blocks all writers); otherwise runs
 // incremental_vacuum up to maxPages pages.
 func (s *SQLiteStorage) vacuumDB(full bool, maxPages int) {
 	var freelistPages int
-	s.mu.Lock()
-	err := s.db.QueryRow(`PRAGMA freelist_count`).Scan(&freelistPages)
-	s.mu.Unlock()
+		err := s.db.QueryRow(`PRAGMA freelist_count`).Scan(&freelistPages)
 
 	if err != nil {
 		slog.Error("vacuumDB: freelist_count failed", "err", err)
@@ -304,8 +332,6 @@ func (s *SQLiteStorage) vacuumDB(full bool, maxPages int) {
 	}
 	slog.Debug("vacuumDB: free pages available", "count", freelistPages)
 
-	s.mu.Lock()
-	defer s.mu.Unlock()
 
 	var execErr error
 	if full {
@@ -350,20 +376,16 @@ func (s *SQLiteStorage) cleanupLoop() {
 	defer walCheckTicker.Stop()
 
 	// Initial incremental vacuum on startup — reclaim up to 10 000 pages (~40 MB).
-	s.mu.Lock()
-	slog.Debug("initial vacuum start")
+	slog.Debug("initial incremental vacuum start")
 	_, initErr := s.db.Exec(`PRAGMA incremental_vacuum(10000)`)
-	s.mu.Unlock()
 	if initErr != nil {
-		slog.Error("initial vacuum failed", "err", initErr)
+		slog.Error("initial incremental vacuum failed", "err", initErr)
 	} else {
-		slog.Debug("initial vacuum completed")
+		slog.Debug("initial incremental vacuum completed")
 	}
 
 	// Integrity check on startup — log any problems found.
-	s.mu.Lock()
 	rows, icErr := s.db.Query(`PRAGMA integrity_check`)
-	s.mu.Unlock()
 	if icErr != nil {
 		slog.Error("integrity_check failed", "err", icErr)
 	} else {
@@ -386,12 +408,10 @@ func (s *SQLiteStorage) cleanupLoop() {
 	for {
 		select {
 		case <-cleanupTicker.C:
-			s.mu.Lock()
 			result, err := s.db.Exec(
 				`DELETE FROM pastes WHERE expire_at IS NOT NULL AND expire_at < ?`,
 				time.Now().Unix(),
 			)
-			s.mu.Unlock()
 			if err != nil {
 				slog.Error("cleanup delete failed", "err", err)
 				continue
@@ -412,9 +432,7 @@ func (s *SQLiteStorage) cleanupLoop() {
 			size := s.walFileSize()
 			if size > 128*1024*1024 { // 128 MB threshold
 				slog.Info("WAL file large, checkpointing", "size_mb", size/1024/1024)
-				s.mu.Lock()
 				_, err := s.db.Exec(`PRAGMA wal_checkpoint(TRUNCATE)`)
-				s.mu.Unlock()
 				if err != nil {
 					slog.Error("WAL checkpoint failed", "err", err)
 				}
@@ -649,7 +667,7 @@ func newStorage(cfg *Settings) Storage {
 		slog.Warn("PostgreSQL unavailable, falling back", "err", err)
 	}
 
-	s, err := newSQLiteStorage(cfg.SQLitePath)
+	s, err := newSQLiteStorage(cfg.SQLitePath, cfg)
 	if err != nil {
 		slog.Error("SQLite init failed", "err", err)
 		os.Exit(1)

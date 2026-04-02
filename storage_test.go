@@ -16,7 +16,7 @@ func newTestStorage(t *testing.T) *SQLiteStorage {
 	f.Close()
 	os.Remove(path)
 
-	s, err := newSQLiteStorage(path)
+	s, err := newSQLiteStorage(path, &Settings{SQLitePageSize: 0})
 	if err != nil {
 		t.Fatalf("newSQLiteStorage: %v", err)
 	}

@@ -74,7 +74,7 @@ func NewAppForTest(t *testing.T, tc TestConfig) (*App, http.Handler) {
 	}
 
 	// ── Storage ───────────────────────────────────────────────────────────────
-	store, err := newSQLiteStorage(dbPath)
+	store, err := newSQLiteStorage(dbPath, cfg)
 	if err != nil {
 		t.Fatalf("NewAppForTest: open sqlite: %v", err)
 	}
@@ -113,7 +113,7 @@ func NewAppForTest(t *testing.T, tc TestConfig) (*App, http.Handler) {
 	}
 
 	// ── Plugins ───────────────────────────────────────────────────────────────
-	mgr := plugins.NewManager(plugins.DefaultBase(cfg.PathPrefix), nil)
+	mgr := plugins.NewManager(plugins.DefaultBase(), nil)
 
 	// ── App ───────────────────────────────────────────────────────────────────
 	app := &App{

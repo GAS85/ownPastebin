@@ -22,6 +22,7 @@ type Settings struct {
 	SlugLen            int
 	MaxPasteSize       int64
 	MaxParallelUploads int
+	SQLitePageSize     int // 0 = SQLite default (4096); only effective on new databases
 	Version            string
 
 	// Security
@@ -46,6 +47,7 @@ func loadSettings() *Settings {
 																			// It needs 2 GB RAM for 25 MB pastes
 																			// uploadSem = RAM / Max Upload size
 																			// uploadSem = 1,5GB / 30 MB = 50
+		SQLitePageSize:     getEnvInt("PASTEBIN_SQLITE_PAGE_SIZE", 0),
 
 		ServerSideEncryptionEnabled: getEnvBool("PASTEBIN_SERVER_SIDE_ENCRYPTION_ENABLED", false),
 		ServerSideEncryptionKey:     os.Getenv("PASTEBIN_SERVER_SIDE_ENCRYPTION_KEY"),
