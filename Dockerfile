@@ -75,7 +75,7 @@ EXPOSE 8080
 
 ENTRYPOINT ["/entrypoint.sh"]
 
-HEALTHCHECK --interval=1m \
+HEALTHCHECK --interval=5m \
             --timeout=5s \
-            --retries=1 \
-            CMD pgrep pastebin
+            --retries=3 \
+            CMD wget -qO- http://localhost:${PASTEBIN_PORT:-8080}/config > /dev/null || exit 1
