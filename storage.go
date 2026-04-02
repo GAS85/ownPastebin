@@ -320,7 +320,7 @@ func (s *SQLiteStorage) walFileSize() int64 {
 // incremental_vacuum up to maxPages pages.
 func (s *SQLiteStorage) vacuumDB(full bool, maxPages int) {
 	var freelistPages int
-		err := s.db.QueryRow(`PRAGMA freelist_count`).Scan(&freelistPages)
+	err := s.db.QueryRow(`PRAGMA freelist_count`).Scan(&freelistPages)
 
 	if err != nil {
 		slog.Error("vacuumDB: freelist_count failed", "err", err)
@@ -331,7 +331,6 @@ func (s *SQLiteStorage) vacuumDB(full bool, maxPages int) {
 		return
 	}
 	slog.Debug("vacuumDB: free pages available", "count", freelistPages)
-
 
 	var execErr error
 	if full {
@@ -421,14 +420,12 @@ func (s *SQLiteStorage) cleanupLoop() {
 			}
 
 		case <-vacuumTicker.C:
-			// vacuumDB acquires s.mu internally — do NOT hold it here.
 			s.vacuumDB(false, 10000)
 
 		case <-fullVacuumTicker.C:
 			s.vacuumDB(true, 0)
 
 		case <-walCheckTicker.C:
-			// walFileSize does not need the mutex (stat is not a DB operation).
 			size := s.walFileSize()
 			if size > 128*1024*1024 { // 128 MB threshold
 				slog.Info("WAL file large, checkpointing", "size_mb", size/1024/1024)
@@ -445,11 +442,13 @@ func (s *SQLiteStorage) cleanupLoop() {
 }
 
 // =============================================================================
-// PostgreSQL – stores content as BYTEA
+// PostgreSQL – stores content as BYTE
 // =============================================================================
 
 type PostgresStorage struct {
-	db *sql.DB
+	db   *sql.DB
+	stop chan struct{}
+	wg   sync.WaitGroup
 }
 
 func newPostgresStorage(dsn string) (*PostgresStorage, error) {
@@ -474,7 +473,39 @@ func newPostgresStorage(dsn string) (*PostgresStorage, error) {
 		return nil, err
 	}
 
-	return &PostgresStorage{db: db}, nil
+	s := &PostgresStorage{
+		db:   db,
+		stop: make(chan struct{}),
+	}
+	s.wg.Add(1)
+	go s.cleanupLoop()
+	return s, nil
+}
+
+// cleanupLoop deletes expired rows from PostgreSQL hourly.
+func (s *PostgresStorage) cleanupLoop() {
+	defer s.wg.Done()
+
+	ticker := time.NewTicker(time.Hour)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			result, err := s.db.Exec(
+				`DELETE FROM pastes WHERE expire_at IS NOT NULL AND expire_at < NOW()`,
+			)
+			if err != nil {
+				slog.Error("postgres cleanup delete failed", "err", err)
+				continue
+			}
+			if n, _ := result.RowsAffected(); n > 0 {
+				slog.Debug("postgres: deleted expired pastes", "rows_deleted", n)
+			}
+		case <-s.stop:
+			return
+		}
+	}
 }
 
 func (s *PostgresStorage) Save(key string, d *PasteData, ttl time.Duration) error {
@@ -555,6 +586,8 @@ func (s *PostgresStorage) GetAndDelete(key string) (*PasteData, error) {
 }
 
 func (s *PostgresStorage) Close() error {
+	close(s.stop)
+	s.wg.Wait()
 	return s.db.Close()
 }
 
@@ -602,12 +635,10 @@ func (s *RedisStorage) Save(key string, d *PasteData, ttl time.Duration) error {
 	return nil
 }
 
+// Get retrieves a paste from Redis.
+// We now call HGet directly and treat redis.Nil as "not found".
 func (s *RedisStorage) Get(key string) (*PasteData, error) {
 	ctx := context.Background()
-
-	if s.client.Exists(ctx, key).Val() == 0 {
-		return nil, nil
-	}
 
 	content, err := s.client.HGet(ctx, key, "content").Bytes()
 	if err == redis.Nil {

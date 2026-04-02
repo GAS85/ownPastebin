@@ -25,6 +25,7 @@ services:
       #- PASTEBIN_PORT=8080
       #- PASTEBIN_TLS_KEY=/path/to/tls.pem
       #- PASTEBIN_TLS_CERT=/path/to/tls.cer
+      #- PASTEBIN_TRUSTED_PROXY=127.0.0.1
       #- PASTEBIN_DEFAULT_TTL=30d
       #- PASTEBIN_DEFAULT_BURN=true
       #- PASTEBIN_MAX_PASTE_SIZE=10Mb
