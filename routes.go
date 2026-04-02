@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/base64"
 	"encoding/json"
 	"html/template"
 	"io"
@@ -9,7 +8,6 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
-	"strings"
 	"time"
 	"unicode/utf8"
 
@@ -26,7 +24,7 @@ type App struct {
 	crypto  *Crypto // nil if encryption disabled
 	tmpl    *template.Template
 	plugins *plugins.Manager
-	uploadSem  chan struct{}
+	uploadSem chan struct{}
 }
 
 // TemplateData is passed to index.html for every render.
@@ -99,22 +97,6 @@ func toJSON(v any) template.JS {
 	return template.JS(b)
 }
 
-// ---- encode / decode --------------------------------------------------------
-
-func (a *App) encodeForStorage(raw []byte) (string, error) {
-	if a.cfg.ServerSideEncryptionEnabled && a.crypto != nil {
-		return a.crypto.encrypt(raw)
-	}
-	return base64.StdEncoding.EncodeToString(raw), nil
-}
-
-func (a *App) decodeFromStorage(stored string) ([]byte, error) {
-	if a.cfg.ServerSideEncryptionEnabled && a.crypto != nil {
-		return a.crypto.decrypt(stored)
-	}
-	return base64.StdEncoding.DecodeString(stored)
-}
-
 // ---- routes -----------------------------------------------------------------
 
 func (a *App) router() http.Handler {
@@ -157,6 +139,7 @@ func (a *App) handleCreatePaste(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "server busy, try again", http.StatusServiceUnavailable)
 		return
 	}
+
 	if r.ContentLength > a.cfg.MaxPasteSize {
 		http.Error(w, "paste too large", http.StatusRequestEntityTooLarge)
 		return
@@ -171,12 +154,18 @@ func (a *App) handleCreatePaste(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	content, err := a.encodeForStorage(raw)
-	raw = nil // allow GC of the original before marshal + DB write
-	if err != nil {
-		slog.Error("encrypt error", "err", err)
-		http.Error(w, "encryption error", http.StatusInternalServerError)
-		return
+	// Apply server‑side encryption if enabled
+	content := raw
+	encryptedFlag := false
+	if a.cfg.ServerSideEncryptionEnabled && a.crypto != nil {
+		encrypted, err := a.crypto.Encrypt(raw)
+		if err != nil {
+			slog.Error("encrypt error", "err", err)
+			http.Error(w, "encryption error", http.StatusInternalServerError)
+			return
+		}
+		content = encrypted
+		encryptedFlag = true
 	}
 
 	q := r.URL.Query()
@@ -216,7 +205,7 @@ func (a *App) handleCreatePaste(w http.ResponseWriter, r *http.Request) {
 	paste := &PasteData{
 		Content:      content,
 		Burn:         burn,
-		Encrypted:    a.cfg.ServerSideEncryptionEnabled,
+		Encrypted:    encryptedFlag,
 		E2EEncrypted: q.Get("encrypted") == "true",
 		Lang:         lang,
 	}
@@ -258,18 +247,18 @@ func (a *App) handleRaw(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	data, err := a.decodeFromStorage(paste.Content)
+	content, err := a.decryptIfNeeded(paste)
 	if err != nil {
-		http.Error(w, "decode error", http.StatusInternalServerError)
+		http.Error(w, "decryption error", http.StatusInternalServerError)
 		return
 	}
-	if utf8.Valid(data) {
+	if utf8.Valid(content) {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-		w.Write(data)
+		w.Write(content)
 	} else {
 		w.Header().Set("Content-Type", "application/octet-stream")
 		w.Header().Set("Content-Disposition", "attachment; filename="+chi.URLParam(r, "id"))
-		w.Write(data)
+		w.Write(content)
 	}
 }
 
@@ -281,14 +270,14 @@ func (a *App) handleDownload(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	data, err := a.decodeFromStorage(paste.Content)
+	content, err := a.decryptIfNeeded(paste)
 	if err != nil {
-		http.Error(w, "decode error", http.StatusInternalServerError)
+		http.Error(w, "decryption error", http.StatusInternalServerError)
 		return
 	}
 	w.Header().Set("Content-Type", "application/octet-stream")
 	w.Header().Set("Content-Disposition", "attachment; filename="+id)
-	w.Write(data)
+	w.Write(content)
 }
 
 // GET /{id}
@@ -301,18 +290,15 @@ func (a *App) handleView(w http.ResponseWriter, r *http.Request) {
 		a.render(w, d, http.StatusNotFound)
 		return
 	}
-
-	data, err := a.decodeFromStorage(paste.Content)
+	content, err := a.decryptIfNeeded(paste)
 	if err != nil {
-		http.Error(w, "decode error", http.StatusInternalServerError)
+		http.Error(w, "decryption error", http.StatusInternalServerError)
 		return
 	}
-
 	text := "[binary data]"
-	if utf8.Valid(data) {
-		text = string(data)
+	if utf8.Valid(content) {
+		text = string(content)
 	}
-
 	d := a.baseData(r)
 	d.IsCreated = true
 	d.IsBurned = paste.Burn
@@ -350,21 +336,19 @@ func (a *App) fetchPaste(id string) (*PasteData, error) {
 	return paste, nil
 }
 
+// decryptIfNeeded returns the plaintext content if server‑side encryption is enabled,
+// otherwise returns the stored content as‑is.
+func (a *App) decryptIfNeeded(paste *PasteData) ([]byte, error) {
+	if paste.Encrypted && a.crypto != nil {
+		return a.crypto.Decrypt(paste.Content)
+	}
+	return paste.Content, nil
+}
+
 func (a *App) render(w http.ResponseWriter, d TemplateData, status int) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(status)
 	if err := a.tmpl.Execute(w, d); err != nil {
 		slog.Error("template render error", "err", err)
 	}
-}
-
-// sanitizeLang prevents path traversal or XSS in the CSS class name.
-func sanitizeLang(lang string) string {
-	lang = strings.ToLower(lang)
-	for _, c := range lang {
-		if !('a' <= c && c <= 'z') && !('0' <= c && c <= '9') && c != '-' {
-			return "text"
-		}
-	}
-	return lang
 }

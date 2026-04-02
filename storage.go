@@ -2,7 +2,6 @@ package main
 
 import (
 	"database/sql"
-	"encoding/json"
 	"fmt"
 	"log/slog"
 	"os"
@@ -16,52 +15,33 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
-// PasteData is the JSON payload stored in all backends.
+// =============================================================================
+// DATA MODEL
+// =============================================================================
+
+// PasteData is the internal representation – Content is raw bytes
+// (plaintext or ciphertext, depending on Encrypted flag).
+
 type PasteData struct {
-	Content      string     `json:"content"`             // base64 or AES-GCM ciphertext
-	Burn         bool       `json:"burn"`
-	Encrypted    bool       `json:"encrypted"`           // server-side encryption applied
-	E2EEncrypted bool       `json:"e2e_encrypted"`       // client-side encryption
-	Lang         string     `json:"lang"`
-	ExpireAt     *time.Time `json:"expire_at,omitempty"` // nil = never expires
+	Content      []byte
+	Burn         bool
+	Encrypted    bool
+	E2EEncrypted bool
+	Lang         string
+	ExpireAt     *time.Time
 }
 
-// Storage is the common interface all backends implement.
+// Storage interface – all methods work with raw bytes.
 type Storage interface {
 	Save(key string, data *PasteData, ttl time.Duration) error
 	Get(key string) (*PasteData, error)
 	Delete(key string) error
-	// GetAndDelete atomically reads and removes — used for burn-on-read.
 	GetAndDelete(key string) (*PasteData, error)
 	Close() error
 }
 
-// burnScript atomically reads PTTL then GETDEL in a single round-trip.
-// PTTL must come BEFORE GETDEL because GETDEL removes the key and its TTL.
-// Lua false (Redis nil bulk reply) is returned as Go nil via the Slice() call,
-// so the res[0].(string) type assertion correctly falls through to the nil guard.
-var burnScript = redis.NewScript(`
-	local ttl = redis.call('PTTL', KEYS[1])
-	local val = redis.call('GETDEL', KEYS[1])
-	if not val then
-		return {false, 0}
-	end
-	return {val, ttl}
-`)
-
-// ---- helpers ----------------------------------------------------------------
-
-func marshalPaste(d *PasteData) ([]byte, error) {
-	return json.Marshal(d)
-}
-
-func unmarshalPaste(b []byte) (*PasteData, error) {
-	var d PasteData
-	return &d, json.Unmarshal(b, &d)
-}
-
 // =============================================================================
-// SQLite
+// SQLite – stores content as BLOB, metadata in separate columns
 // =============================================================================
 
 type SQLiteStorage struct {
@@ -71,13 +51,22 @@ type SQLiteStorage struct {
 	wg     sync.WaitGroup
 }
 
+// helper conversions
+func boolToInt(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
+}
+func intToBool(i int) bool {
+	return i != 0
+}
+
 func newSQLiteStorage(path string, cfg *Settings) (*SQLiteStorage, error) {
 	db, err := sql.Open("sqlite3", path+"?_journal_mode=WAL&_busy_timeout=5000")
 	if err != nil {
 		return nil, err
 	}
-	// WAL mode supports 1 writer + N concurrent readers without a Go-level mutex.
-	// _busy_timeout in the DSN makes writers retry on lock contention automatically.
 	db.SetMaxOpenConns(4)
 	db.SetMaxIdleConns(2)
 	db.SetConnMaxLifetime(time.Hour)
@@ -86,18 +75,20 @@ func newSQLiteStorage(path string, cfg *Settings) (*SQLiteStorage, error) {
 		db.Close()
 		return nil, err
 	}
-
-	// page_size must be set on a NEW database before the first table is created.
-	// On an existing DB it is silently ignored.
 	if err := applyPageSize(db, cfg.SQLitePageSize); err != nil {
 		db.Close()
 		return nil, err
 	}
 
+	// New schema: content BLOB, explicit columns for all fields
 	_, err = db.Exec(`CREATE TABLE IF NOT EXISTS pastes (
-		id        TEXT PRIMARY KEY,
-		data      TEXT NOT NULL,
-		expire_at INTEGER
+		id              TEXT PRIMARY KEY,
+		content         BLOB NOT NULL,
+		burn            INTEGER NOT NULL DEFAULT 0,
+		encrypted       INTEGER NOT NULL DEFAULT 0,
+		e2e_encrypted   INTEGER NOT NULL DEFAULT 0,
+		lang            TEXT NOT NULL DEFAULT 'text',
+		expire_at       INTEGER
 	)`)
 	if err != nil {
 		db.Close()
@@ -210,41 +201,45 @@ func ensureIncrementalVacuum(db *sql.DB) error {
 }
 
 func (s *SQLiteStorage) Save(key string, d *PasteData, ttl time.Duration) error {
-	b, err := marshalPaste(d)
-	if err != nil {
-		return err
-	}
 	var expireAt *int64
 	if ttl > 0 {
 		t := time.Now().Add(ttl).Unix()
 		expireAt = &t
 	}
-	_, err = s.db.Exec(
-		`INSERT OR REPLACE INTO pastes (id, data, expire_at) VALUES (?, ?, ?)`,
-		key, string(b), expireAt,
+	_, err := s.db.Exec(`
+		INSERT OR REPLACE INTO pastes
+		(id, content, burn, encrypted, e2e_encrypted, lang, expire_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		key, d.Content, boolToInt(d.Burn), boolToInt(d.Encrypted),
+		boolToInt(d.E2EEncrypted), d.Lang, expireAt,
 	)
 	return err
 }
 
 func (s *SQLiteStorage) Get(key string) (*PasteData, error) {
+	row := s.db.QueryRow(`
+		SELECT content, burn, encrypted, e2e_encrypted, lang, expire_at
+		FROM pastes WHERE id = ?`, key)
 
-	row := s.db.QueryRow(`SELECT data, expire_at FROM pastes WHERE id = ?`, key)
-	var raw string
+	var content []byte
+	var burnInt, encInt, e2eInt int
+	var lang string
 	var expireAt *int64
-	if err := row.Scan(&raw, &expireAt); err == sql.ErrNoRows {
+	if err := row.Scan(&content, &burnInt, &encInt, &e2eInt, &lang, &expireAt); err == sql.ErrNoRows {
 		return nil, nil
 	} else if err != nil {
 		return nil, err
 	}
-
 	if expireAt != nil && time.Now().Unix() >= *expireAt {
-		s.db.Exec(`DELETE FROM pastes WHERE id = ?`, key) //nolint
+		s.db.Exec(`DELETE FROM pastes WHERE id = ?`, key)
 		return nil, nil
 	}
-
-	paste, err := unmarshalPaste([]byte(raw))
-	if err != nil {
-		return nil, err
+	paste := &PasteData{
+		Content:      content,
+		Burn:         intToBool(burnInt),
+		Encrypted:    intToBool(encInt),
+		E2EEncrypted: intToBool(e2eInt),
+		Lang:         lang,
 	}
 	if expireAt != nil {
 		t := time.Unix(*expireAt, 0)
@@ -265,18 +260,23 @@ func (s *SQLiteStorage) GetAndDelete(key string) (*PasteData, error) {
 		DELETE FROM pastes
 		WHERE id = ?
 		  AND (expire_at IS NULL OR expire_at > ?)
-		RETURNING data, expire_at`, key, time.Now().Unix())
+		RETURNING content, burn, encrypted, e2e_encrypted, lang, expire_at`, key, time.Now().Unix())
 
-	var raw string
+	var content []byte
+	var burnInt, encInt, e2eInt int
+	var lang string
 	var expireAt *int64
-	if err := row.Scan(&raw, &expireAt); err == sql.ErrNoRows {
+	if err := row.Scan(&content, &burnInt, &encInt, &e2eInt, &lang, &expireAt); err == sql.ErrNoRows {
 		return nil, nil
 	} else if err != nil {
 		return nil, err
 	}
-	paste, err := unmarshalPaste([]byte(raw))
-	if err != nil {
-		return nil, err
+	paste := &PasteData{
+		Content:      content,
+		Burn:         intToBool(burnInt),
+		Encrypted:    intToBool(encInt),
+		E2EEncrypted: intToBool(e2eInt),
+		Lang:         lang,
 	}
 	if expireAt != nil {
 		t := time.Unix(*expireAt, 0)
@@ -445,7 +445,7 @@ func (s *SQLiteStorage) cleanupLoop() {
 }
 
 // =============================================================================
-// PostgreSQL
+// PostgreSQL – stores content as BYTEA
 // =============================================================================
 
 type PostgresStorage struct {
@@ -462,9 +462,13 @@ func newPostgresStorage(dsn string) (*PostgresStorage, error) {
 	db.SetConnMaxLifetime(time.Hour)
 
 	_, err = db.Exec(`CREATE TABLE IF NOT EXISTS pastes (
-		id        TEXT PRIMARY KEY,
-		data      JSONB NOT NULL,
-		expire_at TIMESTAMPTZ
+		id              TEXT PRIMARY KEY,
+		content         BYTEA NOT NULL,
+		burn            BOOLEAN NOT NULL DEFAULT FALSE,
+		encrypted       BOOLEAN NOT NULL DEFAULT FALSE,
+		e2e_encrypted   BOOLEAN NOT NULL DEFAULT FALSE,
+		lang            TEXT NOT NULL DEFAULT 'text',
+		expire_at       TIMESTAMPTZ
 	)`)
 	if err != nil {
 		return nil, err
@@ -474,42 +478,49 @@ func newPostgresStorage(dsn string) (*PostgresStorage, error) {
 }
 
 func (s *PostgresStorage) Save(key string, d *PasteData, ttl time.Duration) error {
-	b, err := marshalPaste(d)
-	if err != nil {
-		return err
-	}
 	var expireAt *time.Time
 	if ttl > 0 {
 		t := time.Now().Add(ttl)
 		expireAt = &t
 	}
-	_, err = s.db.Exec(`
-		INSERT INTO pastes (id, data, expire_at)
-		VALUES ($1, $2, $3)
-		ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data, expire_at = EXCLUDED.expire_at`,
-		key, string(b), expireAt,
+	_, err := s.db.Exec(`
+		INSERT INTO pastes (id, content, burn, encrypted, e2e_encrypted, lang, expire_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		ON CONFLICT (id) DO UPDATE SET
+			content = EXCLUDED.content,
+			burn = EXCLUDED.burn,
+			encrypted = EXCLUDED.encrypted,
+			e2e_encrypted = EXCLUDED.e2e_encrypted,
+			lang = EXCLUDED.lang,
+			expire_at = EXCLUDED.expire_at`,
+		key, d.Content, d.Burn, d.Encrypted, d.E2EEncrypted, d.Lang, expireAt,
 	)
 	return err
 }
 
 func (s *PostgresStorage) Get(key string) (*PasteData, error) {
 	row := s.db.QueryRow(`
-		SELECT data, expire_at FROM pastes
+		SELECT content, burn, encrypted, e2e_encrypted, lang, expire_at
+		FROM pastes
 		WHERE id = $1 AND (expire_at IS NULL OR expire_at > NOW())`, key)
 
-	var raw string
+	var content []byte
+	var burn, encrypted, e2eEncrypted bool
+	var lang string
 	var expireAt *time.Time
-	if err := row.Scan(&raw, &expireAt); err == sql.ErrNoRows {
+	if err := row.Scan(&content, &burn, &encrypted, &e2eEncrypted, &lang, &expireAt); err == sql.ErrNoRows {
 		return nil, nil
 	} else if err != nil {
 		return nil, err
 	}
-	paste, err := unmarshalPaste([]byte(raw))
-	if err != nil {
-		return nil, err
-	}
-	paste.ExpireAt = expireAt
-	return paste, nil
+	return &PasteData{
+		Content:      content,
+		Burn:         burn,
+		Encrypted:    encrypted,
+		E2EEncrypted: e2eEncrypted,
+		Lang:         lang,
+		ExpireAt:     expireAt,
+	}, nil
 }
 
 func (s *PostgresStorage) Delete(key string) error {
@@ -522,27 +533,33 @@ func (s *PostgresStorage) GetAndDelete(key string) (*PasteData, error) {
 	row := s.db.QueryRow(`
 		DELETE FROM pastes
 		WHERE id = $1 AND (expire_at IS NULL OR expire_at > NOW())
-		RETURNING data, expire_at`, key)
+		RETURNING content, burn, encrypted, e2e_encrypted, lang, expire_at`, key)
 
-	var raw string
+	var content []byte
+	var burn, encrypted, e2eEncrypted bool
+	var lang string
 	var expireAt *time.Time
-	if err := row.Scan(&raw, &expireAt); err == sql.ErrNoRows {
+	if err := row.Scan(&content, &burn, &encrypted, &e2eEncrypted, &lang, &expireAt); err == sql.ErrNoRows {
 		return nil, nil
 	} else if err != nil {
 		return nil, err
 	}
-	paste, err := unmarshalPaste([]byte(raw))
-	if err != nil {
-		return nil, err
-	}
-	paste.ExpireAt = expireAt
-	return paste, nil
+	return &PasteData{
+		Content:      content,
+		Burn:         burn,
+		Encrypted:    encrypted,
+		E2EEncrypted: e2eEncrypted,
+		Lang:         lang,
+		ExpireAt:     expireAt,
+	}, nil
 }
 
-func (s *PostgresStorage) Close() error { return s.db.Close() }
+func (s *PostgresStorage) Close() error {
+	return s.db.Close()
+}
 
 // =============================================================================
-// Redis
+// REDIS - stores HASHes PasteData (binary safe)
 // =============================================================================
 
 type RedisStorage struct {
@@ -560,89 +577,122 @@ func newRedisStorage(url string) (*RedisStorage, error) {
 	if err := client.Ping(ctx).Err(); err != nil {
 		return nil, fmt.Errorf("redis ping failed: %w", err)
 	}
+
 	return &RedisStorage{client: client}, nil
 }
 
 func (s *RedisStorage) Save(key string, d *PasteData, ttl time.Duration) error {
-	b, err := marshalPaste(d)
+	ctx := context.Background()
+
+	err := s.client.HSet(ctx, key, map[string]interface{}{
+		"content": d.Content,
+		"burn":    boolToInt(d.Burn),
+		"enc":     boolToInt(d.Encrypted),
+		"e2e":     boolToInt(d.E2EEncrypted),
+		"lang":    d.Lang,
+	}).Err()
+
 	if err != nil {
 		return err
 	}
-	ctx := context.Background()
-	return s.client.Set(ctx, key, b, ttl).Err()
+
+	if ttl > 0 {
+		return s.client.Expire(ctx, key, ttl).Err()
+	}
+	return nil
 }
 
 func (s *RedisStorage) Get(key string) (*PasteData, error) {
 	ctx := context.Background()
 
-	// Pipeline GET + TTL together — two round-trips would be a race.
-	pipe := s.client.Pipeline()
-	getCmd := pipe.Get(ctx, key)
-	ttlCmd := pipe.TTL(ctx, key)
-	if _, err := pipe.Exec(ctx); err != nil && err != redis.Nil {
-		return nil, err
-	}
-
-	b, err := getCmd.Bytes()
-	if err == redis.Nil {
+	if s.client.Exists(ctx, key).Val() == 0 {
 		return nil, nil
 	}
-	if err != nil {
+
+	content, err := s.client.HGet(ctx, key, "content").Bytes()
+	if err == redis.Nil {
+		return nil, nil
+	} else if err != nil {
 		return nil, err
 	}
 
-	paste, err := unmarshalPaste(b)
-	if err != nil {
-		return nil, err
+	burn, _ := s.client.HGet(ctx, key, "burn").Int()
+	enc, _ := s.client.HGet(ctx, key, "enc").Int()
+	e2e, _ := s.client.HGet(ctx, key, "e2e").Int()
+	lang, _ := s.client.HGet(ctx, key, "lang").Result()
+
+	p := &PasteData{
+		Content:      content,
+		Burn:         intToBool(burn),
+		Encrypted:    intToBool(enc),
+		E2EEncrypted: intToBool(e2e),
+		Lang:         lang,
 	}
-	// TTL > 0 means the key has an expiry; -1 = no expiry, -2 = key gone.
-	if ttl := ttlCmd.Val(); ttl > 0 {
+
+	// Get TTL to populate ExpireAt
+	if ttl := s.client.TTL(ctx, key).Val(); ttl > 0 {
 		t := time.Now().Add(ttl)
-		paste.ExpireAt = &t
+		p.ExpireAt = &t
 	}
-	return paste, nil
+
+	return p, nil
 }
 
 func (s *RedisStorage) Delete(key string) error {
 	return s.client.Del(context.Background(), key).Err()
 }
 
-// GetAndDelete uses a Lua script to atomically read PTTL then GETDEL.
-// PTTL must be called BEFORE GETDEL because GETDEL removes the key and its TTL.
 func (s *RedisStorage) GetAndDelete(key string) (*PasteData, error) {
 	ctx := context.Background()
 
-	res, err := burnScript.Run(ctx, s.client, []string{key}).Slice()
-	if err != nil {
-		if err == redis.Nil {
-			return nil, nil // key did not exist
-		}
+	pipe := s.client.TxPipeline()
+
+	contentCmd := pipe.HGet(ctx, key, "content")
+	burnCmd := pipe.HGet(ctx, key, "burn")
+	encCmd := pipe.HGet(ctx, key, "enc")
+	e2eCmd := pipe.HGet(ctx, key, "e2e")
+	langCmd := pipe.HGet(ctx, key, "lang")
+	ttlCmd := pipe.TTL(ctx, key)
+
+	pipe.Del(ctx, key)
+
+	_, err := pipe.Exec(ctx)
+	if err != nil && err != redis.Nil {
 		return nil, err
 	}
 
-	// res[0] is the serialised paste (string), res[1] is PTTL in milliseconds.
-	// Lua `not val` branch returns {false, 0}; false becomes nil in Go's
-	// []interface{} so the type assertion below correctly falls through.
-	raw, ok := res[0].(string)
-	if !ok || raw == "" {
+	content, err := contentCmd.Bytes()
+	if err == redis.Nil {
 		return nil, nil
-	}
-
-	paste, err := unmarshalPaste([]byte(raw))
-	if err != nil {
+	} else if err != nil {
 		return nil, err
 	}
 
-	// PTTL returns -1 (no expiry) or -2 (key gone) or ms remaining.
-	if pttl, ok := res[1].(int64); ok && pttl > 0 {
-		t := time.Now().Add(time.Duration(pttl) * time.Millisecond)
-		paste.ExpireAt = &t
+	burn, _ := burnCmd.Int()
+	enc, _ := encCmd.Int()
+	e2e, _ := e2eCmd.Int()
+	lang, _ := langCmd.Result()
+	ttl := ttlCmd.Val()
+
+	p := &PasteData{
+		Content:      content,
+		Burn:         intToBool(burn),
+		Encrypted:    intToBool(enc),
+		E2EEncrypted: intToBool(e2e),
+		Lang:         lang,
 	}
 
-	return paste, nil
+	if ttl > 0 {
+		t := time.Now().Add(ttl)
+		p.ExpireAt = &t
+	}
+
+	return p, nil
 }
 
-func (s *RedisStorage) Close() error { return s.client.Close() }
+func (s *RedisStorage) Close() error {
+	return s.client.Close()
+}
 
 // =============================================================================
 // Backend selector
@@ -664,9 +714,7 @@ func newStorage(cfg *Settings) Storage {
 			slog.Info("using PostgreSQL backend")
 			return s
 		}
-		slog.Warn("PostgreSQL unavailable, falling back", "err", err)
 	}
-
 	s, err := newSQLiteStorage(cfg.SQLitePath, cfg)
 	if err != nil {
 		slog.Error("SQLite init failed", "err", err)
