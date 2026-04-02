@@ -2,7 +2,9 @@ package main
 
 import (
 	"log/slog"
+	"net"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -29,8 +31,12 @@ func (r *responseRecorder) Write(b []byte) (int, error) {
 //
 //	method=GET path=/abc?ttl=3600&burn=true status=200 duration=1.23ms bytes=4096 ip=1.2.3.4
 //
-// 404s from the static file handler are logged at DEBUG to avoid noise.
-func accessLogMiddleware(next http.Handler) http.Handler {
+// 404s are logged at DEBUG to avoid noise; 5xx at WARN.
+//
+// X-Forwarded-For is only trusted when the direct TCP peer (r.RemoteAddr)
+// falls inside cfg.TrustedProxy. Leave PASTEBIN_TRUSTED_PROXY unset to
+// always use r.RemoteAddr and never trust client-supplied headers.
+func (a *App) accessLogMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 
@@ -38,12 +44,8 @@ func accessLogMiddleware(next http.Handler) http.Handler {
 		next.ServeHTTP(rec, r)
 
 		duration := time.Since(start)
-		ip := r.RemoteAddr
-		if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-			ip = xff
-		}
+		ip := realIP(r, a.cfg.TrustedProxy)
 
-		// Build full path including query string so burn=true, ttl=3600 etc. are visible.
 		fullPath := r.URL.Path
 		if r.URL.RawQuery != "" {
 			fullPath = r.URL.Path + "?" + r.URL.RawQuery
@@ -65,4 +67,41 @@ func accessLogMiddleware(next http.Handler) http.Handler {
 			"ip", ip,
 		)
 	})
+}
+
+// realIP returns the best available client IP for logging.
+//
+// It uses X-Forwarded-For only when trustedProxy is non-nil AND the direct
+// TCP peer address is contained within that network. This prevents clients
+// from injecting arbitrary IPs when no proxy is present.
+//
+// When XFF contains multiple addresses (left-most = original client,
+// right-most = last proxy), the left-most value is used.
+func realIP(r *http.Request, trustedProxy *net.IPNet) string {
+	peer := peerIP(r.RemoteAddr)
+
+	if trustedProxy == nil || peer == nil || !trustedProxy.Contains(peer) {
+		return r.RemoteAddr
+	}
+
+	// Proxy is trusted — use the left-most (original client) XFF address.
+	if xff := strings.TrimSpace(r.Header.Get("X-Forwarded-For")); xff != "" {
+		// XFF may be a comma-separated list: "client, proxy1, proxy2"
+		if idx := strings.IndexByte(xff, ','); idx != -1 {
+			return strings.TrimSpace(xff[:idx])
+		}
+		return xff
+	}
+
+	return r.RemoteAddr
+}
+
+// peerIP extracts the IP from a "host:port" or bare "host" remote address.
+func peerIP(remoteAddr string) net.IP {
+	host, _, err := net.SplitHostPort(remoteAddr)
+	if err != nil {
+		// No port — try parsing directly.
+		host = remoteAddr
+	}
+	return net.ParseIP(strings.TrimSpace(host))
 }

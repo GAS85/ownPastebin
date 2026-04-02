@@ -1,6 +1,7 @@
 package main
 
 import (
+	"net"
 	"os"
 	"strconv"
 	"strings"
@@ -28,6 +29,12 @@ type Settings struct {
 	// Security
 	ServerSideEncryptionEnabled bool
 	ServerSideEncryptionKey     string
+
+	// TrustedProxy is the CIDR range (or single IP) of a reverse proxy whose
+	// X-Forwarded-For header is trusted for real-IP logging.
+	// Empty / unset means XFF is never trusted — r.RemoteAddr is always used.
+	// Set via PASTEBIN_TRUSTED_PROXY, e.g. "127.0.0.1" or "10.0.0.0/8".
+	TrustedProxy *net.IPNet
 }
 
 func loadSettings() *Settings {
@@ -60,7 +67,41 @@ func loadSettings() *Settings {
 	s.DefaultTTL = parseTime(getEnv("PASTEBIN_DEFAULT_TTL", "0"))
 	s.MaxTTL = parseTime(os.Getenv("PASTEBIN_MAX_TTL"))
 
+	if raw := os.Getenv("PASTEBIN_TRUSTED_PROXY"); raw != "" {
+		s.TrustedProxy = parseCIDR(raw)
+	}
+
 	return s
+}
+
+// parseCIDR parses a CIDR string ("10.0.0.0/8") or a bare IP ("127.0.0.1")
+// into a *net.IPNet. Returns nil and logs a warning on invalid input so that
+// a misconfigured value never silently trusts all peers.
+func parseCIDR(raw string) *net.IPNet {
+	input := strings.TrimSpace(raw)
+
+	// Bare IP — promote to host-only CIDR (/32 for IPv4, /128 for IPv6).
+	if !strings.Contains(input, "/") {
+		ip := net.ParseIP(input)
+		if ip == nil {
+			// Logger may not be initialised yet at config-load time.
+			os.Stderr.WriteString("PASTEBIN_TRUSTED_PROXY: invalid IP \"" + raw + "\"; XFF will not be trusted\n")
+			return nil
+		}
+		bits := 32
+		if ip.To4() == nil {
+			bits = 128
+		}
+		_, network, _ := net.ParseCIDR(ip.String() + "/" + strconv.Itoa(bits))
+		return network
+	}
+
+	_, network, err := net.ParseCIDR(input)
+	if err != nil {
+		os.Stderr.WriteString("PASTEBIN_TRUSTED_PROXY: invalid CIDR \"" + raw + "\"; XFF will not be trusted\n")
+		return nil
+	}
+	return network
 }
 
 func getEnv(key, fallback string) string {

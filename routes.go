@@ -103,7 +103,7 @@ func (a *App) router() http.Handler {
 	r := chi.NewRouter()
 
 	// Access log — wraps every route including swagger and config.
-	r.Use(accessLogMiddleware)
+	r.Use(a.accessLogMiddleware)
 
 	r.Get("/", a.handleNewPaste)
 	r.Post("/", a.handleCreatePaste)
@@ -154,7 +154,7 @@ func (a *App) handleCreatePaste(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Apply server‑side encryption if enabled
+	// Apply server-side encryption if enabled
 	content := raw
 	encryptedFlag := false
 	if a.cfg.ServerSideEncryptionEnabled && a.crypto != nil {
@@ -336,8 +336,7 @@ func (a *App) fetchPaste(id string) (*PasteData, error) {
 	return paste, nil
 }
 
-// decryptIfNeeded returns the plaintext content if server‑side encryption is enabled,
-// otherwise returns the stored content as‑is.
+// decryptIfNeeded returns the plaintext content if server-side encryption is enabled, otherwise returns the stored content as-is.
 func (a *App) decryptIfNeeded(paste *PasteData) ([]byte, error) {
 	if paste.Encrypted && a.crypto != nil {
 		return a.crypto.Decrypt(paste.Content)

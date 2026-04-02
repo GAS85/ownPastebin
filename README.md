@@ -88,6 +88,7 @@ The application automatically selects the first available backend:
 * `PASTEBIN_PORT` - Port. Default: `8080`
 * `PASTEBIN_TLS_KEY` - Provide path to TLS Key to enable TLS Support directly on a service.
 * `PASTEBIN_TLS_CERT` - Provide path to TLS Certificate to enable TLS Support directly on a service.
+* `PASTEBIN_TRUSTED_PROXY` - Provide IP or CIDR of trusted proxies, so that X-Forwarded-For header will be used.
 
 ## ⏳ TTL Settings
 
