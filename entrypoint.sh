@@ -51,7 +51,6 @@ else
     DB_INFO="SQLite ($PASTEBIN_SQLITE_PATH)"
     # We can only check SQlite DB as it is mounted to the container
     DB_SIZE="$(du -h $PASTEBIN_SQLITE_PATH | awk '{ print $1 }' 2>/dev/null)"
-    echo $DB_SIZE
     SQLITE_DIR=$(dirname "$PASTEBIN_SQLITE_PATH")
     if [ ! -w "$SQLITE_DIR" ]; then
         log ERROR "$SQLITE_DIR is not writable by UID $(id -u). Exiting."
@@ -61,14 +60,17 @@ else
     if [ -n "${PASTEBIN_SQLITE_PAGE_SIZE}" ]; then
         # Check if it's a number
         case "${PASTEBIN_SQLITE_PAGE_SIZE}" in
-            *[!0-9]*)
-                log ERROR "$PASTEBIN_SQLITE_PAGE_SIZE is not a valid number. Exiting."
-                exit 1
-                ;;
+        *[!0-9]*)
+            log ERROR "$PASTEBIN_SQLITE_PAGE_SIZE is not a valid number. Exiting."
+            exit 1
+            ;;
+        *)
+            # Valid number, continue
+            ;;
         esac
         # Check range and power of 2
-        if [ "${PASTEBIN_SQLITE_PAGE_SIZE}" -ge 512 ] && \
-           [ "${PASTEBIN_SQLITE_PAGE_SIZE}" -le 65536 ] && \
+        if [ "${PASTEBIN_SQLITE_PAGE_SIZE}" -ge 512 ] &&
+           [ "${PASTEBIN_SQLITE_PAGE_SIZE}" -le 65536 ] &&
            [ $((PASTEBIN_SQLITE_PAGE_SIZE & (PASTEBIN_SQLITE_PAGE_SIZE - 1))) -eq 0 ]; then
             # Valid value
             :

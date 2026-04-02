@@ -26,13 +26,14 @@ A minimal, RAM-friendly paste service with support for raw uploads, TTL, burn-af
 
   * Redis (optional, in-memory)
   * PostgreSQL (optional, persistent)
-  * SQLite (default fallback)
+  * SQLite (default)
 
 * 🔥 Burn-after-read pastes
 * ⏳ TTL (expiration support)
-* 🔐 Optional server-side encryption
+* 🔐 Optional server-side encryption with AES-GCM
+* 🔐 Optional end-to-end encryption with AES-GCM
 * 📦 Binary-safe uploads/downloads
-* 🧠 Designed to be memory efficient (no caching layer)
+* 🧠 Designed to be memory efficient
 
 ## ⚙️ Configuration
 
@@ -89,6 +90,7 @@ The application automatically selects the first available backend:
 * `PASTEBIN_TLS_KEY` - Provide path to TLS Key to enable TLS Support directly on a service.
 * `PASTEBIN_TLS_CERT` - Provide path to TLS Certificate to enable TLS Support directly on a service.
 * `PASTEBIN_TRUSTED_PROXY` - Provide IP or CIDR of trusted proxies, so that X-Forwarded-For header will be used.
+* `PASTEBIN_LOG_LEVEL` - Set log level. Default: `Info`
 
 ## ⏳ TTL Settings
 
@@ -98,21 +100,21 @@ The application automatically selects the first available backend:
   * used when no TTL is provided
 * `PASTEBIN_DEFAULT_BURN` - If enabled all pastes without `burn=false` will be saved to be viewed only once. You can still set `burn=false` via UI or CLI. Default: `false`.
 
-### Supported Formats
+Supported Formats:
 
 | Format       | Example |
 |:-------------|:-------:|
 | Seconds      | `3600`  |
 | Hours        | `1h`    |
 | Days         | `1d`    |
-| Months (30d) | `1mo`    |
+| Months (30d) | `1mo`   |
 
 ## 📏 Limits
 
 * `PASTEBIN_MAX_PARALLEL_UPLOADS` - Max amount of parallel POST requests. Default `20`. Be aware that each requests needs memory. E.g. if `PASTEBIN_MAX_PASTE_SIZE=5MB` and `PASTEBIN_MAX_PARALLEL_UPLOADS=20`, that needs around 5 *20* 3,3 (roughly amount of modifications) = 400 Mb of RAM and with `PASTEBIN_MAX_PASTE_SIZE=30MB` around 2 GB of RAM.
 * `PASTEBIN_MAX_PASTE_SIZE` - Max upload size. Default: `5MB`
 
-### Supported Formats
+Supported Formats:
 
 | Format    | Example |
 |:----------|:-------:|
@@ -164,7 +166,7 @@ docker run -e GENERATE_KEY=true gas85/ownpastebin:latest
 
 ### Docker
 
-```shell
+```bash
 docker run -d \
   --name pastebin \
   -p 8080:8080 \
@@ -177,8 +179,25 @@ docker run -d \
 
 ### Docker Compose
 
+Please refer to [docker-compose.yml](https://github.com/GAS85/ownPastebin/blob/main/docker-compose.yml) as example.
+
 ```bash
 docker compose up -d
+```
+
+## Build
+
+You can build it with following commands:
+
+```bash
+go mod download
+CGO_ENABLED=1 GOOS=linux go build -ldflags="-s -w" -o pastebin .
+```
+
+Or use docker
+
+```bash
+docker build -t ownpastebin:latest .
 ```
 
 ## 📦 Pastebin API

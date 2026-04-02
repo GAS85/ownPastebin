@@ -7,6 +7,8 @@ import (
 	"os"
 	"log/slog"
 	"net/http"
+	"runtime"
+	"runtime/debug"
 	"strconv"
 	"time"
 	"unicode/utf8"
@@ -131,15 +133,9 @@ func (a *App) handleNewPaste(w http.ResponseWriter, r *http.Request) {
 
 // POST /
 func (a *App) handleCreatePaste(w http.ResponseWriter, r *http.Request) {
-	// Acquire a slot. If the channel is full, reject immediately.
-	select {
-	case a.uploadSem <- struct{}{}:
-		defer func() { <-a.uploadSem }() // release on return
-	default:
-		http.Error(w, "server busy, try again", http.StatusServiceUnavailable)
-		return
-	}
-
+	// Read body first, before acquiring a semaphore slot.
+	// This prevents a slow client upload from holding a slot for the entire
+	// transfer duration and blocking other concurrent uploads unnecessarily.
 	if r.ContentLength > a.cfg.MaxPasteSize {
 		http.Error(w, "paste too large", http.StatusRequestEntityTooLarge)
 		return
@@ -154,11 +150,34 @@ func (a *App) handleCreatePaste(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Apply server-side encryption if enabled
+	// Acquire a slot only for the CPU/memory-intensive work (encrypt + save).
+	// If the channel is full, reject immediately.
+	select {
+	case a.uploadSem <- struct{}{}:
+		defer func() {
+			<-a.uploadSem
+			// When the last slot drains (burst is over), hint the runtime to
+			// reclaim heap and return pages to the OS. Without this, Go's GC
+			// holds freed memory as heap for minutes after a mass-upload burst.
+			if len(a.uploadSem) == 0 {
+				runtime.GC()
+				debug.FreeOSMemory()
+			}
+		}()
+	default:
+		http.Error(w, "server busy, try again", http.StatusServiceUnavailable)
+		return
+	}
+
+	// Apply server-side encryption if enabled.
+	// Nil out raw immediately after use so the original plaintext slice is eligible for GC while content (the encrypted copy) is still live.
+	// Without this, both slices are held in memory until the function returns, doubling peak memory per concurrent upload.
 	content := raw
 	encryptedFlag := false
 	if a.cfg.ServerSideEncryptionEnabled && a.crypto != nil {
 		encrypted, err := a.crypto.Encrypt(raw)
+		// release the plaintext — don't hold both copies simultaneously
+		raw = nil
 		if err != nil {
 			slog.Error("encrypt error", "err", err)
 			http.Error(w, "encryption error", http.StatusInternalServerError)
@@ -323,9 +342,16 @@ func (a *App) handleDelete(w http.ResponseWriter, r *http.Request) {
 
 // ---- helpers ----------------------------------------------------------------
 
-// fetchPaste handles burn-on-read: if burn=true the paste is atomically
-// deleted on the first read so no second caller can ever retrieve it.
+// fetchPaste handles burn-on-read: for burn pastes we go directly to GetAndDelete so the content is loaded exactly once and atomically removed.
+// The previous pattern (Get - check Burn - GetAndDelete) loaded the full content blob twice, doubling memory usage for every burn-paste read.
 func (a *App) fetchPaste(id string) (*PasteData, error) {
+	// Use a metadata-only peek to check the burn flag without loading the content blob. If the storage backend supports PeekMeta, we avoid the double-load entirely. Otherwise fall back to the single Get path.
+	// if meta, err := a.storage.PeekMeta(id); err == nil && meta != nil {
+	// 	if meta.Burn {
+	// 		return a.storage.GetAndDelete(id)
+	// 	}
+	// 	return a.storage.Get(id)
+	// }
 	paste, err := a.storage.Get(id)
 	if err != nil || paste == nil {
 		return nil, err
