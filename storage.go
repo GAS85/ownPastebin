@@ -35,6 +35,7 @@ type PasteData struct {
 type Storage interface {
 	Save(key string, data *PasteData, ttl time.Duration) error
 	Get(key string) (*PasteData, error)
+	PeekMeta(key string) (*PasteData, error) // returns metadata without Content
 	Delete(key string) error
 	GetAndDelete(key string) (*PasteData, error)
 	Close() error
@@ -214,6 +215,38 @@ func (s *SQLiteStorage) Save(key string, d *PasteData, ttl time.Duration) error 
 		boolToInt(d.E2EEncrypted), d.Lang, expireAt,
 	)
 	return err
+}
+
+func (s *SQLiteStorage) PeekMeta(key string) (*PasteData, error) {
+	row := s.db.QueryRow(`
+		SELECT burn, encrypted, e2e_encrypted, lang, expire_at
+		FROM pastes WHERE id = ?`, key)
+
+	var burnInt, encInt, e2eInt int
+	var lang string
+	var expireAt *int64
+	if err := row.Scan(&burnInt, &encInt, &e2eInt, &lang, &expireAt); err == sql.ErrNoRows {
+		return nil, nil
+	} else if err != nil {
+		return nil, err
+	}
+	// Check expiry without loading content
+	if expireAt != nil && time.Now().Unix() >= *expireAt {
+		s.db.Exec(`DELETE FROM pastes WHERE id = ?`, key) // clean up
+		return nil, nil
+	}
+	paste := &PasteData{
+		Content:      nil, // metadata only
+		Burn:         intToBool(burnInt),
+		Encrypted:    intToBool(encInt),
+		E2EEncrypted: intToBool(e2eInt),
+		Lang:         lang,
+	}
+	if expireAt != nil {
+		t := time.Unix(*expireAt, 0)
+		paste.ExpireAt = &t
+	}
+	return paste, nil
 }
 
 func (s *SQLiteStorage) Get(key string) (*PasteData, error) {
@@ -529,6 +562,30 @@ func (s *PostgresStorage) Save(key string, d *PasteData, ttl time.Duration) erro
 	return err
 }
 
+func (s *PostgresStorage) PeekMeta(key string) (*PasteData, error) {
+	row := s.db.QueryRow(`
+		SELECT burn, encrypted, e2e_encrypted, lang, expire_at
+		FROM pastes
+		WHERE id = $1 AND (expire_at IS NULL OR expire_at > NOW())`, key)
+
+	var burn, encrypted, e2eEncrypted bool
+	var lang string
+	var expireAt *time.Time
+	if err := row.Scan(&burn, &encrypted, &e2eEncrypted, &lang, &expireAt); err == sql.ErrNoRows {
+		return nil, nil
+	} else if err != nil {
+		return nil, err
+	}
+	return &PasteData{
+		Content:      nil,
+		Burn:         burn,
+		Encrypted:    encrypted,
+		E2EEncrypted: e2eEncrypted,
+		Lang:         lang,
+		ExpireAt:     expireAt,
+	}, nil
+}
+
 func (s *PostgresStorage) Get(key string) (*PasteData, error) {
 	row := s.db.QueryRow(`
 		SELECT content, burn, encrypted, e2e_encrypted, lang, expire_at
@@ -633,6 +690,33 @@ func (s *RedisStorage) Save(key string, d *PasteData, ttl time.Duration) error {
 		return s.client.Expire(ctx, key, ttl).Err()
 	}
 	return nil
+}
+
+func (s *RedisStorage) PeekMeta(key string) (*PasteData, error) {
+	ctx := context.Background()
+	// Check existence + TTL quickly
+	exists, err := s.client.Exists(ctx, key).Result()
+	if err != nil || exists == 0 {
+		return nil, nil
+	}
+	// Fetch only metadata fields
+	burn, _ := s.client.HGet(ctx, key, "burn").Int()
+	enc, _ := s.client.HGet(ctx, key, "enc").Int()
+	e2e, _ := s.client.HGet(ctx, key, "e2e").Int()
+	lang, _ := s.client.HGet(ctx, key, "lang").Result()
+
+	p := &PasteData{
+		Content:      nil,
+		Burn:         intToBool(burn),
+		Encrypted:    intToBool(enc),
+		E2EEncrypted: intToBool(e2e),
+		Lang:         lang,
+	}
+	if ttl := s.client.TTL(ctx, key).Val(); ttl > 0 {
+		t := time.Now().Add(ttl)
+		p.ExpireAt = &t
+	}
+	return p, nil
 }
 
 // Get retrieves a paste from Redis.

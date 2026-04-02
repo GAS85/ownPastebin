@@ -346,12 +346,12 @@ func (a *App) handleDelete(w http.ResponseWriter, r *http.Request) {
 // The previous pattern (Get - check Burn - GetAndDelete) loaded the full content blob twice, doubling memory usage for every burn-paste read.
 func (a *App) fetchPaste(id string) (*PasteData, error) {
 	// Use a metadata-only peek to check the burn flag without loading the content blob. If the storage backend supports PeekMeta, we avoid the double-load entirely. Otherwise fall back to the single Get path.
-	// if meta, err := a.storage.PeekMeta(id); err == nil && meta != nil {
-	// 	if meta.Burn {
-	// 		return a.storage.GetAndDelete(id)
-	// 	}
-	// 	return a.storage.Get(id)
-	// }
+	if meta, err := a.storage.PeekMeta(id); err == nil && meta != nil {
+		if meta.Burn {
+			return a.storage.GetAndDelete(id)
+		}
+		return a.storage.Get(id)
+	}
 	paste, err := a.storage.Get(id)
 	if err != nil || paste == nil {
 		return nil, err
