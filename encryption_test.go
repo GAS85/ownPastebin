@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/base64"
 	"strings"
 	"testing"
@@ -40,7 +41,7 @@ func TestEncryptionStoredValueIsNotPlaintext(t *testing.T) {
 	id := extractID(t, res.Body.String())
 
 	// Read the raw stored payload directly from storage — it must NOT be
-	// the plaintext, it must be the AES-GCM ciphertext (base64).
+	// the plaintext. Content is []byte raw AES-GCM ciphertext (nonce || ct || tag).
 	paste, err := app.storage.Get(id)
 	if err != nil {
 		t.Fatalf("storage.Get: %v", err)
@@ -48,11 +49,16 @@ func TestEncryptionStoredValueIsNotPlaintext(t *testing.T) {
 	if paste == nil {
 		t.Fatal("paste not found in storage")
 	}
-	if paste.Content == "topsecret" {
+
+	// Must not equal the plaintext bytes.
+	if bytes.Equal(paste.Content, []byte("topsecret")) {
 		t.Fatal("plaintext found in storage — encryption is not working")
 	}
-	if !strings.Contains(paste.Content, "=") && len(paste.Content) < 32 {
-		t.Fatal("stored content doesn't look like base64 ciphertext")
+
+	// AES-GCM output is: 12-byte nonce + ciphertext + 16-byte tag.
+	// Minimum size for any input is 12 + 0 + 16 = 28 bytes.
+	if len(paste.Content) < 28 {
+		t.Fatalf("stored content too short to be AES-GCM ciphertext: %d bytes", len(paste.Content))
 	}
 }
 
@@ -72,7 +78,7 @@ func TestEncryptionWithBadKeyFails(t *testing.T) {
 	}
 }
 
-func TestEncryptionDisabledStoresBase64(t *testing.T) {
+func TestEncryptionDisabledStoresRawBytes(t *testing.T) {
 	app, handler := NewAppForTest(t, TestConfig{
 		EncryptionEnabled: false,
 	})
@@ -84,11 +90,12 @@ func TestEncryptionDisabledStoresBase64(t *testing.T) {
 	if err != nil || paste == nil {
 		t.Fatalf("storage.Get: err=%v paste=%v", err, paste)
 	}
-	// Without encryption the content is plain base64 — decoding it must
-	// produce the original bytes.
-	if paste.Content == "plaindata" {
-		t.Fatal("content stored as literal plaintext, expected base64")
+
+	// Without encryption the content is stored as raw bytes identical to the input.
+	if !bytes.Equal(paste.Content, []byte("plaindata")) {
+		t.Fatalf("expected raw bytes in storage, got %q", paste.Content)
 	}
+
 	// Raw endpoint must still return the original content transparently.
 	res = doRequest(t, handler, "GET", "/raw/"+id, nil)
 	if res.Body.String() != "plaindata" {

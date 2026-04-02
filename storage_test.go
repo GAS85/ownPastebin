@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"os"
 	"testing"
 	"time"
@@ -30,7 +31,9 @@ func newTestStorage(t *testing.T) *SQLiteStorage {
 func TestStorageSaveAndGet(t *testing.T) {
 	s := newTestStorage(t)
 
-	paste := &PasteData{Content: "aGVsbG8=", Lang: "text"}
+	// Content is []byte — pass raw bytes, not a base64 string.
+	want := []byte("hello")
+	paste := &PasteData{Content: want, Lang: "text"}
 	if err := s.Save("key1", paste, 0); err != nil {
 		t.Fatalf("Save: %v", err)
 	}
@@ -42,15 +45,15 @@ func TestStorageSaveAndGet(t *testing.T) {
 	if got == nil {
 		t.Fatal("Get returned nil")
 	}
-	if got.Content != "aGVsbG8=" {
-		t.Fatalf("content mismatch: got %q", got.Content)
+	if !bytes.Equal(got.Content, want) {
+		t.Fatalf("content mismatch: got %q, want %q", got.Content, want)
 	}
 }
 
 func TestStorageDelete(t *testing.T) {
 	s := newTestStorage(t)
 
-	s.Save("key2", &PasteData{Content: "x"}, 0)
+	s.Save("key2", &PasteData{Content: []byte("x")}, 0)
 	s.Delete("key2")
 
 	got, err := s.Get("key2")
@@ -65,7 +68,7 @@ func TestStorageDelete(t *testing.T) {
 func TestStorageTTLExpiry(t *testing.T) {
 	s := newTestStorage(t)
 
-	s.Save("ttl1", &PasteData{Content: "temp"}, 1*time.Second)
+	s.Save("ttl1", &PasteData{Content: []byte("temp")}, 1*time.Second)
 
 	// Must exist immediately.
 	got, _ := s.Get("ttl1")
@@ -87,7 +90,7 @@ func TestStorageTTLExpiry(t *testing.T) {
 func TestStorageGetAndDeleteAtomic(t *testing.T) {
 	s := newTestStorage(t)
 
-	s.Save("burn1", &PasteData{Content: "burnme", Burn: true}, 0)
+	s.Save("burn1", &PasteData{Content: []byte("burnme"), Burn: true}, 0)
 
 	got, err := s.GetAndDelete("burn1")
 	if err != nil || got == nil {
@@ -119,7 +122,7 @@ func TestStorageMissingKey(t *testing.T) {
 func TestStorageExpireAtPopulated(t *testing.T) {
 	s := newTestStorage(t)
 
-	s.Save("exp1", &PasteData{Content: "data"}, 1*time.Hour)
+	s.Save("exp1", &PasteData{Content: []byte("data")}, 1*time.Hour)
 
 	got, err := s.Get("exp1")
 	if err != nil || got == nil {
@@ -136,7 +139,7 @@ func TestStorageExpireAtPopulated(t *testing.T) {
 func TestStorageNoExpireAtForPermanent(t *testing.T) {
 	s := newTestStorage(t)
 
-	s.Save("perm1", &PasteData{Content: "permanent"}, 0)
+	s.Save("perm1", &PasteData{Content: []byte("permanent")}, 0)
 
 	got, err := s.Get("perm1")
 	if err != nil || got == nil {
