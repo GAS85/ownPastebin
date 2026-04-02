@@ -414,6 +414,27 @@ document.addEventListener("DOMContentLoaded", function () {
     var data = textarea ? textarea.value : "";
     var pass = passSel ? passSel.value : "";
 
+    // Map HTTP status codes to user-readable messages.
+    // The server sends plain-text error bodies for 4xx/5xx; we never try to
+    // JSON-parse them because r.json() would throw and lose the status code.
+    function errorMsgForStatus(status) {
+      switch (status) {
+        case 400: return "Empty paste — nothing to save.";
+        case 413: return "Paste is too large. Please reduce the content size and try again.";
+        case 429: return "Too many requests. Please wait a moment and try again.";
+        case 503: return "Server is busy. Please try again in a few seconds.";
+        default:  return "Failed to create paste (HTTP " + status + ").";
+      }
+    }
+
+    function resetSendBtn() {
+      sendInFlight = false;
+      ["send-btn"].forEach(function (id) {
+        var b = document.getElementById(id);
+        if (b) b.disabled = false;
+      });
+    }
+
     function doSend(body, encrypted) {
       if (encrypted) uri = replaceUrlParam(uri, "encrypted", "true");
       fetch(uri, {
@@ -422,9 +443,22 @@ document.addEventListener("DOMContentLoaded", function () {
         headers: { "Content-Type": "text/plain" },
       })
         .then(function (r) {
+          // Handle error responses before attempting JSON parse.
+          // On 4xx/5xx the body is plain text, not JSON.
+          if (!r.ok) {
+            var msg = errorMsgForStatus(r.status);
+            resetSendBtn();
+            var redirect = flashBase();
+            redirect = replaceUrlParam(redirect, "level", "danger");
+            redirect = replaceUrlParam(redirect, "glyph", "fas fa-circle-xmark");
+            redirect = replaceUrlParam(redirect, "msg", msg);
+            window.location.href = encodeURI(redirect);
+            return null; // stop the chain
+          }
           return r.json();
         })
         .then(function (result) {
+          if (!result) return; // error path already redirected
           var redirect = flashBase();
           redirect = replaceUrlParam(redirect, "level", "success");
           redirect = replaceUrlParam(redirect, "glyph", "fas fa-check");
@@ -437,20 +471,12 @@ document.addEventListener("DOMContentLoaded", function () {
           window.location.href = encodeURI(redirect);
         })
         .catch(function () {
-          // Reset guard so the user can retry
-          sendInFlight = false;
-          ["send-btn"].forEach(function (id) {
-            var b = document.getElementById(id);
-            if (b) b.disabled = false;
-          });
+          // Network error (no response at all — e.g. offline, DNS failure).
+          resetSendBtn();
           var redirect = flashBase();
           redirect = replaceUrlParam(redirect, "level", "danger");
           redirect = replaceUrlParam(redirect, "glyph", "fas fa-circle-xmark");
-          redirect = replaceUrlParam(
-            redirect,
-            "msg",
-            "Failed to create paste.",
-          );
+          redirect = replaceUrlParam(redirect, "msg", "Network error — could not reach the server.");
           window.location.href = encodeURI(redirect);
         });
     }
