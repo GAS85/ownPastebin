@@ -78,4 +78,4 @@ ENTRYPOINT ["/entrypoint.sh"]
 HEALTHCHECK --interval=5m \
             --timeout=5s \
             --retries=3 \
-            CMD wget -qO- http://localhost:${PASTEBIN_PORT:-8080}/config > /dev/null || exit 1
+            CMD wget -qO- ${PASTEBIN_BASE_URL:-http://localhost/8080}/config > /dev/null || exit
