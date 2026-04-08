@@ -260,7 +260,16 @@
       </select>
 
       <!-- Send + Password (new state) -->
-      <input class="w3-bar-item w3-input w3-margin-top w3-round" id="pastebin-password" type="password" placeholder="Password (optional)">
+      <input class="w3-bar-item w3-input w3-margin-top w3-round" id="pastebin-password" type="password" placeholder="Password (optional)" oninput="updateStrength()">
+
+      <div class="w3-light-grey w3-round w3-margin-top" style="height:8px;">
+        <div id="password-strength-bar"
+             class="w3-container w3-round"
+             style="height:8px; width:0%">
+        </div>
+      </div>
+
+      <small id="password-strength-text"></small>
 
       <button id="send-btn" class="w3-bar-item w3-button w3-margin-top w3-green w3-hover-light-green w3-round w3-center">Send</button>
 
@@ -290,7 +299,7 @@
 
   <!-- MAIN -->
   <main class="w3-container w3-asphalt" id="main-content">
-</div>
+    </div>
 
 
     <!-- 404 view -->

@@ -83,7 +83,7 @@ async function deriveKey(password, salt) {
     enc.encode(password),
     { name: "PBKDF2" },
     false,
-    ["deriveKey"],
+    ["deriveKey"]
   );
   return crypto.subtle.deriveKey(
     {
@@ -95,7 +95,7 @@ async function deriveKey(password, salt) {
     keyMaterial,
     { name: "AES-GCM", length: 256 },
     false,
-    ["encrypt", "decrypt"],
+    ["encrypt", "decrypt"]
   );
 }
 
@@ -114,7 +114,7 @@ async function aesEncrypt(plaintext, password) {
   var cipherBuf = await crypto.subtle.encrypt(
     { name: "AES-GCM", iv: iv },
     key,
-    enc.encode(plaintext),
+    enc.encode(plaintext)
   );
 
   // Concatenate: salt(16) + iv(12) + ciphertext+tag
@@ -155,7 +155,7 @@ async function aesDecrypt(cipherText, password) {
     var plainBuf = await crypto.subtle.decrypt(
       { name: "AES-GCM", iv: iv },
       key,
-      cipherBuf,
+      cipherBuf
     );
     return new TextDecoder().decode(plainBuf);
   } catch (e) {
@@ -204,7 +204,7 @@ function toggleMobileMenu() {
   const isMobile = window.innerWidth <= 600;
 
   // On mobile: no content shift, sidebar covers full screen
-  const shift = (isOpen && !isMobile) ? "250px" : "0px";
+  const shift = isOpen && !isMobile ? "250px" : "0px";
 
   document.getElementById("footer").style.marginLeft = shift;
   document.getElementById("main-content").style.marginLeft = shift;
@@ -233,6 +233,48 @@ function setInitialTheme() {
 }
 // Initialize theme on page load
 setInitialTheme();
+
+// ── Password quality check ───────────────────────────────────────────────────────
+
+function updateStrength() {
+  const pwd = document.getElementById("pastebin-password").value;
+  const bar = document.getElementById("password-strength-bar");
+  const text = document.getElementById("password-strength-text");
+
+  let score = 0;
+
+  // Length = up to 3 points
+  score += Math.min(3, Math.floor(pwd.length / 8));
+
+  // Character variety (1 point each)
+  if (/[A-Z]/.test(pwd)) score++;
+  if (/[a-z]/.test(pwd)) score++;
+  if (/[0-9]/.test(pwd)) score++;
+  if (/[^A-Za-z0-9]/.test(pwd)) score++;
+
+  const maxScore = 7;
+  const percent = (score / maxScore) * 100;
+  bar.style.width = percent + "%";
+
+  // Color + label
+  if (score <= 0) {
+    // Empty password: no bar, no label
+    bar.className = "";
+    text.textContent = "";
+  } else if (score <= 2) {
+    bar.className = "w3-container w3-red w3-round";
+    text.textContent = "😢 Weak";
+  } else if (score <= 4) {
+    bar.className = "w3-container w3-khaki w3-round";
+    text.textContent = "😒 Medium";
+  } else if (score <= 6) {
+    bar.className = "w3-container w3-light-green w3-round";
+    text.textContent = "😀 Strong";
+  } else {
+    bar.className = "w3-container w3-green w3-round";
+    text.textContent = "🤖 Beast!";
+  }
+}
 
 // ── DOM ready ─────────────────────────────────────────────────────────────────
 
@@ -349,7 +391,7 @@ document.addEventListener("DOMContentLoaded", function () {
           uri = replaceUrlParam(
             uri,
             "msg",
-            "The paste has been successfully removed.",
+            "The paste has been successfully removed."
           );
           window.location.href = encodeURI(uri);
         })
@@ -444,11 +486,16 @@ document.addEventListener("DOMContentLoaded", function () {
     // JSON-parse them because r.json() would throw and lose the status code.
     function errorMsgForStatus(status) {
       switch (status) {
-        case 400: return "Empty paste — nothing to save.";
-        case 413: return "Paste is too large. Please reduce the content size and try again.";
-        case 429: return "Too many requests. Please wait a moment and try again.";
-        case 503: return "Server is busy. Please try again in a few seconds.";
-        default:  return "Failed to create paste (HTTP " + status + ").";
+        case 400:
+          return "Empty paste — nothing to save.";
+        case 413:
+          return "Paste is too large. Please reduce the content size and try again.";
+        case 429:
+          return "Too many requests. Please wait a moment and try again.";
+        case 503:
+          return "Server is busy. Please try again in a few seconds.";
+        default:
+          return "Failed to create paste (HTTP " + status + ").";
       }
     }
 
@@ -475,7 +522,11 @@ document.addEventListener("DOMContentLoaded", function () {
             resetSendBtn();
             var redirect = flashBase();
             redirect = replaceUrlParam(redirect, "level", "danger");
-            redirect = replaceUrlParam(redirect, "glyph", "fas fa-circle-xmark");
+            redirect = replaceUrlParam(
+              redirect,
+              "glyph",
+              "fas fa-circle-xmark"
+            );
             redirect = replaceUrlParam(redirect, "msg", msg);
             window.location.href = encodeURI(redirect);
             return null; // stop the chain
@@ -490,7 +541,7 @@ document.addEventListener("DOMContentLoaded", function () {
           redirect = replaceUrlParam(
             redirect,
             "msg",
-            "The paste has been successfully created:",
+            "The paste has been successfully created:"
           );
           redirect = replaceUrlParam(redirect, "url", result.url);
           window.location.href = encodeURI(redirect);
@@ -501,7 +552,11 @@ document.addEventListener("DOMContentLoaded", function () {
           var redirect = flashBase();
           redirect = replaceUrlParam(redirect, "level", "danger");
           redirect = replaceUrlParam(redirect, "glyph", "fas fa-circle-xmark");
-          redirect = replaceUrlParam(redirect, "msg", "Network error — could not reach the server.");
+          redirect = replaceUrlParam(
+            redirect,
+            "msg",
+            "Network error — could not reach the server."
+          );
           window.location.href = encodeURI(redirect);
         });
     }
@@ -531,9 +586,9 @@ document.addEventListener("DOMContentLoaded", function () {
       var cipherText = block
         ? block.textContent.trim()
         : //                             : (textarea ? textarea.textContent.trim() : "");
-          textarea
-          ? textarea.value.trim()
-          : "";
+        textarea
+        ? textarea.value.trim()
+        : "";
       var alertEl = document.getElementById("modal-alert");
 
       aesDecrypt(cipherText, pass).then(function (decrypted) {

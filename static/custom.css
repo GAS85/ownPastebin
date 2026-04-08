@@ -4,7 +4,7 @@ html {
 }
 
 body {
-  min-height: 100%;          /* fills viewport; grows with content */
+  min-height: 100%; /* fills viewport; grows with content */
   margin: 0;
   display: flex;
   flex-direction: column;
@@ -12,7 +12,7 @@ body {
 
 /* ── Main grows to push footer down AND hosts the stretching textarea ── */
 main {
-  flex: 1 1 auto;            /* grow to fill remaining vertical space */
+  flex: 1 1 auto; /* grow to fill remaining vertical space */
   display: flex;
   flex-direction: column;
   /* no padding-bottom here — textarea itself handles internal spacing */
@@ -23,14 +23,14 @@ main > .w3-section {
   flex: 1 1 auto;
   display: flex;
   flex-direction: column;
-  margin-bottom: 0;          /* override W3.CSS default margin so no gap */
+  margin-bottom: 0; /* override W3.CSS default margin so no gap */
 }
 
 /* ── Textarea fills its flex parent completely ── */
 #content-textarea {
   flex: 1 1 auto;
   resize: none;
-  min-height: 300px;         /* fallback floor so it is never tiny */
+  min-height: 300px; /* fallback floor so it is never tiny */
   width: 100%;
   box-sizing: border-box;
   font-family: "Courier New", Courier, monospace;
@@ -57,7 +57,6 @@ footer {
 .w3-modal {
   z-index: 200;
 }
-
 
 /* Adjust other element colors for dark mode */
 .w3-bar,
@@ -89,7 +88,7 @@ body.light-mode .w3-select {
   left: 0;
   width: 250px;
   height: 100%;
-  transform: translateX(-100%);   /* hidden off-screen */
+  transform: translateX(-100%); /* hidden off-screen */
   transition: transform 0.3s ease;
   z-index: 100;
 }
@@ -101,7 +100,7 @@ body.light-mode .w3-select {
 
 @media (max-width: 600px) {
   #navbar.open {
-    width: 100%;         /* full screen on mobile */
+    width: 100%; /* full screen on mobile */
   }
 }
 
@@ -110,4 +109,9 @@ body.light-mode .w3-select {
 #footer,
 #topnav {
   transition: margin-left 0.3s ease;
+}
+
+/* Smooth animation for password strength bar */
+#password-strength-bar {
+  transition: width 0.3s ease;
 }
