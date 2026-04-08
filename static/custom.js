@@ -197,17 +197,43 @@ function init_plugins() {
 // ── Mobile menu ───────────────────────────────────────────────────────────────
 
 function toggleMobileMenu() {
-  //  var menu = document.getElementById("mobileMenu");
-  var menu = document.getElementById("desktopNav");
+  var menu = document.getElementById("navbar");
   if (!menu) return;
-  if (menu.classList.contains("w3-hide")) {
-    menu.classList.remove("w3-hide");
-    menu.classList.add("w3-show");
+
+  const isOpen = menu.classList.toggle("open");
+  const isMobile = window.innerWidth <= 600;
+
+  // On mobile: no content shift, sidebar covers full screen
+  const shift = (isOpen && !isMobile) ? "250px" : "0px";
+
+  document.getElementById("footer").style.marginLeft = shift;
+  document.getElementById("main-content").style.marginLeft = shift;
+  document.getElementById("topnav").style.marginLeft = shift;
+}
+
+// ── Dark mode ──────────────────────────────────────────────────────────────────
+//
+// Theme Selector
+//
+function re_theme() {
+  var element = document.body;
+  element.classList.toggle("light-mode");
+}
+
+// Set initial theme based on user preference
+function setInitialTheme() {
+  if (
+    window.matchMedia &&
+    window.matchMedia("(prefers-color-scheme: dark)").matches
+  ) {
+    document.body.classList.remove("light-mode");
   } else {
-    menu.classList.remove("w3-show");
-    menu.classList.add("w3-hide");
+    document.body.classList.add("light-mode");
   }
 }
+// Initialize theme on page load
+setInitialTheme();
+
 
 // ── Darkmode ──────────────────────────────────────────────────────────────────
 
