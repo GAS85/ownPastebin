@@ -114,4 +114,21 @@ log INFO "Log level:              $PASTEBIN_LOG_LEVEL"
 log INFO "Date format:            ${PASTEBIN_DATE_FORMAT:-not set}"
 log INFO "Shell Date format:      $PASTEBIN_SHELL_DATE_FORMAT"
 
+# ── File Logging  ─────────────────────────────────────────────────────────────
+if [ -n "${PASTEBIN_FILE_LOG+x}" ]; then
+    touch "$PASTEBIN_FILE_LOG" 2>/dev/null || {
+        log ERROR "Cannot create log file under $PASTEBIN_FILE_LOG as UID $(id -u). Check permissions or disable file logging. Exiting."
+        exit 1
+    }
+    if [ -w "$PASTEBIN_FILE_LOG" ]; then
+        log INFO "Logging to file:        $PASTEBIN_FILE_LOG"
+        exec >>"$PASTEBIN_FILE_LOG" 2>&1
+        # After this point everything will be logged to the file.
+    else
+        log ERROR "Log file not writable: $PASTEBIN_FILE_LOG"
+        exit 1
+    fi
+fi
+
+# ── Start the app  ────────────────────────────────────────────────────────────
 exec /app/pastebin

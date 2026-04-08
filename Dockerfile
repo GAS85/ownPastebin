@@ -67,6 +67,7 @@ COPY --from=builder --chmod=555 /build/pastebin /app/pastebin
 COPY --chmod=555 entrypoint.sh /entrypoint.sh
 
 RUN mkdir -p /app/data && \
+    touch /app/data/pastebin.log && \
     chown -R $USER /app/data
 
 USER $USER
