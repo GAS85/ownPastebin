@@ -209,6 +209,37 @@ function toggleMobileMenu() {
   }
 }
 
+// ── Darkmode ──────────────────────────────────────────────────────────────────
+
+function modeToggler() {
+  //var body = document.body;
+  //body.classList.toggle("w3-light-grey");
+
+  var navbar = document.getElementById("navbar");
+  if (!navbar) return;
+  if (navbar.classList.contains("w3-dark-grey")) {
+    navbar.classList.remove("w3-dark-grey");
+    navbar.classList.add("w3-light-blue");
+  } else {
+    navbar.classList.remove("w3-light-blue");
+    navbar.classList.add("w3-dark-grey");
+}
+
+// Set initial theme based on user preference
+	function setInitialTheme() {
+	  if (
+	    window.matchMedia &&
+	    window.matchMedia("(prefers-color-scheme: dark)").matches
+	  ) {
+	    document.body.classList.remove("light-mode");
+	  } else {
+	    document.body.classList.add("light-mode");
+	  }
+	}
+	// Initialize theme on page load
+	setInitialTheme();
+
+
 // ── DOM ready ─────────────────────────────────────────────────────────────────
 
 document.addEventListener("DOMContentLoaded", function () {
