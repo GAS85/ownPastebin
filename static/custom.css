@@ -48,6 +48,19 @@ pre {
   margin-bottom: 0;
 }
 
+/* Prism line-numbers sets its own padding-left via CSS; don't override it */
+pre.line-numbers {
+  padding-left: 3.8em;
+}
+
+/* ── Sticky-nav scroll compensation for line highlights ── */
+/* scroll-margin-top shifts the scrollIntoView target down by the navbar
+   height so the highlighted line isn't hidden behind the sticky topnav.
+   Keep this value in sync with the actual rendered height of #topnav.     */
+.line-highlight {
+  scroll-margin-top: 60px; /* matches #topnav height (w3-large + w3-padding) */
+}
+
 /* ── Footer stays at the bottom naturally via flex ── */
 footer {
   flex-shrink: 0;
@@ -98,6 +111,12 @@ body.light-mode .w3-input {
   position: sticky;
   bottom: 0;
   z-index: 100;
+}
+
+/* shadow broken */
+pre[class*="language-"]::after,
+pre[class*="language-"]::before {
+  bottom: 3.8em !important;
 }
 
 /* Sidebar base state */

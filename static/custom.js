@@ -83,7 +83,7 @@ async function deriveKey(password, salt) {
     enc.encode(password),
     { name: "PBKDF2" },
     false,
-    ["deriveKey"]
+    ["deriveKey"],
   );
   return crypto.subtle.deriveKey(
     {
@@ -95,7 +95,7 @@ async function deriveKey(password, salt) {
     keyMaterial,
     { name: "AES-GCM", length: 256 },
     false,
-    ["encrypt", "decrypt"]
+    ["encrypt", "decrypt"],
   );
 }
 
@@ -114,7 +114,7 @@ async function aesEncrypt(plaintext, password) {
   var cipherBuf = await crypto.subtle.encrypt(
     { name: "AES-GCM", iv: iv },
     key,
-    enc.encode(plaintext)
+    enc.encode(plaintext),
   );
 
   // Concatenate: salt(16) + iv(12) + ciphertext+tag
@@ -155,7 +155,7 @@ async function aesDecrypt(cipherText, password) {
     var plainBuf = await crypto.subtle.decrypt(
       { name: "AES-GCM", iv: iv },
       key,
-      cipherBuf
+      cipherBuf,
     );
     return new TextDecoder().decode(plainBuf);
   } catch (e) {
@@ -310,6 +310,76 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   })();
 
+  // ── Line numbers + line highlight setup ──────────────────────────────────
+  //
+  // We let Prism's own plugins (line-numbers, line-highlight, linkable-line-
+  // numbers) do all the work. Our responsibilities are:
+  //
+  //   1. Ensure <pre id="pastebin-pre"> — Go template may omit the id.
+  //   2. Translate GitLab-style hashes (#L3, #L3-5, #L1-3,7) to Prism's
+  //      native form (#pastebin-pre.3-5) with history.replaceState so Prism's
+  //      own applyHash() always receives the format it expects.
+  //   3. Compensate for the sticky topnav after Prism scrolls a line into
+  //      view — Prism calls scrollIntoView() which ignores sticky headers.
+  //
+  // We do NOT call highlightElement on hash changes. That would re-run the
+  // full highlighter, strip the temporary .line-highlight divs Prism just
+  // inserted, and race with Prism's own hashchange listener.
+
+  var PRE_ID = "pastebin-pre";
+
+  // 1. Assign id to <pre> before Prism touches it.
+  (function ensurePreId() {
+    var block = document.getElementById("pastebin-code-block");
+    if (!block) return;
+    var pre = block.parentElement;
+    if (pre && pre.nodeName === "PRE" && !pre.id) {
+      pre.id = PRE_ID;
+    }
+  })();
+
+  // 2. Translate #L… → #pastebin-pre.… using replaceState (no history entry).
+  //    Returns true when a translation was performed.
+  function normalizeLineHash() {
+    var hash = window.location.hash;
+    if (!hash) return false;
+    var h = hash.slice(1); // strip leading #
+
+    // Already Prism form — nothing to do.
+    if (h.indexOf(PRE_ID + ".") === 0) return false;
+
+    // GitLab form: L5 / L3-5 / L1,4 / L1-3,7,9-11
+    var m = h.match(/^L([\d,\-\s]+)$/i);
+    if (m) {
+      history.replaceState(
+        null,
+        "",
+        "#" + PRE_ID + "." + m[1].replace(/\s/g, ""),
+      );
+      return true;
+    }
+    return false;
+  }
+
+  // 3. After Prism scrolls a highlighted line into view, nudge the scroll
+  //    position down by the sticky topnav height so the line isn't hidden.
+  function compensateStickyNav() {
+    var nav = document.getElementById("topnav");
+    if (!nav) return;
+    var navH = nav.getBoundingClientRect().height;
+    if (navH > 0) {
+      window.scrollBy(0, -navH);
+    }
+  }
+
+  // hashchange: translate first (so Prism's own listener reads the right
+  // hash), then schedule scroll compensation to run after Prism's listener
+  // has called scrollIntoView().
+  window.addEventListener("hashchange", function () {
+    normalizeLineHash();
+    setTimeout(compensateStickyNav, 50);
+  });
+
   // ── Language selector → re-highlight ──────────────────────────────────────
   ["language-selector"].forEach(function (id) {
     var sel = document.getElementById(id);
@@ -324,7 +394,7 @@ document.addEventListener("DOMContentLoaded", function () {
       // Remove Prism's "already highlighted" marker so it re-processes the element
       delete block.dataset.highlighted;
 
-      // Re-highlight: prefer direct element highlight over highlightAll(), so only this block is re-processed (faster, avoids double-work)
+      // Re-highlight directly; preserves any existing data-line on the <pre>
       if (typeof Prism !== "undefined") {
         Prism.highlightElement(block);
       } else if (typeof init_plugins === "function") {
@@ -401,7 +471,7 @@ document.addEventListener("DOMContentLoaded", function () {
           uri = replaceUrlParam(
             uri,
             "msg",
-            "The paste has been successfully removed."
+            "The paste has been successfully removed.",
           );
           window.location.href = encodeURI(uri);
         })
@@ -535,7 +605,7 @@ document.addEventListener("DOMContentLoaded", function () {
             redirect = replaceUrlParam(
               redirect,
               "glyph",
-              "fas fa-circle-xmark"
+              "fas fa-circle-xmark",
             );
             redirect = replaceUrlParam(redirect, "msg", msg);
             window.location.href = encodeURI(redirect);
@@ -551,7 +621,7 @@ document.addEventListener("DOMContentLoaded", function () {
           redirect = replaceUrlParam(
             redirect,
             "msg",
-            "The paste has been successfully created:"
+            "The paste has been successfully created:",
           );
           redirect = replaceUrlParam(redirect, "url", result.url);
           window.location.href = encodeURI(redirect);
@@ -565,7 +635,7 @@ document.addEventListener("DOMContentLoaded", function () {
           redirect = replaceUrlParam(
             redirect,
             "msg",
-            "Network error — could not reach the server."
+            "Network error — could not reach the server.",
           );
           window.location.href = encodeURI(redirect);
         });
@@ -596,9 +666,9 @@ document.addEventListener("DOMContentLoaded", function () {
       var cipherText = block
         ? block.textContent.trim()
         : //                             : (textarea ? textarea.textContent.trim() : "");
-        textarea
-        ? textarea.value.trim()
-        : "";
+          textarea
+          ? textarea.value.trim()
+          : "";
       var alertEl = document.getElementById("modal-alert");
 
       aesDecrypt(cipherText, pass).then(function (decrypted) {
@@ -638,4 +708,11 @@ document.addEventListener("DOMContentLoaded", function () {
       if (e.target === modal) modal.style.display = "none";
     });
   });
+
+  // ── Apply line highlight from URL hash on initial page load ───────────────
+  // Translate #L… to Prism's #pastebin-pre.… form. init_plugins() (called by
+  // the Go template's plugin-inits script, which runs after custom.js loads)
+  // will then call Prism.highlightElement which triggers Prism's own applyHash
+  // via its 'complete' hook — so no manual highlightElement call needed here.
+  normalizeLineHash();
 });

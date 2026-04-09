@@ -65,7 +65,7 @@
   <!-- TOP NAV -->
   <div class="w3-container w3-display-container w3-sidebar w3-bar-block w3-dark-grey w3-large" id="navbar">
 
-    <a href="#" class="w3-button w3-round w3-large w3-margin w3-display-topleft fa fa-x" style="z-index: 3;" onclick="toggleMobileMenu()"></a>
+    <a href="#" class="w3-button w3-round w3-large w3-margin w3-display-topleft fa fa-x" onclick="toggleMobileMenu()"></a>
 
     <!-- Desktop nav items — hidden on small/medium screens -->
     <div id="desktopNav">
@@ -304,7 +304,7 @@
   <div class="w3-bar w3-asphalt w3-large w3-padding" id="topnav">
     <a href="#" class="w3-bar-item w3-button w3-round fa fa-bars w3-margin-top w3-margin-left" onclick="toggleMobileMenu()"></a>
 
-    <div href="/" class="w3-bar-item w3-button w3-round w3-display-topmiddle w3-margin">Pastebin</div>
+    <a href="/" class="w3-bar-item w3-button w3-round w3-display-topmiddle w3-margin">Pastebin</a>
 
     <button id="send-btn" class="w3-bar-item w3-button w3-round w3-margin w3-green w3-hover-light-green w3-display-topright">Send</button>
 
@@ -339,9 +339,11 @@
         <span onclick="this.parentElement.style.display='none'" class="w3-button w3-display-topright w3-round fa fa-x"></span>
         <p><i class="fas fa-clock"></i> This paste will expire on <strong>2026-09-03 12:51:46 UTC</strong>.</p>
       </div>
-      <pre class="w3-margin-top"><code id="pastebin-code-block" class="language-python">def hello():
+      <pre id="pastebin-pre" class="w3-margin-top line-numbers linkable-line-numbers">
+        <code id="pastebin-code-block" class="language-python">def hello():
     print("Hello from pastebin!")
-    return 42</code></pre>
+    return 42</code>
+      </pre>
     </div>
 
   </main>
@@ -488,6 +490,7 @@
         burnAlert.style.display = "none";
         expireAlert.style.display = "";
         if (typeof init_plugins === "function") init_plugins();
+        if (typeof applyLineHighlight === "function") applyLineHighlight();
 
       } else if (state === "view-burn") {
         pasteView.style.display = "";
@@ -496,6 +499,7 @@
         burnAlert.style.display = "";
         expireAlert.style.display = "none";
         if (typeof init_plugins === "function") init_plugins();
+        if (typeof applyLineHighlight === "function") applyLineHighlight();
 
       } else if (state === "view-encrypted") {
         pasteView.style.display = "";

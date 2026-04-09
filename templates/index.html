@@ -30,7 +30,7 @@
   <!-- TOP NAV -->
   <div class="w3-container w3-display-container w3-sidebar w3-bar-block w3-dark-grey w3-large" id="navbar">
 
-    <a href="#" class="w3-button w3-round w3-large w3-margin w3-display-topleft fa fa-x" style="z-index: 3;" onclick="toggleMobileMenu()"></a>
+    <a href="#" class="w3-button w3-round w3-large w3-margin w3-display-topleft fa fa-x" onclick="toggleMobileMenu()"></a>
 
     <!-- Desktop nav items — hidden on small/medium screens -->
     <div id="desktopNav">
@@ -274,7 +274,7 @@
   <div class="w3-bar w3-asphalt w3-large w3-padding" id="topnav">
     <a href="#" class="w3-bar-item w3-button w3-round fa fa-bars w3-margin-top w3-margin-left" onclick="toggleMobileMenu()"></a>
 
-    <div href="/" class="w3-bar-item w3-button w3-round w3-display-topmiddle w3-margin">Pastebin</div>
+    <a href="{{.URIPrefix}}/" class="w3-bar-item w3-button w3-round w3-display-topmiddle w3-margin">Pastebin</a>
     {{if .IsEditable}}
     <button id="send-btn" class="w3-bar-item w3-button w3-round w3-margin w3-green w3-hover-light-green w3-display-topright">Send</button>
     {{end}}
@@ -336,8 +336,9 @@
     {{if eq .PastebinCls "language-mermaid"}}
     <div class="mermaid w3-margin-top">{{.PastebinCode}}</div>
     {{else}}
-    <pre class="w3-margin-top"><code id="pastebin-code-block"
-                class="{{.PastebinCls}}">{{.PastebinCode}}</code></pre>
+    <pre id="pastebin-pre" class="w3-margin-top line-numbers linkable-line-numbers">
+      <code id="pastebin-code-block" class="{{.PastebinCls}}">{{.PastebinCode}}</code>
+    </pre>
     {{end}}
 
     {{end}}{{/* end IsCreated/IsClone */}}
