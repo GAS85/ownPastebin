@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -14,6 +15,9 @@ import (
 	_ "github.com/lib/pq"
 	_ "github.com/mattn/go-sqlite3"
 )
+
+// ErrSlugConflict is returned by Save when the generated ID already exists. The caller should generate a new ID and retry.
+var ErrSlugConflict = errors.New("slug already exists")
 
 // =============================================================================
 // DATA MODEL
@@ -201,20 +205,27 @@ func ensureIncrementalVacuum(db *sql.DB) error {
 	return nil
 }
 
+// Save inserts a new paste. It uses INSERT OR IGNORE so that a slug collision returns ErrSlugConflict instead of silently overwriting an existing paste.  The caller (handleCreatePaste) retries with a fresh ID.
 func (s *SQLiteStorage) Save(key string, d *PasteData, ttl time.Duration) error {
 	var expireAt *int64
 	if ttl > 0 {
 		t := time.Now().Add(ttl).Unix()
 		expireAt = &t
 	}
-	_, err := s.db.Exec(`
-		INSERT OR REPLACE INTO pastes
+	res, err := s.db.Exec(`
+		INSERT OR IGNORE INTO pastes
 		(id, content, burn, encrypted, e2e_encrypted, lang, expire_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?)`,
 		key, d.Content, boolToInt(d.Burn), boolToInt(d.Encrypted),
 		boolToInt(d.E2EEncrypted), d.Lang, expireAt,
 	)
-	return err
+	if err != nil {
+		return err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return ErrSlugConflict
+	}
+	return nil
 }
 
 func (s *SQLiteStorage) PeekMeta(key string) (*PasteData, error) {
@@ -541,25 +552,26 @@ func (s *PostgresStorage) cleanupLoop() {
 	}
 }
 
+// Save inserts a new paste. Uses ON CONFLICT DO NOTHING so that a collision returns ErrSlugConflict rather than overwriting an existing paste.
 func (s *PostgresStorage) Save(key string, d *PasteData, ttl time.Duration) error {
 	var expireAt *time.Time
 	if ttl > 0 {
 		t := time.Now().Add(ttl)
 		expireAt = &t
 	}
-	_, err := s.db.Exec(`
+	res, err := s.db.Exec(`
 		INSERT INTO pastes (id, content, burn, encrypted, e2e_encrypted, lang, expire_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7)
-		ON CONFLICT (id) DO UPDATE SET
-			content = EXCLUDED.content,
-			burn = EXCLUDED.burn,
-			encrypted = EXCLUDED.encrypted,
-			e2e_encrypted = EXCLUDED.e2e_encrypted,
-			lang = EXCLUDED.lang,
-			expire_at = EXCLUDED.expire_at`,
+		ON CONFLICT (id) DO NOTHING`,
 		key, d.Content, d.Burn, d.Encrypted, d.E2EEncrypted, d.Lang, expireAt,
 	)
-	return err
+	if err != nil {
+		return err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return ErrSlugConflict
+	}
+	return nil
 }
 
 func (s *PostgresStorage) PeekMeta(key string) (*PasteData, error) {
@@ -674,22 +686,31 @@ func newRedisStorage(url string) (*RedisStorage, error) {
 func (s *RedisStorage) Save(key string, d *PasteData, ttl time.Duration) error {
 	ctx := context.Background()
 
-	err := s.client.HSet(ctx, key, map[string]interface{}{
-		"content": d.Content,
-		"burn":    boolToInt(d.Burn),
-		"enc":     boolToInt(d.Encrypted),
-		"e2e":     boolToInt(d.E2EEncrypted),
-		"lang":    d.Lang,
-	}).Err()
-
+	// Use SET NX (via a Lua script or HSETNX on a sentinel field) to avoid overwriting an existing paste on the rare slug collision. Use a pipeline: HSETNX on the "content" field as the collision gate, then HSET the remaining fields only if the key was fresh.
+	pipe := s.client.TxPipeline()
+	hsetnx := pipe.HSetNX(ctx, key, "content", d.Content)
+	_, err := pipe.Exec(ctx)
 	if err != nil {
 		return err
 	}
-
-	if ttl > 0 {
-		return s.client.Expire(ctx, key, ttl).Err()
+	if !hsetnx.Val() {
+		// content field already existed → slug collision
+		return ErrSlugConflict
 	}
-	return nil
+
+	// Key is new — write remaining fields and TTL.
+	pipe2 := s.client.TxPipeline()
+	pipe2.HSet(ctx, key, map[string]interface{}{
+		"burn": boolToInt(d.Burn),
+		"enc":  boolToInt(d.Encrypted),
+		"e2e":  boolToInt(d.E2EEncrypted),
+		"lang": d.Lang,
+	})
+	if ttl > 0 {
+		pipe2.Expire(ctx, key, ttl)
+	}
+	_, err = pipe2.Exec(ctx)
+	return err
 }
 
 func (s *RedisStorage) PeekMeta(key string) (*PasteData, error) {
