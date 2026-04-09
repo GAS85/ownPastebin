@@ -72,8 +72,11 @@ func newSQLiteStorage(path string, cfg *Settings) (*SQLiteStorage, error) {
 	if err != nil {
 		return nil, err
 	}
-	db.SetMaxOpenConns(4)
-	db.SetMaxIdleConns(2)
+	// Open connections scaled to MaxParallelUploads so writers do not queue
+	// behind a 4-connection ceiling while many concurrent uploads are active.
+	maxOpen := cfg.MaxParallelUploads + 4
+	db.SetMaxOpenConns(maxOpen)
+	db.SetMaxIdleConns(4)
 	db.SetConnMaxLifetime(time.Hour)
 
 	if err := applyPragmas(db); err != nil {
@@ -713,18 +716,24 @@ func (s *RedisStorage) Save(key string, d *PasteData, ttl time.Duration) error {
 	return err
 }
 
+// PeekMeta fetches all metadata fields in a single HMGet round trip.
 func (s *RedisStorage) PeekMeta(key string) (*PasteData, error) {
 	ctx := context.Background()
-	// Check existence + TTL quickly
-	exists, err := s.client.Exists(ctx, key).Result()
-	if err != nil || exists == 0 {
+
+	// Single round trip: fetch burn, enc, e2e, lang together.
+	vals, err := s.client.HMGet(ctx, key, "burn", "enc", "e2e", "lang").Result()
+	if err != nil {
+		return nil, err
+	}
+	// HMGet returns nils for all fields when the key does not exist.
+	if vals[0] == nil {
 		return nil, nil
 	}
-	// Fetch only metadata fields
-	burn, _ := s.client.HGet(ctx, key, "burn").Int()
-	enc, _ := s.client.HGet(ctx, key, "enc").Int()
-	e2e, _ := s.client.HGet(ctx, key, "e2e").Int()
-	lang, _ := s.client.HGet(ctx, key, "lang").Result()
+
+	burn  := valToInt(vals[0])
+	enc   := valToInt(vals[1])
+	e2e   := valToInt(vals[2])
+	lang  := valToString(vals[3])
 
 	p := &PasteData{
 		Content:      nil,
@@ -740,22 +749,28 @@ func (s *RedisStorage) PeekMeta(key string) (*PasteData, error) {
 	return p, nil
 }
 
-// Get retrieves a paste from Redis.
-// We now call HGet directly and treat redis.Nil as "not found".
+// Get retrieves a paste from Redis in two round trips: one HMGet for all
+// fields (including content) and one TTL call.
 func (s *RedisStorage) Get(key string) (*PasteData, error) {
 	ctx := context.Background()
 
-	content, err := s.client.HGet(ctx, key, "content").Bytes()
-	if err == redis.Nil {
-		return nil, nil
-	} else if err != nil {
+	// Fetch all fields in one round trip.
+	vals, err := s.client.HMGet(ctx, key, "content", "burn", "enc", "e2e", "lang").Result()
+	if err != nil {
 		return nil, err
 	}
+	if vals[0] == nil {
+		return nil, nil // key does not exist
+	}
 
-	burn, _ := s.client.HGet(ctx, key, "burn").Int()
-	enc, _ := s.client.HGet(ctx, key, "enc").Int()
-	e2e, _ := s.client.HGet(ctx, key, "e2e").Int()
-	lang, _ := s.client.HGet(ctx, key, "lang").Result()
+	content, err := valToBytes(vals[0])
+	if err != nil {
+		return nil, fmt.Errorf("redis Get: decode content: %w", err)
+	}
+	burn := valToInt(vals[1])
+	enc  := valToInt(vals[2])
+	e2e  := valToInt(vals[3])
+	lang := valToString(vals[4])
 
 	p := &PasteData{
 		Content:      content,
@@ -764,13 +779,10 @@ func (s *RedisStorage) Get(key string) (*PasteData, error) {
 		E2EEncrypted: intToBool(e2e),
 		Lang:         lang,
 	}
-
-	// Get TTL to populate ExpireAt
 	if ttl := s.client.TTL(ctx, key).Val(); ttl > 0 {
 		t := time.Now().Add(ttl)
 		p.ExpireAt = &t
 	}
-
 	return p, nil
 }
 
@@ -784,11 +796,11 @@ func (s *RedisStorage) GetAndDelete(key string) (*PasteData, error) {
 	pipe := s.client.TxPipeline()
 
 	contentCmd := pipe.HGet(ctx, key, "content")
-	burnCmd := pipe.HGet(ctx, key, "burn")
-	encCmd := pipe.HGet(ctx, key, "enc")
-	e2eCmd := pipe.HGet(ctx, key, "e2e")
-	langCmd := pipe.HGet(ctx, key, "lang")
-	ttlCmd := pipe.TTL(ctx, key)
+	burnCmd    := pipe.HGet(ctx, key, "burn")
+	encCmd     := pipe.HGet(ctx, key, "enc")
+	e2eCmd     := pipe.HGet(ctx, key, "e2e")
+	langCmd    := pipe.HGet(ctx, key, "lang")
+	ttlCmd     := pipe.TTL(ctx, key)
 
 	pipe.Del(ctx, key)
 
@@ -805,10 +817,10 @@ func (s *RedisStorage) GetAndDelete(key string) (*PasteData, error) {
 	}
 
 	burn, _ := burnCmd.Int()
-	enc, _ := encCmd.Int()
-	e2e, _ := e2eCmd.Int()
+	enc, _  := encCmd.Int()
+	e2e, _  := e2eCmd.Int()
 	lang, _ := langCmd.Result()
-	ttl := ttlCmd.Val()
+	ttl     := ttlCmd.Val()
 
 	p := &PasteData{
 		Content:      content,
@@ -828,6 +840,45 @@ func (s *RedisStorage) GetAndDelete(key string) (*PasteData, error) {
 
 func (s *RedisStorage) Close() error {
 	return s.client.Close()
+}
+
+// ---------------------------------------------------------------------------
+// Redis HMGet value helpers
+// HMGet returns []interface{} where each element is either a string or nil.
+// ---------------------------------------------------------------------------
+
+func valToString(v interface{}) string {
+	if v == nil {
+		return ""
+	}
+	if s, ok := v.(string); ok {
+		return s
+	}
+	return fmt.Sprintf("%v", v)
+}
+
+func valToInt(v interface{}) int {
+	s := valToString(v)
+	if s == "" {
+		return 0
+	}
+	n := 0
+	fmt.Sscanf(s, "%d", &n)
+	return n
+}
+
+func valToBytes(v interface{}) ([]byte, error) {
+	if v == nil {
+		return nil, nil
+	}
+	switch t := v.(type) {
+	case string:
+		return []byte(t), nil
+	case []byte:
+		return t, nil
+	default:
+		return []byte(fmt.Sprintf("%v", v)), nil
+	}
 }
 
 // =============================================================================
