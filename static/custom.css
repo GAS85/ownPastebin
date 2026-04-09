@@ -64,7 +64,9 @@ footer {
 .w3-content,
 .w3-card,
 .w3-button {
-  transition: background-color 0.5s, color 0.5s;
+  transition:
+    background-color 0.5s,
+    color 0.5s;
   /* Smooth transition */
 }
 
@@ -81,9 +83,26 @@ body.light-mode .w3-select {
   color: #000000 !important;
 }
 
+body.light-mode .w3-input {
+  background-color: #ffffff !important;
+  color: #000000 !important;
+}
+
+#topnav {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+#footer {
+  position: sticky;
+  bottom: 0;
+  z-index: 100;
+}
+
 /* Sidebar base state */
 #navbar {
-  position: fixed;
+  position: sticky;
   top: 0;
   left: 0;
   width: 250px;

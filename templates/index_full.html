@@ -65,7 +65,7 @@
   <!-- TOP NAV -->
   <div class="w3-container w3-display-container w3-sidebar w3-bar-block w3-dark-grey w3-large" id="navbar">
 
-    <a href="#" class="w3-button w3-round w3-hide-large w3-hide-medium w3-large fa fa-bars" style="z-index: 3;" onclick="toggleMobileMenu()"></a>
+    <a href="#" class="w3-button w3-round w3-large w3-margin w3-display-topleft fa fa-x" style="z-index: 3;" onclick="toggleMobileMenu()"></a>
 
     <!-- Desktop nav items — hidden on small/medium screens -->
     <div id="desktopNav">
@@ -103,11 +103,12 @@
 
       <!-- Copy/Raw/Download (view state) -->
       <div id="view-controls" style="display:none;">
-        <a id="copy-btn" class="w3-bar-item w3-button w3-round w3-margin-top w3-border w3-border-green w3-hover-light-green w3-center" href="#">Copy</a>
-        <a class="w3-bar-item w3-button w3-round w3-margin-top w3-border w3-border-green w3-hover-light-green w3-center" href="#">Raw</a>
-        <a class="w3-bar-item w3-button w3-round w3-margin-top w3-border w3-border-green w3-hover-light-green w3-center" href="#">Download</a>
+        <a id="copy-btn" class="w3-bar-item w3-button w3-round w3-margin-top w3-border w3-border-light-green w3-hover-light-green w3-center" href="#">Copy</a>
+        <a class="w3-bar-item w3-button w3-round w3-margin-top w3-border w3-border-light-green w3-hover-light-green w3-center" href="#">Raw</a>
+        <a class="w3-bar-item w3-button w3-round w3-margin-top w3-border w3-border-light-green w3-hover-light-green w3-center" href="#">Download</a>
       </div>
 
+      <!-- Language selector -->
       <select class="w3-bar-item w3-select w3-round w3-margin-top w3-margin-bottom w3-center" id="language-selector">
         <option value="markup">Markup</option>
         <option value="bash">Bash</option>
@@ -116,6 +117,8 @@
         <option value="javascript">JavaScript</option>
         <option value="json">JSON</option>
         <option value="yaml">YAML</option>
+        <option disabled>──────────</option>
+        <option value="mermaid">Mermaid</option>
         <option disabled>──────────</option>
         <option value="abap">ABAP</option>
         <option value="actionscript">ActionScript</option>
@@ -194,7 +197,6 @@
         <option value="markup-templating">Markup templating</option>
         <option value="matlab">MATLAB</option>
         <option value="mel">MEL</option>
-        <option value="mermaid">Mermaid</option>
         <option value="mizar">Mizar</option>
         <option value="monkey">Monkey</option>
         <option value="n4js">N4JS</option>
@@ -281,26 +283,32 @@
 
     </div>
 
-    <div class="w3-content w3-padding-64 w3-hide-large">
-      <div class="w3-flex w3-hide-medium" style="flex-flow:wrap; justify-content:center">
+    <div class="w3-stretch w3-bottom w3-padding-64">
+      <hr>
+      <div class="w3-flex" style="flex-flow:wrap; justify-content:center">
         <a href="https://hub.docker.com/r/gas85/ownpastebin"
-           class="w3-button w3-hover-text-black w3-round w3-right"><i class="fab fa-docker"></i></a>
+           class="w3-button w3-hover-text-black w3-round w3-right w3-hide-large w3-hide-medium"><i class="fab fa-docker"></i></a>
         <a href="https://github.com/GAS85/ownPastebin"
-           class="w3-button w3-hover-text-black w3-round"><i class="fab fa-github"></i></a>
+           class="w3-button w3-hover-text-black w3-round w3-hide-large w3-hide-medium"><i class="fab fa-github"></i></a>
         <a onclick="re_theme()" title="Change Theme" class="w3-button w3-hover-text-black w3-round"><i class="fa fa-adjust"></i></a>
       </div>
-      <a href="https://github.com/GAS85/ownPastebin/releases/tag/v1.2.0" class="w3-bar-item w3-button w3-margin-top w3-center w3-round w3-small">Your own Pastebin v1.2.0</a>
-      <a href="/swagger-ui" class="w3-bar-item w3-button w3-margin-top w3-round w3-center w3-small">API Documentation</a>
+      <a href="https://github.com/GAS85/ownPastebin/releases/tag/v1.2.0" class="w3-bar-item w3-button w3-margin-top w3-center w3-round w3-small w3-hide-large w3-hide-medium">Your own Pastebin
+        v1.2.0</a>
+      <a href="/swagger-ui" class="w3-bar-item w3-button w3-margin-top w3-round w3-center w3-small w3-hide-large w3-hide-medium">API Documentation</a>
 
     </div>
   </div>
 
   <!-- Navigation Toggler -->
 
-  <div class="w3-bar w3-asphalt" id="topnav">
-    <a href="#" class="w3-bar-item w3-button w3-round w3-large fa fa-bars w3-margin-left" style="z-index: 3;" onclick="toggleMobileMenu()"></a>
+  <div class="w3-bar w3-asphalt w3-large w3-padding" id="topnav">
+    <a href="#" class="w3-bar-item w3-button w3-round fa fa-bars w3-margin-top w3-margin-left" onclick="toggleMobileMenu()"></a>
 
-    <div class="w3-bar-item w3-large w3-display-topmiddle">Pastebin</div>
+    <div href="/" class="w3-bar-item w3-button w3-round w3-display-topmiddle w3-margin">Pastebin</div>
+
+    <button id="send-btn" class="w3-bar-item w3-button w3-round w3-margin w3-green w3-hover-light-green w3-display-topright">Send</button>
+
+    <a class="w3-bar-item w3-button w3-round w3-margin w3-border w3-display-topright" href="#">Download</a>
   </div>
 
   <!-- MAIN -->
@@ -318,18 +326,17 @@
 
     <!-- New/editable paste: textarea -->
     <div class="w3-section" id="textarea-region">
-      <textarea autofocus class="w3-input w3-border w3-border-grey w3-round w3-margin-top" id="content-textarea"
-                style="font-family:'Courier New',monospace; font-size: 0.5cm"></textarea>
+      <textarea autofocus class="w3-input w3-border w3-border-grey w3-light-grey w3-round w3-monospace w3-large" id="content-textarea"></textarea>
     </div>
 
     <!-- Created paste view (shown in "view" state) -->
     <div id="paste-view-region" style="display:none;">
       <div id="burn-alert" class="w3-panel w3-pale-red w3-round w3-display-container w3-card-4 w3-margin-top" role="alert" style="display:none;">
-        <span onclick="this.parentElement.style.display='none'" class="w3-button w3-display-topright w3-round">&times;</span>
+        <span onclick="this.parentElement.style.display='none'" class="w3-button w3-display-topright w3-round fa fa-x"></span>
         <p><i class="fas fa-fire"></i> <strong>For your eyes only.</strong> This paste has been permanently deleted after this view.</p>
       </div>
       <div id="expire-alert" class="w3-panel w3-card-4 w3-khaki w3-round w3-display-container w3-margin-top" role="alert" style="display:none;">
-        <span onclick="this.parentElement.style.display='none'" class="w3-button w3-display-topright w3-round">&times;</span>
+        <span onclick="this.parentElement.style.display='none'" class="w3-button w3-display-topright w3-round fa fa-x"></span>
         <p><i class="fas fa-clock"></i> This paste will expire on <strong>2026-09-03 12:51:46 UTC</strong>.</p>
       </div>
       <pre class="w3-margin-top"><code id="pastebin-code-block" class="language-python">def hello():
@@ -346,7 +353,7 @@
     <a href="https://github.com/GAS85/ownPastebin"
        class="w3-bar-item w3-button w3-hover-text-black w3-round"><i class="fab fa-github"></i></a>
     <a onclick="re_theme()" title="Change Theme" class="w3-bar-item w3-button w3-hover-text-black w3-round"><i class="fa fa-adjust"></i></a>
-    <span class="w3-bar-item w3-hide-medium w3-display-middle">Your own Pastebin <a href="https://github.com/GAS85/ownPastebin/releases/tag/v1.2.0">v1.2.0</a></span>
+    <span class="w3-bar-item w3-hide-medium w3-display-middle">Your own Pastebin <a href="https://github.com/GAS85/ownPastebin/releases/tag/v2.0.0">v2.0.0</a></span>
     <a href="/swagger-ui" class="w3-bar-item w3-hide-medium w3-button w3-hover-text-black w3-right w3-round">API Documentation</a>
   </footer>
 
@@ -354,8 +361,7 @@
   <div id="password-modal" class="w3-modal" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="password-modal-title">
     <div class="w3-modal-content w3-animate-top w3-card-4">
       <header class="w3-container w3-blue-grey">
-        <button onclick="document.getElementById('password-modal').style.display='none'"
-                class="w3-button w3-display-topright" aria-label="Close">&times;</button>
+        <button onclick="document.getElementById('password-modal').style.display='none'" class="w3-button w3-display-topright fa fa-x" aria-label="Close"></button>
         <h4 id="password-modal-title"><i class="fas fa-key"></i> Password Protected</h4>
       </header>
       <div class="w3-container w3-padding">
@@ -398,7 +404,7 @@
     <div class="w3-modal-content w3-animate-top w3-card-4" style="max-width:400px;">
       <header class="w3-container w3-blue-grey">
         <button onclick="document.getElementById('deletion-modal').style.display='none'"
-                class="w3-button w3-display-topright" aria-label="Close">&times;</button>
+                class="w3-button w3-display-topright" aria-label="Close fa fa-x"></button>
         <h4 id="deletion-modal-title"><i class="fas fa-trash"></i> Delete this paste?</h4>
       </header>
       <div class="w3-container w3-padding">
@@ -470,7 +476,7 @@
         sendCtrl.style.display = "";
         expiryBurn.style.display = "";
         alertReg.innerHTML = '<div class="w3-panel w3-pale-green w3-round w3-display-container w3-card-4 w3-margin-top" role="alert">'
-          + '<span onclick="this.parentElement.style.display=\'none\'" class="w3-button w3-display-topright w3-round">&times;</span>'
+          + '<span onclick="this.parentElement.style.display=\'none\'" class="w3-button w3-display-topright w3-round fa fa-x"></span>'
           + '<p><i class="fas fa-check"></i> The paste has been successfully created: '
           + '<a href="#">https://example.com/pastebin/abc123</a></p></div>';
 

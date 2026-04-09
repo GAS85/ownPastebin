@@ -316,9 +316,19 @@ document.addEventListener("DOMContentLoaded", function () {
     if (!sel) return;
     sel.addEventListener("change", function () {
       var block = document.getElementById("pastebin-code-block");
-      if (block) {
-        block.className = "language-" + sel.value;
-        if (typeof init_plugins === "function") init_plugins();
+      if (!block) return;
+
+      // Update the language class on the <code> element
+      block.className = "language-" + sel.value;
+
+      // Remove Prism's "already highlighted" marker so it re-processes the element
+      delete block.dataset.highlighted;
+
+      // Re-highlight: prefer direct element highlight over highlightAll(), so only this block is re-processed (faster, avoids double-work)
+      if (typeof Prism !== "undefined") {
+        Prism.highlightElement(block);
+      } else if (typeof init_plugins === "function") {
+        init_plugins();
       }
     });
   });
