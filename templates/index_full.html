@@ -2,7 +2,11 @@
 <html lang="en">
 
 <head>
-  <!-- <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://www.w3scools.com https://cdnjs.cloudflare.com;"> -->
+  <meta http-equiv="Content-Security-Policy" content="style-src 'self' 'unsafe-inline' https://www.w3schools.com https://cdnjs.cloudflare.com;
+    img-src 'self' data: blob:;
+    font-src 'self' https://cdnjs.cloudflare.com;
+  ">
+
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Simple, fast and standalone pastebin service">
@@ -63,6 +67,7 @@
 
     <a href="#" class="w3-button w3-round w3-hide-large w3-hide-medium w3-large fa fa-bars" style="z-index: 3;" onclick="toggleMobileMenu()"></a>
 
+    <!-- Desktop nav items — hidden on small/medium screens -->
     <div id="desktopNav">
 
       <img src="/static/favicon.ico" alt="Pastebin Logo" class="w3-margin-top w3-hide-small" style="max-width:50px;margin-right: auto;margin-left: auto; display: block;">
@@ -72,8 +77,7 @@
       <!-- Remove btn: shown on view state -->
       <a id="remove-btn" href="#" class="w3-bar-item w3-button w3-round w3-margin-top w3-center">Remove</a>
 
-      <!-- Expiry + Burn dropdowns: shown on new/edit state -->
-
+      <!-- Expiry dropdown — CSS hover, no JS needed for open/close -->
       <div id="expiry-burn-controls-expire" class="w3-dropdown-hover w3-margin-top">
         <button id="expiry-dropdown-btn" class="w3-button w3-round w3-center">Expires: 1 day</button>
         <div class="w3-dropdown-content w3-bar-block w3-card-4" id="expiry-dropdown">
@@ -87,6 +91,8 @@
           <a class="w3-bar-item w3-button" href="31536000">1 year</a>
         </div>
       </div>
+
+      <!-- Burn dropdown -->
       <div id="expiry-burn-controls-burn" class="w3-dropdown-hover w3-margin-top w3-center">
         <button id="burn-dropdown-btn" class="w3-button w3-round w3-center">Burn: No</button>
         <div class="w3-dropdown-content w3-bar-block w3-card-4" id="burn-dropdown">
@@ -299,8 +305,6 @@
 
   <!-- MAIN -->
   <main class="w3-container w3-asphalt" id="main-content">
-    </div>
-
 
     <!-- 404 view -->
     <div id="error-region" style="display:none;" class="w3-section w3-center">
@@ -312,7 +316,7 @@
     <!-- Alerts region (toggled by dev switcher) -->
     <div id="alert-region"></div>
 
-    <!-- New paste textarea (shown in "new" state) -->
+    <!-- New/editable paste: textarea -->
     <div class="w3-section" id="textarea-region">
       <textarea autofocus class="w3-input w3-border w3-border-grey w3-round w3-margin-top" id="content-textarea"
                 style="font-family:'Courier New',monospace; font-size: 0.5cm"></textarea>
@@ -346,7 +350,7 @@
     <a href="/swagger-ui" class="w3-bar-item w3-hide-medium w3-button w3-hover-text-black w3-right w3-round">API Documentation</a>
   </footer>
 
-  <!-- PASSWORD MODAL -->
+  <!-- ── Password Modal (only rendered for E2E-encrypted pastes) ── -->
   <div id="password-modal" class="w3-modal" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="password-modal-title">
     <div class="w3-modal-content w3-animate-top w3-card-4">
       <header class="w3-container w3-blue-grey">
