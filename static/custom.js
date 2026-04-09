@@ -197,15 +197,82 @@ function init_plugins() {
 // ── Mobile menu ───────────────────────────────────────────────────────────────
 
 function toggleMobileMenu() {
-  //  var menu = document.getElementById("mobileMenu");
-  var menu = document.getElementById("desktopNav");
+  var menu = document.getElementById("navbar");
   if (!menu) return;
-  if (menu.classList.contains("w3-hide")) {
-    menu.classList.remove("w3-hide");
-    menu.classList.add("w3-show");
+
+  const isOpen = menu.classList.toggle("open");
+  const isMobile = window.innerWidth <= 600;
+
+  // On mobile: no content shift, sidebar covers full screen
+  const shift = isOpen && !isMobile ? "250px" : "0px";
+
+  document.getElementById("footer").style.marginLeft = shift;
+  document.getElementById("main-content").style.marginLeft = shift;
+  document.getElementById("topnav").style.marginLeft = shift;
+}
+
+// ── Dark mode ──────────────────────────────────────────────────────────────────
+//
+// Theme Selector
+//
+function re_theme() {
+  var element = document.body;
+  element.classList.toggle("light-mode");
+}
+
+// Set initial theme based on user preference
+function setInitialTheme() {
+  if (
+    window.matchMedia &&
+    window.matchMedia("(prefers-color-scheme: dark)").matches
+  ) {
+    document.body.classList.remove("light-mode");
   } else {
-    menu.classList.remove("w3-show");
-    menu.classList.add("w3-hide");
+    document.body.classList.add("light-mode");
+  }
+}
+// Initialize theme on page load
+setInitialTheme();
+
+// ── Password quality check ───────────────────────────────────────────────────────
+
+function updateStrength() {
+  const pwd = document.getElementById("pastebin-password").value;
+  const bar = document.getElementById("password-strength-bar");
+  const text = document.getElementById("password-strength-text");
+
+  let score = 0;
+
+  // Length = up to 3 points
+  score += Math.min(3, Math.floor(pwd.length / 8));
+
+  // Character variety (1 point each)
+  if (/[A-Z]/.test(pwd)) score++;
+  if (/[a-z]/.test(pwd)) score++;
+  if (/[0-9]/.test(pwd)) score++;
+  if (/[^A-Za-z0-9]/.test(pwd)) score++;
+
+  const maxScore = 7;
+  const percent = (score / maxScore) * 100;
+  bar.style.width = percent + "%";
+
+  // Color + label
+  if (score <= 0) {
+    // Empty password: no bar, no label
+    bar.className = "";
+    text.textContent = "";
+  } else if (score <= 2) {
+    bar.className = "w3-container w3-red w3-round";
+    text.textContent = "😢 Weak";
+  } else if (score <= 4) {
+    bar.className = "w3-container w3-khaki w3-round";
+    text.textContent = "😒 Medium";
+  } else if (score <= 6) {
+    bar.className = "w3-container w3-light-green w3-round";
+    text.textContent = "😀 Strong";
+  } else {
+    bar.className = "w3-container w3-green w3-round";
+    text.textContent = "🤖 Beast!";
   }
 }
 
@@ -243,15 +310,95 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   })();
 
+  // ── Line numbers + line highlight setup ──────────────────────────────────
+  //
+  // We let Prism's own plugins (line-numbers, line-highlight, linkable-line-
+  // numbers) do all the work. Our responsibilities are:
+  //
+  //   1. Ensure <pre id="pastebin-pre"> — Go template may omit the id.
+  //   2. Translate GitLab-style hashes (#L3, #L3-5, #L1-3,7) to Prism's
+  //      native form (#pastebin-pre.3-5) with history.replaceState so Prism's
+  //      own applyHash() always receives the format it expects.
+  //   3. Compensate for the sticky topnav after Prism scrolls a line into
+  //      view — Prism calls scrollIntoView() which ignores sticky headers.
+  //
+  // We do NOT call highlightElement on hash changes. That would re-run the
+  // full highlighter, strip the temporary .line-highlight divs Prism just
+  // inserted, and race with Prism's own hashchange listener.
+
+  var PRE_ID = "pastebin-pre";
+
+  // 1. Assign id to <pre> before Prism touches it.
+  (function ensurePreId() {
+    var block = document.getElementById("pastebin-code-block");
+    if (!block) return;
+    var pre = block.parentElement;
+    if (pre && pre.nodeName === "PRE" && !pre.id) {
+      pre.id = PRE_ID;
+    }
+  })();
+
+  // 2. Translate #L… → #pastebin-pre.… using replaceState (no history entry).
+  //    Returns true when a translation was performed.
+  function normalizeLineHash() {
+    var hash = window.location.hash;
+    if (!hash) return false;
+    var h = hash.slice(1); // strip leading #
+
+    // Already Prism form — nothing to do.
+    if (h.indexOf(PRE_ID + ".") === 0) return false;
+
+    // GitLab form: L5 / L3-5 / L1,4 / L1-3,7,9-11
+    var m = h.match(/^L([\d,\-\s]+)$/i);
+    if (m) {
+      history.replaceState(
+        null,
+        "",
+        "#" + PRE_ID + "." + m[1].replace(/\s/g, ""),
+      );
+      return true;
+    }
+    return false;
+  }
+
+  // 3. After Prism scrolls a highlighted line into view, nudge the scroll
+  //    position down by the sticky topnav height so the line isn't hidden.
+  function compensateStickyNav() {
+    var nav = document.getElementById("topnav");
+    if (!nav) return;
+    var navH = nav.getBoundingClientRect().height;
+    if (navH > 0) {
+      window.scrollBy(0, -navH);
+    }
+  }
+
+  // hashchange: translate first (so Prism's own listener reads the right
+  // hash), then schedule scroll compensation to run after Prism's listener
+  // has called scrollIntoView().
+  window.addEventListener("hashchange", function () {
+    normalizeLineHash();
+    setTimeout(compensateStickyNav, 50);
+  });
+
   // ── Language selector → re-highlight ──────────────────────────────────────
   ["language-selector"].forEach(function (id) {
     var sel = document.getElementById(id);
     if (!sel) return;
     sel.addEventListener("change", function () {
       var block = document.getElementById("pastebin-code-block");
-      if (block) {
-        block.className = "language-" + sel.value;
-        if (typeof init_plugins === "function") init_plugins();
+      if (!block) return;
+
+      // Update the language class on the <code> element
+      block.className = "language-" + sel.value;
+
+      // Remove Prism's "already highlighted" marker so it re-processes the element
+      delete block.dataset.highlighted;
+
+      // Re-highlight directly; preserves any existing data-line on the <pre>
+      if (typeof Prism !== "undefined") {
+        Prism.highlightElement(block);
+      } else if (typeof init_plugins === "function") {
+        init_plugins();
       }
     });
   });
@@ -414,6 +561,32 @@ document.addEventListener("DOMContentLoaded", function () {
     var data = textarea ? textarea.value : "";
     var pass = passSel ? passSel.value : "";
 
+    // Map HTTP status codes to user-readable messages.
+    // The server sends plain-text error bodies for 4xx/5xx; we never try to
+    // JSON-parse them because r.json() would throw and lose the status code.
+    function errorMsgForStatus(status) {
+      switch (status) {
+        case 400:
+          return "Empty paste — nothing to save.";
+        case 413:
+          return "Paste is too large. Please reduce the content size and try again.";
+        case 429:
+          return "Too many requests. Please wait a moment and try again.";
+        case 503:
+          return "Server is busy. Please try again in a few seconds.";
+        default:
+          return "Failed to create paste (HTTP " + status + ").";
+      }
+    }
+
+    function resetSendBtn() {
+      sendInFlight = false;
+      ["send-btn"].forEach(function (id) {
+        var b = document.getElementById(id);
+        if (b) b.disabled = false;
+      });
+    }
+
     function doSend(body, encrypted) {
       if (encrypted) uri = replaceUrlParam(uri, "encrypted", "true");
       fetch(uri, {
@@ -422,9 +595,26 @@ document.addEventListener("DOMContentLoaded", function () {
         headers: { "Content-Type": "text/plain" },
       })
         .then(function (r) {
+          // Handle error responses before attempting JSON parse.
+          // On 4xx/5xx the body is plain text, not JSON.
+          if (!r.ok) {
+            var msg = errorMsgForStatus(r.status);
+            resetSendBtn();
+            var redirect = flashBase();
+            redirect = replaceUrlParam(redirect, "level", "danger");
+            redirect = replaceUrlParam(
+              redirect,
+              "glyph",
+              "fas fa-circle-xmark",
+            );
+            redirect = replaceUrlParam(redirect, "msg", msg);
+            window.location.href = encodeURI(redirect);
+            return null; // stop the chain
+          }
           return r.json();
         })
         .then(function (result) {
+          if (!result) return; // error path already redirected
           var redirect = flashBase();
           redirect = replaceUrlParam(redirect, "level", "success");
           redirect = replaceUrlParam(redirect, "glyph", "fas fa-check");
@@ -437,19 +627,15 @@ document.addEventListener("DOMContentLoaded", function () {
           window.location.href = encodeURI(redirect);
         })
         .catch(function () {
-          // Reset guard so the user can retry
-          sendInFlight = false;
-          ["send-btn"].forEach(function (id) {
-            var b = document.getElementById(id);
-            if (b) b.disabled = false;
-          });
+          // Network error (no response at all — e.g. offline, DNS failure).
+          resetSendBtn();
           var redirect = flashBase();
           redirect = replaceUrlParam(redirect, "level", "danger");
           redirect = replaceUrlParam(redirect, "glyph", "fas fa-circle-xmark");
           redirect = replaceUrlParam(
             redirect,
             "msg",
-            "Failed to create paste.",
+            "Network error — could not reach the server.",
           );
           window.location.href = encodeURI(redirect);
         });
@@ -522,4 +708,11 @@ document.addEventListener("DOMContentLoaded", function () {
       if (e.target === modal) modal.style.display = "none";
     });
   });
+
+  // ── Apply line highlight from URL hash on initial page load ───────────────
+  // Translate #L… to Prism's #pastebin-pre.… form. init_plugins() (called by
+  // the Go template's plugin-inits script, which runs after custom.js loads)
+  // will then call Prism.highlightElement which triggers Prism's own applyHash
+  // via its 'complete' hook — so no manual highlightElement call needed here.
+  normalizeLineHash();
 });

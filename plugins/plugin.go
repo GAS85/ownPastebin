@@ -59,7 +59,6 @@ func DefaultBase(prefix string) *Base {
 			static + "/custom.css",
 		},
 		JSImports: []string{
-			static + "/popper.min.js",
 			static + "/clipboard.min.js",
 			static + "/custom.js",
 		},
