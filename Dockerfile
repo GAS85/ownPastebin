@@ -18,7 +18,6 @@ ADD https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css ./
 ADD https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/webfonts/fa-solid-900.woff2 ./static
 ADD https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/webfonts/fa-brands-400.woff2 ./static
 # JS
-ADD https://cdnjs.cloudflare.com/ajax/libs/popper.js/2.11.8/umd/popper.min.js ./static
 ADD https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.11/clipboard.min.js ./static
 ADD https://cdnjs.cloudflare.com/ajax/libs/mermaid/11.12.0/mermaid.min.js ./static
 # Replace relative links to static
