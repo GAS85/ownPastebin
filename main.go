@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"golang.org/x/time/rate"
+
 	"github.com/GAS85/ownPastebin/plugins"
 )
 
@@ -55,7 +57,7 @@ func main() {
 		&plugins.MermaidPlugin{},
 	}
 
-	// Forward PathPrefix to the plugins
+	// Forward PathPrefix to the plugins via the Base struct.
 	mgr := plugins.NewManager(plugins.DefaultBase(cfg.PathPrefix), activePlugins)
 
 	// ── Templates ─────────────────────────────────────────────────────────────
@@ -83,14 +85,45 @@ func main() {
 		os.Exit(1)
 	}
 
+	// ── Rate limiter ──────────────────────────────────────────────────────────
+	// Both parameters are derived from MaxParallelUploads so they stay correct
+	// when the operator changes PASTEBIN_MAX_PARALLEL_UPLOADS.
+	//
+	// Burst = MaxParallelUploads
+	//   A single IP must be able to fire exactly MaxParallelUploads concurrent
+	//   POSTs without being rate-limited, because the upload semaphore — not the
+	//   rate limiter — is the intended binding constraint on upload concurrency.
+	//   If burst < MaxParallelUploads the rate limiter would reject legitimate
+	//   concurrent uploads before the semaphore even gets a chance to throttle.
+	//
+	// Sustained rate = MaxParallelUploads / 2  req/s
+	//   Assumes each upload occupies the semaphore for ~2 s on average (network
+	//   read + encrypt + SQLite write for a mid-sized paste).  This allows one
+	//   IP to keep all slots busy continuously without triggering the limiter,
+	//   while still blocking a scripted flood of tiny, fast requests.
+	//   Floor of 1 req/s prevents a zero-rate if MaxParallelUploads is ever 1.
+	uploadBurst := cfg.MaxParallelUploads
+	uploadRate := rate.Limit(cfg.MaxParallelUploads) / 2
+	if uploadRate < 1 {
+		uploadRate = 1
+	}
+	lim := newIPRateLimiter(uploadRate, uploadBurst, 5*time.Minute)
+	slog.Info("rate limiter configured",
+		"rate_per_sec", uploadRate,
+		"burst", uploadBurst,
+		"derived_from", cfg.MaxParallelUploads,
+	)
+	defer lim.Close()
+
 	// ── App ───────────────────────────────────────────────────────────────────
 	app := &App{
-		cfg:     cfg,
-		storage: store,
-		crypto:  cry,
-		tmpl:    tmpl,
-		plugins: mgr,
+		cfg:       cfg,
+		storage:   store,
+		crypto:    cry,
+		tmpl:      tmpl,
+		plugins:   mgr,
 		uploadSem: make(chan struct{}, cfg.MaxParallelUploads),
+		limiter:   lim,
 	}
 
 	// ── Static file server ────────────────────────────────────────────────────

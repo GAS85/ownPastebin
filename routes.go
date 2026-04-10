@@ -8,7 +8,6 @@ import (
 	"log/slog"
 	"net/http"
 	"runtime"
-	"runtime/debug"
 	"strconv"
 	"time"
 	"unicode/utf8"
@@ -21,12 +20,13 @@ import (
 
 // App holds all shared dependencies for handlers.
 type App struct {
-	cfg     *Settings
-	storage Storage
-	crypto  *Crypto // nil if encryption disabled
-	tmpl    *template.Template
-	plugins *plugins.Manager
+	cfg       *Settings
+	storage   Storage
+	crypto    *Crypto // nil if encryption disabled
+	tmpl      *template.Template
+	plugins   *plugins.Manager
 	uploadSem chan struct{}
+	limiter   *ipRateLimiter
 }
 
 // TemplateData is passed to index.html for every render.
@@ -43,7 +43,8 @@ type TemplateData struct {
 	PastebinCls   string
 	Version       string
 	ExpireAt      *time.Time // nil = never expires
-	CSSImports    []string
+	CSSImports    []string   // plugin CSS — loaded before custom.css
+	TailCSSImports []string  // loaded last — custom.css always wins the cascade
 	JSImports     []string
 	JSInits       []string
 	ExpiryTimes   []ExpiryOption
@@ -75,19 +76,22 @@ var defaultExpiryTimes = []ExpiryOption{
 }
 
 func (a *App) baseData(r *http.Request) TemplateData {
+	// New-paste page: no language known yet — exclude conditional plugins (Mermaid).
+	css, js, inits := a.plugins.BuildFor("")
 	return TemplateData{
-		Version:       os.Getenv("VERSION"),
-		URIPrefix:     a.cfg.PathPrefix,
-		CSSImports:    a.plugins.CSSImports,
-		JSImports:     a.plugins.JSImports,
-		JSInits:       a.plugins.JSInits,
-		ExpiryTimes:   defaultExpiryTimes,
-		DefaultExpiry: strconv.FormatInt(int64(a.cfg.DefaultTTL.Seconds()), 10),
-		DefaultBurn:   a.cfg.DefaultBurn,
-		Level:         r.URL.Query().Get("level"),
-		Msg:           r.URL.Query().Get("msg"),
-		Glyph:         r.URL.Query().Get("glyph"),
-		FlashURL:      r.URL.Query().Get("url"),
+		Version:        os.Getenv("VERSION"),
+		URIPrefix:      a.cfg.PathPrefix,
+		CSSImports:     css,
+		TailCSSImports: a.plugins.TailCSSImports(),
+		JSImports:      js,
+		JSInits:        inits,
+		ExpiryTimes:    defaultExpiryTimes,
+		DefaultExpiry:  strconv.FormatInt(int64(a.cfg.DefaultTTL.Seconds()), 10),
+		DefaultBurn:    a.cfg.DefaultBurn,
+		Level:          r.URL.Query().Get("level"),
+		Msg:            r.URL.Query().Get("msg"),
+		Glyph:          r.URL.Query().Get("glyph"),
+		FlashURL:       r.URL.Query().Get("url"),
 	}
 }
 
@@ -106,6 +110,8 @@ func (a *App) router() http.Handler {
 
 	// Access log — wraps every route including swagger and config.
 	r.Use(a.accessLogMiddleware)
+	// Per-IP rate limiting on all routes.
+	r.Use(a.rateLimitMiddleware)
 
 	r.Get("/", a.handleNewPaste)
 	r.Post("/", a.handleCreatePaste)
@@ -156,12 +162,14 @@ func (a *App) handleCreatePaste(w http.ResponseWriter, r *http.Request) {
 	case a.uploadSem <- struct{}{}:
 		defer func() {
 			<-a.uploadSem
-			// When the last slot drains (burst is over), hint the runtime to
-			// reclaim heap and return pages to the OS. Without this, Go's GC
-			// holds freed memory as heap for minutes after a mass-upload burst.
+			// When the last slot drains (burst is over), hint the GC to reclaim
+			// heap. FreeOSMemory is intentionally NOT called here — it forces a
+			// stop-the-world double-GC plus madvise on every free span, which can
+			// pause the server for tens of milliseconds. GOMEMLIMIT is the right
+			// knob for controlling RSS. A single GC() is enough to let the runtime
+			// schedule memory return at its own pace.
 			if len(a.uploadSem) == 0 {
 				runtime.GC()
-				debug.FreeOSMemory()
 			}
 		}()
 	default:
@@ -210,12 +218,6 @@ func (a *App) handleCreatePaste(w http.ResponseWriter, r *http.Request) {
 	}
 	ttl = a.cfg.resolveTTL(ttl)
 
-	id, err := gonanoid.New(a.cfg.SlugLen)
-	if err != nil {
-		http.Error(w, "id generation failed", http.StatusInternalServerError)
-		return
-	}
-
 	lang := q.Get("lang")
 	if lang == "" {
 		lang = "text"
@@ -229,8 +231,26 @@ func (a *App) handleCreatePaste(w http.ResponseWriter, r *http.Request) {
 		Lang:         lang,
 	}
 
-	if err := a.storage.Save(id, paste, ttl); err != nil {
-		slog.Error("storage save error", "err", err)
+	// Generate a unique slug and save. Retry on the extremely unlikely collision.
+	// INSERT OR IGNORE is used in storage so a conflict returns ErrSlugConflict
+	// rather than silently overwriting an existing paste.
+	const maxSlugRetries = 3
+	var id string
+	for i := 0; i < maxSlugRetries; i++ {
+		id, err = gonanoid.New(a.cfg.SlugLen)
+		if err != nil {
+			http.Error(w, "id generation failed", http.StatusInternalServerError)
+			return
+		}
+		saveErr := a.storage.Save(id, paste, ttl)
+		if saveErr == nil {
+			break
+		}
+		if saveErr == ErrSlugConflict && i < maxSlugRetries-1 {
+			slog.Warn("slug collision, retrying", "id", id, "attempt", i+1)
+			continue
+		}
+		slog.Error("storage save error", "err", saveErr)
 		http.Error(w, "storage error", http.StatusInternalServerError)
 		return
 	}
@@ -318,15 +338,24 @@ func (a *App) handleView(w http.ResponseWriter, r *http.Request) {
 	if utf8.Valid(content) {
 		text = string(content)
 	}
+
+	// Build CSS/JS imports for the actual language of this paste.
+	// Conditional plugins (e.g. Mermaid) are included only when their language
+	// is active, so mermaid.min.js is never loaded for non-mermaid pastes.
+	css, js, inits := a.plugins.BuildFor(paste.Lang)
+
 	d := a.baseData(r)
-	d.IsCreated = true
-	d.IsBurned = paste.Burn
-	d.IsBurn = paste.Burn
-	d.IsEncrypted = paste.E2EEncrypted
-	d.PastebinCode = text
-	d.PastebinID = id
-	d.PastebinCls = "language-" + paste.Lang
-	d.ExpireAt = paste.ExpireAt
+	d.CSSImports     = css
+	d.JSImports      = js
+	d.JSInits        = inits
+	d.IsCreated      = true
+	d.IsBurned       = paste.Burn
+	d.IsBurn         = paste.Burn
+	d.IsEncrypted    = paste.E2EEncrypted
+	d.PastebinCode   = text
+	d.PastebinID     = id
+	d.PastebinCls    = "language-" + paste.Lang
+	d.ExpireAt       = paste.ExpireAt
 	a.render(w, d, http.StatusOK)
 }
 

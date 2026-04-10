@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -14,6 +15,9 @@ import (
 	_ "github.com/lib/pq"
 	_ "github.com/mattn/go-sqlite3"
 )
+
+// ErrSlugConflict is returned by Save when the generated ID already exists. The caller should generate a new ID and retry.
+var ErrSlugConflict = errors.New("slug already exists")
 
 // =============================================================================
 // DATA MODEL
@@ -68,8 +72,11 @@ func newSQLiteStorage(path string, cfg *Settings) (*SQLiteStorage, error) {
 	if err != nil {
 		return nil, err
 	}
-	db.SetMaxOpenConns(4)
-	db.SetMaxIdleConns(2)
+	// Open connections scaled to MaxParallelUploads so writers do not queue
+	// behind a 4-connection ceiling while many concurrent uploads are active.
+	maxOpen := cfg.MaxParallelUploads + 4
+	db.SetMaxOpenConns(maxOpen)
+	db.SetMaxIdleConns(4)
 	db.SetConnMaxLifetime(time.Hour)
 
 	if err := applyPragmas(db); err != nil {
@@ -201,20 +208,27 @@ func ensureIncrementalVacuum(db *sql.DB) error {
 	return nil
 }
 
+// Save inserts a new paste. It uses INSERT OR IGNORE so that a slug collision returns ErrSlugConflict instead of silently overwriting an existing paste.  The caller (handleCreatePaste) retries with a fresh ID.
 func (s *SQLiteStorage) Save(key string, d *PasteData, ttl time.Duration) error {
 	var expireAt *int64
 	if ttl > 0 {
 		t := time.Now().Add(ttl).Unix()
 		expireAt = &t
 	}
-	_, err := s.db.Exec(`
-		INSERT OR REPLACE INTO pastes
+	res, err := s.db.Exec(`
+		INSERT OR IGNORE INTO pastes
 		(id, content, burn, encrypted, e2e_encrypted, lang, expire_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?)`,
 		key, d.Content, boolToInt(d.Burn), boolToInt(d.Encrypted),
 		boolToInt(d.E2EEncrypted), d.Lang, expireAt,
 	)
-	return err
+	if err != nil {
+		return err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return ErrSlugConflict
+	}
+	return nil
 }
 
 func (s *SQLiteStorage) PeekMeta(key string) (*PasteData, error) {
@@ -541,25 +555,26 @@ func (s *PostgresStorage) cleanupLoop() {
 	}
 }
 
+// Save inserts a new paste. Uses ON CONFLICT DO NOTHING so that a collision returns ErrSlugConflict rather than overwriting an existing paste.
 func (s *PostgresStorage) Save(key string, d *PasteData, ttl time.Duration) error {
 	var expireAt *time.Time
 	if ttl > 0 {
 		t := time.Now().Add(ttl)
 		expireAt = &t
 	}
-	_, err := s.db.Exec(`
+	res, err := s.db.Exec(`
 		INSERT INTO pastes (id, content, burn, encrypted, e2e_encrypted, lang, expire_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7)
-		ON CONFLICT (id) DO UPDATE SET
-			content = EXCLUDED.content,
-			burn = EXCLUDED.burn,
-			encrypted = EXCLUDED.encrypted,
-			e2e_encrypted = EXCLUDED.e2e_encrypted,
-			lang = EXCLUDED.lang,
-			expire_at = EXCLUDED.expire_at`,
+		ON CONFLICT (id) DO NOTHING`,
 		key, d.Content, d.Burn, d.Encrypted, d.E2EEncrypted, d.Lang, expireAt,
 	)
-	return err
+	if err != nil {
+		return err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return ErrSlugConflict
+	}
+	return nil
 }
 
 func (s *PostgresStorage) PeekMeta(key string) (*PasteData, error) {
@@ -674,36 +689,51 @@ func newRedisStorage(url string) (*RedisStorage, error) {
 func (s *RedisStorage) Save(key string, d *PasteData, ttl time.Duration) error {
 	ctx := context.Background()
 
-	err := s.client.HSet(ctx, key, map[string]interface{}{
-		"content": d.Content,
-		"burn":    boolToInt(d.Burn),
-		"enc":     boolToInt(d.Encrypted),
-		"e2e":     boolToInt(d.E2EEncrypted),
-		"lang":    d.Lang,
-	}).Err()
-
+	// Use SET NX (via a Lua script or HSETNX on a sentinel field) to avoid overwriting an existing paste on the rare slug collision. Use a pipeline: HSETNX on the "content" field as the collision gate, then HSET the remaining fields only if the key was fresh.
+	pipe := s.client.TxPipeline()
+	hsetnx := pipe.HSetNX(ctx, key, "content", d.Content)
+	_, err := pipe.Exec(ctx)
 	if err != nil {
 		return err
 	}
-
-	if ttl > 0 {
-		return s.client.Expire(ctx, key, ttl).Err()
+	if !hsetnx.Val() {
+		// content field already existed → slug collision
+		return ErrSlugConflict
 	}
-	return nil
+
+	// Key is new — write remaining fields and TTL.
+	pipe2 := s.client.TxPipeline()
+	pipe2.HSet(ctx, key, map[string]interface{}{
+		"burn": boolToInt(d.Burn),
+		"enc":  boolToInt(d.Encrypted),
+		"e2e":  boolToInt(d.E2EEncrypted),
+		"lang": d.Lang,
+	})
+	if ttl > 0 {
+		pipe2.Expire(ctx, key, ttl)
+	}
+	_, err = pipe2.Exec(ctx)
+	return err
 }
 
+// PeekMeta fetches all metadata fields in a single HMGet round trip.
 func (s *RedisStorage) PeekMeta(key string) (*PasteData, error) {
 	ctx := context.Background()
-	// Check existence + TTL quickly
-	exists, err := s.client.Exists(ctx, key).Result()
-	if err != nil || exists == 0 {
+
+	// Single round trip: fetch burn, enc, e2e, lang together.
+	vals, err := s.client.HMGet(ctx, key, "burn", "enc", "e2e", "lang").Result()
+	if err != nil {
+		return nil, err
+	}
+	// HMGet returns nils for all fields when the key does not exist.
+	if vals[0] == nil {
 		return nil, nil
 	}
-	// Fetch only metadata fields
-	burn, _ := s.client.HGet(ctx, key, "burn").Int()
-	enc, _ := s.client.HGet(ctx, key, "enc").Int()
-	e2e, _ := s.client.HGet(ctx, key, "e2e").Int()
-	lang, _ := s.client.HGet(ctx, key, "lang").Result()
+
+	burn  := valToInt(vals[0])
+	enc   := valToInt(vals[1])
+	e2e   := valToInt(vals[2])
+	lang  := valToString(vals[3])
 
 	p := &PasteData{
 		Content:      nil,
@@ -719,22 +749,28 @@ func (s *RedisStorage) PeekMeta(key string) (*PasteData, error) {
 	return p, nil
 }
 
-// Get retrieves a paste from Redis.
-// We now call HGet directly and treat redis.Nil as "not found".
+// Get retrieves a paste from Redis in two round trips: one HMGet for all
+// fields (including content) and one TTL call.
 func (s *RedisStorage) Get(key string) (*PasteData, error) {
 	ctx := context.Background()
 
-	content, err := s.client.HGet(ctx, key, "content").Bytes()
-	if err == redis.Nil {
-		return nil, nil
-	} else if err != nil {
+	// Fetch all fields in one round trip.
+	vals, err := s.client.HMGet(ctx, key, "content", "burn", "enc", "e2e", "lang").Result()
+	if err != nil {
 		return nil, err
 	}
+	if vals[0] == nil {
+		return nil, nil // key does not exist
+	}
 
-	burn, _ := s.client.HGet(ctx, key, "burn").Int()
-	enc, _ := s.client.HGet(ctx, key, "enc").Int()
-	e2e, _ := s.client.HGet(ctx, key, "e2e").Int()
-	lang, _ := s.client.HGet(ctx, key, "lang").Result()
+	content, err := valToBytes(vals[0])
+	if err != nil {
+		return nil, fmt.Errorf("redis Get: decode content: %w", err)
+	}
+	burn := valToInt(vals[1])
+	enc  := valToInt(vals[2])
+	e2e  := valToInt(vals[3])
+	lang := valToString(vals[4])
 
 	p := &PasteData{
 		Content:      content,
@@ -743,13 +779,10 @@ func (s *RedisStorage) Get(key string) (*PasteData, error) {
 		E2EEncrypted: intToBool(e2e),
 		Lang:         lang,
 	}
-
-	// Get TTL to populate ExpireAt
 	if ttl := s.client.TTL(ctx, key).Val(); ttl > 0 {
 		t := time.Now().Add(ttl)
 		p.ExpireAt = &t
 	}
-
 	return p, nil
 }
 
@@ -763,11 +796,11 @@ func (s *RedisStorage) GetAndDelete(key string) (*PasteData, error) {
 	pipe := s.client.TxPipeline()
 
 	contentCmd := pipe.HGet(ctx, key, "content")
-	burnCmd := pipe.HGet(ctx, key, "burn")
-	encCmd := pipe.HGet(ctx, key, "enc")
-	e2eCmd := pipe.HGet(ctx, key, "e2e")
-	langCmd := pipe.HGet(ctx, key, "lang")
-	ttlCmd := pipe.TTL(ctx, key)
+	burnCmd    := pipe.HGet(ctx, key, "burn")
+	encCmd     := pipe.HGet(ctx, key, "enc")
+	e2eCmd     := pipe.HGet(ctx, key, "e2e")
+	langCmd    := pipe.HGet(ctx, key, "lang")
+	ttlCmd     := pipe.TTL(ctx, key)
 
 	pipe.Del(ctx, key)
 
@@ -784,10 +817,10 @@ func (s *RedisStorage) GetAndDelete(key string) (*PasteData, error) {
 	}
 
 	burn, _ := burnCmd.Int()
-	enc, _ := encCmd.Int()
-	e2e, _ := e2eCmd.Int()
+	enc, _  := encCmd.Int()
+	e2e, _  := e2eCmd.Int()
 	lang, _ := langCmd.Result()
-	ttl := ttlCmd.Val()
+	ttl     := ttlCmd.Val()
 
 	p := &PasteData{
 		Content:      content,
@@ -807,6 +840,45 @@ func (s *RedisStorage) GetAndDelete(key string) (*PasteData, error) {
 
 func (s *RedisStorage) Close() error {
 	return s.client.Close()
+}
+
+// ---------------------------------------------------------------------------
+// Redis HMGet value helpers
+// HMGet returns []interface{} where each element is either a string or nil.
+// ---------------------------------------------------------------------------
+
+func valToString(v interface{}) string {
+	if v == nil {
+		return ""
+	}
+	if s, ok := v.(string); ok {
+		return s
+	}
+	return fmt.Sprintf("%v", v)
+}
+
+func valToInt(v interface{}) int {
+	s := valToString(v)
+	if s == "" {
+		return 0
+	}
+	n := 0
+	fmt.Sscanf(s, "%d", &n)
+	return n
+}
+
+func valToBytes(v interface{}) ([]byte, error) {
+	if v == nil {
+		return nil, nil
+	}
+	switch t := v.(type) {
+	case string:
+		return []byte(t), nil
+	case []byte:
+		return t, nil
+	default:
+		return []byte(fmt.Sprintf("%v", v)), nil
+	}
 }
 
 // =============================================================================

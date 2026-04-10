@@ -13,12 +13,12 @@ COPY . .
 # Check for updates under https://cdnjs.com
 # CSS
 ADD https://www.w3schools.com/w3css/5/w3.css ./static
-ADD https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css ./static
+ADD https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css ./static
 # Fonts
-ADD https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/webfonts/fa-solid-900.woff2 ./static
-ADD https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/webfonts/fa-brands-400.woff2 ./static
+ADD https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/webfonts/fa-solid-900.woff2 ./static
+ADD https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/webfonts/fa-regular-400.woff2 ./static
+ADD https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/webfonts/fa-brands-400.woff2 ./static
 # JS
-ADD https://cdnjs.cloudflare.com/ajax/libs/popper.js/2.11.8/umd/popper.min.js ./static
 ADD https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.11/clipboard.min.js ./static
 ADD https://cdnjs.cloudflare.com/ajax/libs/mermaid/11.12.0/mermaid.min.js ./static
 # Replace relative links to static
@@ -26,8 +26,8 @@ RUN sed -i 's|../webfonts/||g' ./static/all.min.css
 
 # Add local script hashes to the CSP
 RUN apk add --no-cache openssl
-RUN export InternalHashes=$(grep -oE 'onclick="[^"]+"' ./templates/index.html \
-    | sed 's/^onclick="//; s/"$//' \
+RUN export InternalHashes=$(grep -oE 'on[a-zA-Z]+="[^"]+"' ./templates/index.html \
+    | sed 's/^on[a-zA-Z]*="//; s/"$//' \
     | sort -u \
     | while IFS= read -r line; do \
         hash=$(printf "%s" "$line" | openssl dgst -sha256 -binary | openssl base64); \

@@ -24,12 +24,15 @@ func newCrypto(b64Key string) (*Crypto, error) {
 
 	key, err := base64.StdEncoding.DecodeString(b64Key)
 	if err != nil {
-		// fallback: treat as raw string
-		key = []byte(b64Key)
+		// Do NOT fall back to treating the value as a raw string.
+		return nil, fmt.Errorf(
+			"PASTEBIN_SERVER_SIDE_ENCRYPTION_KEY must be base64-encoded (run with GENERATE_KEY=true to create one): %w",
+			err,
+		)
 	}
 
 	if len(key) != 32 {
-		return nil, fmt.Errorf("encryption key must be 32 bytes, got %d", len(key))
+		return nil, fmt.Errorf("encryption key must be 32 bytes after base64 decoding, got %d", len(key))
 	}
 
 	return &Crypto{key: key}, nil
