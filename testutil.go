@@ -13,6 +13,8 @@ import (
 	"testing"
 	"time"
 
+	"golang.org/x/time/rate"
+
 	"github.com/GAS85/ownPastebin/plugins"
 )
 
@@ -117,6 +119,11 @@ func NewAppForTest(t *testing.T, tc TestConfig) (*App, http.Handler) {
 	mgr := plugins.NewManager(plugins.DefaultBase(cfg.PathPrefix), nil)
 
 	// ── App ───────────────────────────────────────────────────────────────────
+	// Rate limiter — must be non-nil; rateLimitMiddleware dereferences it.
+	// Use a very high limit so the limiter never interferes with test logic.
+	lim := newIPRateLimiter(rate.Limit(1000), maxUploads, 5*time.Minute)
+	t.Cleanup(func() { lim.Close() })
+
 	app := &App{
 		cfg:       cfg,
 		storage:   store,
@@ -124,6 +131,7 @@ func NewAppForTest(t *testing.T, tc TestConfig) (*App, http.Handler) {
 		tmpl:      tmpl,
 		plugins:   mgr,
 		uploadSem: make(chan struct{}, maxUploads),
+		limiter:   lim,
 	}
 
 	return app, app.router()
