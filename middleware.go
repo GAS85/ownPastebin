@@ -5,7 +5,10 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
+
+	"golang.org/x/time/rate"
 )
 
 // responseRecorder wraps http.ResponseWriter to capture the status code
@@ -104,4 +107,92 @@ func peerIP(remoteAddr string) net.IP {
 		host = remoteAddr
 	}
 	return net.ParseIP(strings.TrimSpace(host))
+}
+
+// ---------------------------------------------------------------------------
+// Per-IP rate limiting
+// ---------------------------------------------------------------------------
+
+// ipRateLimiter holds one token-bucket limiter per remote IP and evicts
+// entries that have not been seen for more than ttl (default 5 minutes).
+// This prevents the map from growing unboundedly on servers with many
+// distinct visitors.
+type ipRateLimiter struct {
+	mu       sync.Mutex
+	entries  map[string]*limiterEntry
+	r        rate.Limit
+	burst    int
+	ttl      time.Duration
+	stopOnce sync.Once
+	stop     chan struct{}
+}
+
+type limiterEntry struct {
+	lim      *rate.Limiter
+	lastSeen time.Time
+}
+
+// newIPRateLimiter creates a limiter that allows `r` requests per second with
+// a burst of `burst`, and evicts idle entries after `ttl`.
+// A background goroutine is started; call Close() (or rely on process exit) to stop it.
+func newIPRateLimiter(r rate.Limit, burst int, ttl time.Duration) *ipRateLimiter {
+	l := &ipRateLimiter{
+		entries: make(map[string]*limiterEntry),
+		r:       r,
+		burst:   burst,
+		ttl:     ttl,
+		stop:    make(chan struct{}),
+	}
+	go l.cleanupLoop()
+	return l
+}
+
+func (l *ipRateLimiter) get(ip string) *rate.Limiter {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	e, ok := l.entries[ip]
+	if !ok {
+		e = &limiterEntry{lim: rate.NewLimiter(l.r, l.burst)}
+		l.entries[ip] = e
+	}
+	e.lastSeen = time.Now()
+	return e.lim
+}
+
+func (l *ipRateLimiter) cleanupLoop() {
+	ticker := time.NewTicker(l.ttl / 2)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			l.mu.Lock()
+			cutoff := time.Now().Add(-l.ttl)
+			for ip, e := range l.entries {
+				if e.lastSeen.Before(cutoff) {
+					delete(l.entries, ip)
+				}
+			}
+			l.mu.Unlock()
+		case <-l.stop:
+			return
+		}
+	}
+}
+
+func (l *ipRateLimiter) Close() {
+	l.stopOnce.Do(func() { close(l.stop) })
+}
+
+// rateLimitMiddleware rejects requests that exceed the per-IP rate limit with
+// 429 Too Many Requests. The client IP is resolved the same way as in the
+// access log (respecting PASTEBIN_TRUSTED_PROXY).
+func (a *App) rateLimitMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ip := realIP(r, a.cfg.TrustedProxy)
+		if !a.limiter.get(ip).Allow() {
+			http.Error(w, "rate limit exceeded", http.StatusTooManyRequests)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }
