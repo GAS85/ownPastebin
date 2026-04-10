@@ -121,14 +121,17 @@ pre[class*="language-"]::before {
 
 /* Sidebar base state */
 #navbar {
-  position: sticky;
+  position: fixed;
   top: 0;
   left: 0;
   width: 250px;
-  height: 100%;
-  transform: translateX(-100%); /* hidden off-screen */
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  transform: translateX(-100%); /* hidden off-screen by default */
   transition: transform 0.3s ease;
-  z-index: 100;
+  z-index: 150;
 }
 
 /* Visible state */
@@ -142,7 +145,15 @@ pre[class*="language-"]::before {
   }
 }
 
-/* Animate the content shift */
+#desktopNav {
+  flex: 1 1 auto;
+  overflow-y: auto; /* items scroll independently when list is very long */
+}
+
+#navbar-bottom {
+  flex-shrink: 0;
+}
+
 #main-content,
 #footer,
 #topnav {

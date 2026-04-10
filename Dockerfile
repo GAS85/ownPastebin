@@ -16,6 +16,7 @@ ADD https://www.w3schools.com/w3css/5/w3.css ./static
 ADD https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css ./static
 # Fonts
 ADD https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/webfonts/fa-solid-900.woff2 ./static
+ADD https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/webfonts/fa-regular-400.woff2 ./static
 ADD https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/webfonts/fa-brands-400.woff2 ./static
 # JS
 ADD https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.11/clipboard.min.js ./static

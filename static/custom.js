@@ -65,6 +65,22 @@ function flashBase() {
     : "/";
 }
 
+// ── Uint8Array → Base64 ───────────────────────────────────────────────────────
+//
+// String.fromCharCode.apply(null, largeArray) throws a RangeError (call stack
+// overflow) for arrays above ~100 000 elements because apply() passes every
+// element as a separate argument.  With MaxPasteSize defaulting to 5 MB this
+// is a real risk for encrypted payloads.  Process in 8 KiB chunks instead.
+
+function uint8ToBase64(arr) {
+  var CHUNK = 8192;
+  var binary = "";
+  for (var i = 0; i < arr.length; i += CHUNK) {
+    binary += String.fromCharCode.apply(null, arr.subarray(i, i + CHUNK));
+  }
+  return btoa(binary);
+}
+
 // ── AES-256-GCM + PBKDF2-SHA-256 ─────────────────────────────────────────────
 
 var PBKDF2_ITERATIONS = 200000;
@@ -124,12 +140,8 @@ async function aesEncrypt(plaintext, password) {
   out.set(iv, salt.length);
   out.set(ct, salt.length + iv.length);
 
-  // Uint8Array → Base64
-  var binary = "";
-  // for (var i = 0; i < out.length; i++) binary += String.fromCharCode(out[i]);
-  // Try to increase BASE64 performance
-  var binary = String.fromCharCode.apply(null, out);
-  return FORMAT_PREFIX + btoa(binary);
+  // Use chunked conversion to avoid stack overflow on large payloads.
+  return FORMAT_PREFIX + uint8ToBase64(out);
 }
 
 /**
@@ -276,6 +288,59 @@ function updateStrength() {
   }
 }
 
+// ── Mermaid lazy-loader ───────────────────────────────────────────────────────
+//
+// mermaid.min.js is NOT loaded at page load time unless the paste language is
+// already "mermaid" (the server sets JSImports conditionally via BuildFor).
+// When the user switches the language selector to "mermaid" in the browser,
+// we inject the script tag on demand rather than paying the cost on every page.
+
+function loadMermaidThenRender(block) {
+  if (typeof mermaid !== "undefined") {
+    // Already loaded (e.g. server-rendered mermaid paste, then selector toggled)
+    _renderMermaid(block);
+    return;
+  }
+  var prefix = (typeof uri_prefix !== "undefined" ? uri_prefix : "");
+  var s = document.createElement("script");
+  s.src = prefix + "/static/mermaid.min.js";
+  s.onload = function () {
+    if (typeof mermaid !== "undefined") {
+      mermaid.initialize({ startOnLoad: false });
+    }
+    _renderMermaid(block);
+  };
+  s.onerror = function () {
+    console.error("Failed to load mermaid.min.js");
+  };
+  document.head.appendChild(s);
+}
+
+function _renderMermaid(block) {
+  if (!block || typeof mermaid === "undefined") return;
+  // Replace the <pre><code> with a <div class="mermaid"> that mermaid.run()
+  // expects, then trigger rendering.
+  var pre = block.parentElement;
+  var container = pre ? pre.parentElement : null;
+  if (!container) return;
+
+  var div = document.createElement("div");
+  div.className = "mermaid w3-margin-top";
+  div.textContent = block.textContent;
+  container.replaceChild(div, pre);
+
+  mermaid.run({ nodes: [div] });
+}
+
+// Also expose initMermaid for the plugin-inits mechanism used on
+// server-rendered mermaid pastes (where mermaid.min.js is included via JSImports).
+function initMermaid() {
+  if (typeof mermaid !== "undefined") {
+    mermaid.initialize({ startOnLoad: false });
+    mermaid.run();
+  }
+}
+
 // ── DOM ready ─────────────────────────────────────────────────────────────────
 
 document.addEventListener("DOMContentLoaded", function () {
@@ -381,20 +446,28 @@ document.addEventListener("DOMContentLoaded", function () {
   });
 
   // ── Language selector → re-highlight ──────────────────────────────────────
+  //
+  // When the user switches to "mermaid" the script may not be loaded yet
+  // (it is only included by the server when the paste language is already
+  // mermaid).  In that case we inject mermaid.min.js on demand.
+  // For every other language we delegate to Prism as before.
   ["language-selector"].forEach(function (id) {
     var sel = document.getElementById(id);
     if (!sel) return;
     sel.addEventListener("change", function () {
+      var lang = sel.value;
       var block = document.getElementById("pastebin-code-block");
       if (!block) return;
 
-      // Update the language class on the <code> element
-      block.className = "language-" + sel.value;
+      if (lang === "mermaid") {
+        loadMermaidThenRender(block);
+        return;
+      }
 
-      // Remove Prism's "already highlighted" marker so it re-processes the element
+      // Non-mermaid: update the language class and re-highlight with Prism.
+      block.className = "language-" + lang;
       delete block.dataset.highlighted;
 
-      // Re-highlight directly; preserves any existing data-line on the <pre>
       if (typeof Prism !== "undefined") {
         Prism.highlightElement(block);
       } else if (typeof init_plugins === "function") {
@@ -541,7 +614,7 @@ document.addEventListener("DOMContentLoaded", function () {
     sendInFlight = true;
 
     // Disable both buttons for the duration of the request
-    ["send-btn"].forEach(function (id) {
+    ["send-btn-sidebar", "send-btn-top"].forEach(function (id) {
       var b = document.getElementById(id);
       if (b) b.disabled = true;
     });
@@ -581,7 +654,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     function resetSendBtn() {
       sendInFlight = false;
-      ["send-btn"].forEach(function (id) {
+      ["send-btn-sidebar", "send-btn-top"].forEach(function (id) {
         var b = document.getElementById(id);
         if (b) b.disabled = false;
       });
@@ -650,7 +723,7 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   }
 
-  ["send-btn"].forEach(function (id) {
+  ["send-btn-sidebar", "send-btn-top"].forEach(function (id) {
     var btn = document.getElementById(id);
     if (btn) btn.addEventListener("click", handleSend);
   });

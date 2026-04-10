@@ -20,8 +20,12 @@
   <link rel="icon" href="{{.URIPrefix}}/static/favicon.ico">
   <title>Pastebin</title>
 
-  <!-- Optional plugin CSS (from Go plugins.Manager) -->
+  <!-- Plugin CSS (Prism theme, etc.) -->
   {{range .CSSImports}}
+  <link href="{{.}}" rel="stylesheet" />
+  {{end}}
+  <!-- custom.css is always loaded last so its rules win the cascade -->
+  {{range .TailCSSImports}}
   <link href="{{.}}" rel="stylesheet" />
   {{end}}
 </head>
@@ -37,12 +41,12 @@
 
       <img src="{{.URIPrefix}}/static/favicon.ico" alt="Pastebin Logo" class="w3-margin-top w3-hide-small" style="max-width:50px;margin-right: auto;margin-left: auto; display: block;">
 
-      <a href="{{.URIPrefix}}/" class="w3-bar-item w3-button w3-round w3-margin-top w3-center">New</a>
+      <a href="{{.URIPrefix}}/" class="w3-bar-item w3-button w3-round w3-margin-top w3-center"><i class="fa-regular fa-file"></i> New</a>
 
       <!-- Remove btn: shown on view state -->
       {{if .IsCreated}}
       {{if not .IsBurned}}
-      <a id="remove-btn" href="#" class="w3-bar-item w3-button w3-round w3-margin-top w3-center">Remove</a>
+      <a id="remove-btn" href="#" class="w3-bar-item w3-button w3-round w3-margin-top w3-center"><i class="fas fa-trash"></i> Remove</a>
       {{end}}
       {{end}}
 
@@ -69,10 +73,12 @@
 
       <!-- Copy/Raw/Download (view state) -->
       {{if .IsCreated}}
-      <a id="copy-btn" class="w3-bar-item w3-button w3-round w3-margin-top w3-border w3-border-light-green w3-hover-light-green w3-center" href="#">Copy</a>
+      <a id="copy-btn" class="w3-bar-item w3-button w3-round w3-margin-top w3-border w3-border-light-green w3-hover-light-green w3-center" href="#"><i class="fa-regular fa-copy"></i> Copy</a>
       {{if not .IsBurned}}
-      <a class="w3-bar-item w3-button w3-round w3-margin-top w3-border w3-border-light-green w3-hover-light-green w3-center" href="{{.URIPrefix}}/raw/{{.PastebinID}}">Raw</a>
-      <a class="w3-bar-item w3-button w3-round w3-margin-top w3-border w3-border-light-green w3-hover-light-green w3-center" href="{{.URIPrefix}}/download/{{.PastebinID}}">Download</a>
+      <a class="w3-bar-item w3-button w3-round w3-margin-top w3-border w3-border-light-green w3-hover-light-green w3-center" href="{{.URIPrefix}}/raw/{{.PastebinID}}"><i
+           class="fa-regular fa-file-lines"></i> Raw</a>
+      <a class="w3-bar-item w3-button w3-round w3-margin-top w3-border w3-border-light-green w3-hover-light-green w3-center" href="{{.URIPrefix}}/download/{{.PastebinID}}"><i
+           class="fa-solid fa-download"></i> Download</a>
       {{end}}
       {{end}}
 
@@ -165,7 +171,6 @@
         <option value="markup-templating">Markup templating</option>
         <option value="matlab">MATLAB</option>
         <option value="mel">MEL</option>
-        <option value="mermaid">Mermaid</option>
         <option value="mizar">Mizar</option>
         <option value="monkey">Monkey</option>
         <option value="n4js">N4JS</option>
@@ -249,38 +254,39 @@
 
       <small id="password-strength-text"></small>
 
-      <button id="send-btn" class="w3-bar-item w3-button w3-margin-top w3-green w3-hover-light-green w3-round w3-center">Send</button>
+      <button id="send-btn-sidebar" class="w3-bar-item w3-button w3-margin-top w3-green w3-hover-light-green w3-round w3-center">Send</button>
       {{end}}
 
     </div>
 
-    <div class="w3-stretch w3-bottom w3-padding-64">
+    <div id="navbar-bottom" class="w3-padding w3-hide-large w3-hide-medium">
       <hr>
       <div class="w3-flex" style="flex-flow:wrap; justify-content:center">
         <a href="https://hub.docker.com/r/gas85/ownpastebin"
-           class="w3-button w3-hover-text-black w3-round w3-right w3-hide-large w3-hide-medium"><i class="fab fa-docker"></i></a>
+           class="w3-button w3-hover-text-black w3-round w3-right"><i class="fab fa-docker"></i></a>
         <a href="https://github.com/GAS85/ownPastebin"
-           class="w3-button w3-hover-text-black w3-round w3-hide-large w3-hide-medium"><i class="fab fa-github"></i></a>
+           class="w3-button w3-hover-text-black w3-round"><i class="fab fa-github"></i></a>
         <a onclick="re_theme()" title="Change Theme" class="w3-button w3-hover-text-black w3-round"><i class="fa fa-adjust"></i></a>
       </div>
-      <a href="https://github.com/GAS85/ownPastebin/releases/tag/{{.Version}}" class="w3-bar-item w3-button w3-margin-top w3-center w3-round w3-small w3-hide-large w3-hide-medium">Your own Pastebin {{.Version}}</a>
-      <a href="{{.URIPrefix}}/swagger-ui" class="w3-bar-item w3-button w3-margin-top w3-round w3-center w3-small w3-hide-large w3-hide-medium">API Documentation</a>
+      <a href="https://github.com/GAS85/ownPastebin/releases/tag/{{.Version}}" class="w3-bar-item w3-button w3-margin-top w3-center w3-round w3-small">Your own Pastebin {{.Version}}</a>
+      <a href="{{.URIPrefix}}/swagger-ui" class="w3-bar-item w3-button w3-margin-top w3-round w3-center w3-small">API Documentation</a>
 
     </div>
   </div>
 
   <!-- Navigation Toggler -->
 
-  <div class="w3-bar w3-asphalt w3-large w3-padding" id="topnav">
-    <a href="#" class="w3-bar-item w3-button w3-round fa fa-bars w3-margin-top w3-margin-left" onclick="toggleMobileMenu()"></a>
+  <div class="w3-flex w3-asphalt" id="topnav" style="flex-direction:row;justify-content:space-between">
+    <div href="#" class="w3-button w3-round w3-margin" onclick="toggleMobileMenu()"><i class="fa-solid fa-bars"></i></div>
 
-    <a href="{{.URIPrefix}}/" class="w3-bar-item w3-button w3-round w3-display-topmiddle w3-margin">Pastebin</a>
+    <div href="{{.URIPrefix}}/" class="w3-button w3-round w3-margin">Pastebin</div>
+
     {{if .IsEditable}}
-    <button id="send-btn" class="w3-bar-item w3-button w3-round w3-margin w3-green w3-hover-light-green w3-display-topright">Send</button>
+    <button id="send-btn-top" class="w3-button w3-round w3-margin w3-green w3-hover-light-green"><i class="fa-solid fa-upload"></i><span class="w3-hide-small"> Send</span></button>
     {{end}}
     {{if .IsCreated}}
     {{if not .IsBurned}}
-    <a class="w3-bar-item w3-button w3-round w3-margin w3-border w3-display-topright" href=" {{.URIPrefix}}/download/{{.PastebinID}}">Download</a>
+    <div class="w3-button w3-round w3-margin w3-border" href=" {{.URIPrefix}}/download/{{.PastebinID}}"><i class="fa-solid fa-download"></i><span class="w3-hide-small"> Download</span></div>
     {{end}}
     {{end}}
   </div>
@@ -311,7 +317,7 @@
 
     <!-- New/editable paste: textarea -->
     {{if .IsEditable}}
-    <div class="w3-section">
+    <div class="w3-section" id="textarea-region">
       <textarea autofocus class="w3-input w3-border w3-border-grey w3-light-grey w3-round w3-monospace w3-large" id="content-textarea">{{.PastebinCode}}</textarea>
     </div>
     {{end}}
@@ -347,14 +353,16 @@
   </main>
 
   <!-- FOOTER -->
-  <footer class="w3-container w3-display-container w3-bar w3-asphalt w3-padding w3-small w3-hide-small w3-animate-bottom" id="footer">
-    <a href="https://hub.docker.com/r/gas85/ownpastebin"
-       class="w3-bar-item w3-button w3-hover-text-black w3-round"><i class="fab fa-docker"></i></a>
-    <a href="https://github.com/GAS85/ownPastebin"
-       class="w3-bar-item w3-button w3-hover-text-black w3-round"><i class="fab fa-github"></i></a>
-    <a onclick="re_theme()" title="Change Theme" class="w3-bar-item w3-button w3-hover-text-black w3-round"><i class="fa fa-adjust"></i></a>
-    <span class="w3-bar-item w3-hide-medium w3-display-middle">Your own Pastebin <a href="https://github.com/GAS85/ownPastebin/releases/tag/{{.Version}}">{{.Version}}</a></span>
-    <a href="{{.URIPrefix}}/swagger-ui" class="w3-bar-item w3-hide-medium w3-button w3-hover-text-black w3-right w3-round">API Documentation</a>
+  <footer class="w3-flex w3-asphalt w3-padding w3-small w3-hide-small w3-animate-bottom" id="footer" style="flex-direction:row;justify-content:space-between">
+    <div id="icons">
+      <a href="https://hub.docker.com/r/gas85/ownpastebin"
+         class="w3-button w3-hover-text-black w3-round"><i class="fab fa-docker"></i></a>
+      <a href="https://github.com/GAS85/ownPastebin"
+         class="w3-button w3-hover-text-black w3-round"><i class="fab fa-github"></i></a>
+      <a onclick="re_theme()" title="Change Theme" class="w3-button w3-hover-text-black w3-round"><i class="fa fa-adjust"></i></a>
+    </div>
+    <span class="w3-hide-medium">Your own Pastebin <a href="https://github.com/GAS85/ownPastebin/releases/tag/{{.Version}}">{{.Version}}</a></span>
+    <a href="{{.URIPrefix}}/swagger-ui" class="w3-hide-medium w3-button w3-hover-text-black w3-round">API Documentation</a>
   </footer>
 
   <!-- ── Password Modal (only rendered for E2E-encrypted pastes) ── -->
@@ -431,8 +439,7 @@
     {{.JSInits | toJSON}}
   </script>
 
-
-  <!-- Optional plugin JS (from Go plugins.Manager) -->
+  <!-- Plugin JS (Prism, and conditionally Mermaid when lang=mermaid) -->
   {{range .JSImports}}
   <script src="{{.}}"></script>
   {{end}}
