@@ -48,9 +48,13 @@ pre {
   margin-bottom: 0;
 }
 
-/* Prism line-numbers sets its own padding-left via CSS; don't override it */
-pre.line-numbers {
-  padding-left: 3.8em;
+pre[class*="language-"] {
+  background: #343a40;
+  border: none;
+}
+
+body.light-mode pre[class*="language-"] {
+  background: #eee;
 }
 
 /* ── Sticky-nav scroll compensation for line highlights ── */
@@ -116,7 +120,7 @@ body.light-mode .w3-input {
 /* shadow broken */
 pre[class*="language-"]::after,
 pre[class*="language-"]::before {
-  bottom: 3.8em !important;
+  bottom: 4.1em !important;
 }
 
 /* Sidebar base state */

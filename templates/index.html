@@ -17,7 +17,7 @@
   <meta name="default-burn" content="{{.DefaultBurn}}">
   <meta name="uri-prefix" content="{{.URIPrefix}}">
 
-  <link rel="icon" href="{{.URIPrefix}}/static/favicon.ico">
+  <link rel="icon" href="{{.URIPrefix}}/static/favicon.svg">
   <title>Pastebin</title>
 
   <!-- Plugin CSS (Prism theme, etc.) -->
@@ -39,14 +39,14 @@
     <!-- Desktop nav items — hidden on small/medium screens -->
     <div id="desktopNav">
 
-      <img src="{{.URIPrefix}}/static/favicon.ico" alt="Pastebin Logo" class="w3-margin-top w3-hide-small" style="max-width:50px;margin-right: auto;margin-left: auto; display: block;">
+      <img src="{{.URIPrefix}}/static/favicon.svg" alt="Pastebin Logo" class="w3-margin-top w3-hide-small" style="max-width:50px;margin-right: auto;margin-left: auto; display: block;">
 
       <a href="{{.URIPrefix}}/" class="w3-bar-item w3-button w3-round w3-margin-top w3-center"><i class="fa-regular fa-file"></i> New</a>
 
       <!-- Remove btn: shown on view state -->
       {{if .IsCreated}}
       {{if not .IsBurned}}
-      <a id="remove-btn" href="#" class="w3-bar-item w3-button w3-round w3-margin-top w3-center"><i class="fas fa-trash"></i> Remove</a>
+      <a id="remove-btn" href="#" class="w3-bar-item w3-button w3-round w3-margin-top w3-center"><i class="fas fa-trash"></i> Delete</a>
       {{end}}
       {{end}}
 
@@ -277,16 +277,19 @@
   <!-- Navigation Toggler -->
 
   <div class="w3-flex w3-asphalt" id="topnav" style="flex-direction:row;justify-content:space-between">
-    <div href="#" class="w3-button w3-round w3-margin" onclick="toggleMobileMenu()"><i class="fa-solid fa-bars"></i></div>
 
-    <div href="{{.URIPrefix}}/" class="w3-button w3-round w3-margin">Pastebin</div>
+    <a href="#" class="w3-button w3-round w3-margin" onclick="toggleMobileMenu()"><i class="fa-solid fa-bars"></i></a>
 
+    <a href="{{.URIPrefix}}/" class="w3-button w3-round w3-margin" style="position: absolute; left: 50%; transform: translateX(-50%);">Pastebin</a>
     {{if .IsEditable}}
-    <button id="send-btn-top" class="w3-button w3-round w3-margin w3-green w3-hover-light-green"><i class="fa-solid fa-upload"></i><span class="w3-hide-small"> Send</span></button>
+    <a id="send-btn-top" class="w3-button w3-round w3-margin w3-green w3-hover-light-green"><i class="fa-solid fa-upload"></i><span class="w3-hide-small"> Send</span></a>
     {{end}}
     {{if .IsCreated}}
     {{if not .IsBurned}}
-    <div class="w3-button w3-round w3-margin w3-border" href=" {{.URIPrefix}}/download/{{.PastebinID}}"><i class="fa-solid fa-download"></i><span class="w3-hide-small"> Download</span></div>
+    <a class="w3-button w3-round w3-margin w3-border" href=" {{.URIPrefix}}/download/{{.PastebinID}}"><i class="fa-solid fa-download"></i><span class="w3-hide-small"> Download</span></a>
+    {{end}}
+    {{if .IsBurned}}
+    <a class="w3-button w3-round w3-margin w3-border w3-hover-pale-red" href="{{.URIPrefix}}/"><i class="fa-solid fa-x"></i><span class="w3-hide-small"> Close</span></a>
     {{end}}
     {{end}}
   </div>
@@ -361,7 +364,7 @@
          class="w3-button w3-hover-text-black w3-round"><i class="fab fa-github"></i></a>
       <a onclick="re_theme()" title="Change Theme" class="w3-button w3-hover-text-black w3-round"><i class="fa fa-adjust"></i></a>
     </div>
-    <span class="w3-hide-medium">Your own Pastebin <a href="https://github.com/GAS85/ownPastebin/releases/tag/{{.Version}}">{{.Version}}</a></span>
+    <a class="w3-hide-medium w3-button w3-hover-text-black w3-round" href="https://github.com/GAS85/ownPastebin/releases/tag/{{.Version}}">Your own Pastebin {{.Version}}</a>
     <a href="{{.URIPrefix}}/swagger-ui" class="w3-hide-medium w3-button w3-hover-text-black w3-round">API Documentation</a>
   </footer>
 
@@ -415,8 +418,7 @@
        role="dialog" aria-modal="true" aria-labelledby="deletion-modal-title">
     <div class="w3-modal-content w3-animate-top w3-card-4" style="max-width:400px;">
       <header class="w3-container w3-blue-grey">
-        <button onclick="document.getElementById('deletion-modal').style.display='none'"
-                class="w3-button w3-display-topright" aria-label="Close fa fa-x"></button>
+        <button onclick="document.getElementById('deletion-modal').style.display='none'" class="w3-button w3-display-topright fa fa-x" aria-label="Close"></button>
         <h4 id="deletion-modal-title"><i class="fas fa-trash"></i> Delete this paste?</h4>
       </header>
       <div class="w3-container w3-padding">
