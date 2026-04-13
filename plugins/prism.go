@@ -1,20 +1,32 @@
 package plugins
 
-import (
-	"io/fs"
-)
+import "io/fs"
 
-// PrismPlugin adds Prism.js syntax highlighting.
-// Static files (prism.js, prism.css) are expected to be embedded by the
-// caller via go:embed in main.go and passed in via EmbeddedFS.
+// PrismPlugin provides Prism.js syntax-highlighting assets.
+//
+// It registers only Prism's own CSS and JS — NOT custom.css.
+// custom.css is emitted last by Manager.TailCSSImports() so it always wins
+// the cascade regardless of what plugins add.
 type PrismPlugin struct {
-	EmbeddedFS fs.FS // embed.FS sub-tree containing static/prism.*
+	EmbeddedFS fs.FS
 }
 
-func (p *PrismPlugin) CSSImports(prefix string) []string { return []string{prefix + "/static/prism.css"} }
-func (p *PrismPlugin) JSImports(prefix string) []string  { return []string{prefix + "/static/prism.js"} }
-func (p *PrismPlugin) JSInit() string {
-	return "var holder = document.getElementById('pastebin-code-block'); " +
-		"if (holder) { Prism.highlightElement(holder); }"
+func (p *PrismPlugin) CSSImports(prefix string) []string {
+	return []string{
+		prefix + "/static/prism.css",
+	}
 }
-func (p *PrismPlugin) StaticFS() fs.FS { return p.EmbeddedFS }
+
+func (p *PrismPlugin) JSImports(prefix string) []string {
+	return []string{
+		prefix + "/static/prism.js",
+	}
+}
+
+func (p *PrismPlugin) JSInit() string {
+	return "init_plugins"
+}
+
+func (p *PrismPlugin) StaticFS() fs.FS {
+	return p.EmbeddedFS
+}

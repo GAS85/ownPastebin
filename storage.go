@@ -2,7 +2,7 @@ package main
 
 import (
 	"database/sql"
-	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -16,84 +16,155 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
-// PasteData is the JSON payload stored in all backends.
+// ErrSlugConflict is returned by Save when the generated ID already exists. The caller should generate a new ID and retry.
+var ErrSlugConflict = errors.New("slug already exists")
+
+// =============================================================================
+// DATA MODEL
+// =============================================================================
+
+// PasteData is the internal representation – Content is raw bytes
+// (plaintext or ciphertext, depending on Encrypted flag).
+
 type PasteData struct {
-	Content      string     `json:"content"`       // base64 or AES-GCM ciphertext
-	Burn         bool       `json:"burn"`
-	Encrypted    bool       `json:"encrypted"`     // server-side encryption applied
-	E2EEncrypted bool       `json:"e2e_encrypted"` // client-side encryption
-	Lang         string     `json:"lang"`
-	ExpireAt     *time.Time `json:"expire_at,omitempty"` // nil = never expires
+	Content      []byte
+	Burn         bool
+	Encrypted    bool
+	E2EEncrypted bool
+	Lang         string
+	ExpireAt     *time.Time
 }
 
-// Storage is the common interface all backends implement.
+// Storage interface – all methods work with raw bytes.
 type Storage interface {
 	Save(key string, data *PasteData, ttl time.Duration) error
 	Get(key string) (*PasteData, error)
+	PeekMeta(key string) (*PasteData, error) // returns metadata without Content
 	Delete(key string) error
-	// GetAndDelete atomically reads and removes — used for burn-on-read.
 	GetAndDelete(key string) (*PasteData, error)
 	Close() error
 }
 
-var burnScript = redis.NewScript(`
-	local ttl = redis.call('PTTL', KEYS[1])
-	local val = redis.call('GETDEL', KEYS[1])
-	if val == false then
-		return {false, 0}
-	end
-	return {val, ttl}
-`)
-
-// ---- helpers ----------------------------------------------------------------
-
-func marshalPaste(d *PasteData) ([]byte, error) {
-	return json.Marshal(d)
-}
-
-func unmarshalPaste(b []byte) (*PasteData, error) {
-	var d PasteData
-	return &d, json.Unmarshal(b, &d)
-}
-
 // =============================================================================
-// SQLite
+// SQLite – stores content as BLOB, metadata in separate columns
 // =============================================================================
 
 type SQLiteStorage struct {
-	db   *sql.DB
-	mu   sync.Mutex
-	stop chan struct{}
-	wg   sync.WaitGroup
+	db     *sql.DB
+	dbPath string
+	stop   chan struct{}
+	wg     sync.WaitGroup
 }
 
-func newSQLiteStorage(path string) (*SQLiteStorage, error) {
+// helper conversions
+func boolToInt(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
+}
+func intToBool(i int) bool {
+	return i != 0
+}
+
+func newSQLiteStorage(path string, cfg *Settings) (*SQLiteStorage, error) {
 	db, err := sql.Open("sqlite3", path+"?_journal_mode=WAL&_busy_timeout=5000")
 	if err != nil {
 		return nil, err
 	}
-	db.SetMaxOpenConns(1)
+	// Open connections scaled to MaxParallelUploads so writers do not queue
+	// behind a 4-connection ceiling while many concurrent uploads are active.
+	maxOpen := cfg.MaxParallelUploads + 4
+	db.SetMaxOpenConns(maxOpen)
+	db.SetMaxIdleConns(4)
+	db.SetConnMaxLifetime(time.Hour)
 
+	if err := applyPragmas(db); err != nil {
+		db.Close()
+		return nil, err
+	}
+	if err := applyPageSize(db, cfg.SQLitePageSize); err != nil {
+		db.Close()
+		return nil, err
+	}
+
+	// New schema: content BLOB, explicit columns for all fields
 	_, err = db.Exec(`CREATE TABLE IF NOT EXISTS pastes (
-		id        TEXT PRIMARY KEY,
-		data      TEXT NOT NULL,
-		expire_at INTEGER
+		id              TEXT PRIMARY KEY,
+		content         BLOB NOT NULL,
+		burn            INTEGER NOT NULL DEFAULT 0,
+		encrypted       INTEGER NOT NULL DEFAULT 0,
+		e2e_encrypted   INTEGER NOT NULL DEFAULT 0,
+		lang            TEXT NOT NULL DEFAULT 'text',
+		expire_at       INTEGER
 	)`)
 	if err != nil {
+		db.Close()
 		return nil, err
 	}
 
 	if err := ensureIncrementalVacuum(db); err != nil {
+		db.Close()
 		return nil, err
 	}
 
 	s := &SQLiteStorage{
-		db:   db,
-		stop: make(chan struct{}),
+		db:     db,
+		dbPath: path,
+		stop:   make(chan struct{}),
 	}
 	s.wg.Add(1)
 	go s.cleanupLoop()
 	return s, nil
+}
+
+func applyPragmas(db *sql.DB) error {
+	pragmas := []string{
+		"PRAGMA synchronous=NORMAL",
+		"PRAGMA temp_store=MEMORY",       // temp tables in RAM
+		"PRAGMA mmap_size=268435456",     // 256 MB memory-mapped I/O
+		"PRAGMA foreign_keys=ON",
+		"PRAGMA auto_vacuum=INCREMENTAL", // space reclamation (ensureIncrementalVacuum activates it)
+		"PRAGMA cache_size=-20000",       // ~20 MB page cache (negative = KiB)
+		"PRAGMA wal_autocheckpoint=1000", // let SQLite auto-manage WAL checkpoints
+	}
+	for _, p := range pragmas {
+		if _, err := db.Exec(p); err != nil {
+			return fmt.Errorf("failed to apply %s: %w", p, err)
+		}
+	}
+	return nil
+}
+
+// applyPageSize sets PRAGMA page_size on a new (empty) database.
+// On an existing database SQLite silently ignores this.
+// Changing page_size on a populated DB requires a full VACUUM and will be executed
+// with next VACUUM maximum in 50 hours.
+//
+// Valid values: 512, 1024, 2048, 4096 (default), 8192, 16384, 32768, 65536.
+//   - 4096 (default) — good for typical text pastes (< 100 KB)
+//   - 8192 or 16384  — better when pastes are regularly several MB, because
+//     each paste fits in fewer pages, reducing I/O and B-tree depth
+//
+// 0 or unset → SQLite default (4096). Invalid values are ignored with a warning.
+func applyPageSize(db *sql.DB, size int) error {
+	valid := map[int]bool{512: true, 1024: true, 2048: true, 4096: true,
+		8192: true, 16384: true, 32768: true, 65536: true}
+
+	if size == 0 {
+		return nil // use SQLite default (4096)
+	}
+	if !valid[size] {
+		slog.Warn("PASTEBIN_SQLITE_PAGE_SIZE is not a valid power-of-2 between 512 and 65536; using SQLite default",
+			"requested", size)
+		return nil
+	}
+	if _, err := db.Exec(fmt.Sprintf(`PRAGMA page_size=%d`, size)); err != nil {
+		return fmt.Errorf("set page_size=%d: %w", size, err)
+	}
+	slog.Debug("SQLite page_size set", "size", size,
+		"note", "only effective on a new empty database")
+	return nil
 }
 
 // ensureIncrementalVacuum checks the current auto_vacuum mode and migrates the
@@ -106,38 +177,27 @@ func ensureIncrementalVacuum(db *sql.DB) error {
 	if err := db.QueryRow(`PRAGMA auto_vacuum`).Scan(&mode); err != nil {
 		return fmt.Errorf("read auto_vacuum mode: %w", err)
 	}
-
 	if mode == 2 {
 		slog.Debug("SQLite auto_vacuum already incremental, no migration needed")
 		return nil
 	}
 
-	// Mode is 0 (none) or 1 (full) — needs migration.
-	// Setting the PRAGMA alone does nothing on an existing file; only a
-	// subsequent VACUUM rewrites the file header to activate the new mode.
-	slog.Info("SQLite auto_vacuum migration starting",
-		"current_mode", mode,
-		"target_mode", 2,
-	)
+	slog.Info("SQLite auto_vacuum migration starting", "current_mode", mode, "target_mode", 2)
 
-	if _, err := db.Exec(`PRAGMA auto_vacuum=INCREMENTAL`); err != nil {
-		return fmt.Errorf("set auto_vacuum=INCREMENTAL: %w", err)
-	}
-
+	// applyPragmas already sets auto_vacuum=INCREMENTAL; the VACUUM below
+	// is what actually rewrites the file header to activate the new mode.
 	slog.Info("running one-time VACUUM to activate incremental auto_vacuum (may take a moment on large DBs)")
 	if _, err := db.Exec(`VACUUM`); err != nil {
 		return fmt.Errorf("migration VACUUM failed: %w", err)
 	}
 
 	// Verify the mode actually changed — VACUUM on a WAL-mode DB with active
-	// readers will silently fail to change the header, so we confirm.
+	// readers will silently fail to change the header.
 	if err := db.QueryRow(`PRAGMA auto_vacuum`).Scan(&mode); err != nil {
 		return fmt.Errorf("verify auto_vacuum after migration: %w", err)
 	}
 	if mode != 2 {
-		// This can happen if another connection had the DB open during VACUUM.
-		// It is not fatal — incremental_vacuum calls will simply be no-ops
-		// until the next restart, at which point migration will retry.
+		// Not fatal — incremental_vacuum calls will be no-ops until next restart.
 		slog.Warn("auto_vacuum mode did not change after VACUUM — another process may have the DB open; will retry on next startup",
 			"mode", mode,
 		)
@@ -148,46 +208,85 @@ func ensureIncrementalVacuum(db *sql.DB) error {
 	return nil
 }
 
+// Save inserts a new paste. It uses INSERT OR IGNORE so that a slug collision returns ErrSlugConflict instead of silently overwriting an existing paste.  The caller (handleCreatePaste) retries with a fresh ID.
 func (s *SQLiteStorage) Save(key string, d *PasteData, ttl time.Duration) error {
-	b, err := marshalPaste(d)
-	if err != nil {
-		return err
-	}
 	var expireAt *int64
 	if ttl > 0 {
 		t := time.Now().Add(ttl).Unix()
 		expireAt = &t
 	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	_, err = s.db.Exec(
-		`INSERT OR REPLACE INTO pastes (id, data, expire_at) VALUES (?, ?, ?)`,
-		key, string(b), expireAt,
+	res, err := s.db.Exec(`
+		INSERT OR IGNORE INTO pastes
+		(id, content, burn, encrypted, e2e_encrypted, lang, expire_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		key, d.Content, boolToInt(d.Burn), boolToInt(d.Encrypted),
+		boolToInt(d.E2EEncrypted), d.Lang, expireAt,
 	)
-	return err
+	if err != nil {
+		return err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return ErrSlugConflict
+	}
+	return nil
 }
 
-func (s *SQLiteStorage) Get(key string) (*PasteData, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+func (s *SQLiteStorage) PeekMeta(key string) (*PasteData, error) {
+	row := s.db.QueryRow(`
+		SELECT burn, encrypted, e2e_encrypted, lang, expire_at
+		FROM pastes WHERE id = ?`, key)
 
-	row := s.db.QueryRow(`SELECT data, expire_at FROM pastes WHERE id = ?`, key)
-	var raw string
+	var burnInt, encInt, e2eInt int
+	var lang string
 	var expireAt *int64
-	if err := row.Scan(&raw, &expireAt); err == sql.ErrNoRows {
+	if err := row.Scan(&burnInt, &encInt, &e2eInt, &lang, &expireAt); err == sql.ErrNoRows {
 		return nil, nil
 	} else if err != nil {
 		return nil, err
 	}
-
+	// Check expiry without loading content
 	if expireAt != nil && time.Now().Unix() >= *expireAt {
-		s.db.Exec(`DELETE FROM pastes WHERE id = ?`, key) //nolint
+		s.db.Exec(`DELETE FROM pastes WHERE id = ?`, key) // clean up
 		return nil, nil
 	}
+	paste := &PasteData{
+		Content:      nil, // metadata only
+		Burn:         intToBool(burnInt),
+		Encrypted:    intToBool(encInt),
+		E2EEncrypted: intToBool(e2eInt),
+		Lang:         lang,
+	}
+	if expireAt != nil {
+		t := time.Unix(*expireAt, 0)
+		paste.ExpireAt = &t
+	}
+	return paste, nil
+}
 
-	paste, err := unmarshalPaste([]byte(raw))
-	if err != nil {
+func (s *SQLiteStorage) Get(key string) (*PasteData, error) {
+	row := s.db.QueryRow(`
+		SELECT content, burn, encrypted, e2e_encrypted, lang, expire_at
+		FROM pastes WHERE id = ?`, key)
+
+	var content []byte
+	var burnInt, encInt, e2eInt int
+	var lang string
+	var expireAt *int64
+	if err := row.Scan(&content, &burnInt, &encInt, &e2eInt, &lang, &expireAt); err == sql.ErrNoRows {
+		return nil, nil
+	} else if err != nil {
 		return nil, err
+	}
+	if expireAt != nil && time.Now().Unix() >= *expireAt {
+		s.db.Exec(`DELETE FROM pastes WHERE id = ?`, key)
+		return nil, nil
+	}
+	paste := &PasteData{
+		Content:      content,
+		Burn:         intToBool(burnInt),
+		Encrypted:    intToBool(encInt),
+		E2EEncrypted: intToBool(e2eInt),
+		Lang:         lang,
 	}
 	if expireAt != nil {
 		t := time.Unix(*expireAt, 0)
@@ -197,33 +296,34 @@ func (s *SQLiteStorage) Get(key string) (*PasteData, error) {
 }
 
 func (s *SQLiteStorage) Delete(key string) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
 	_, err := s.db.Exec(`DELETE FROM pastes WHERE id = ?`, key)
 	return err
 }
 
 // GetAndDelete uses RETURNING for atomicity (SQLite ≥ 3.35, 2021).
 func (s *SQLiteStorage) GetAndDelete(key string) (*PasteData, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
 
 	row := s.db.QueryRow(`
 		DELETE FROM pastes
 		WHERE id = ?
 		  AND (expire_at IS NULL OR expire_at > ?)
-		RETURNING data, expire_at`, key, time.Now().Unix())
+		RETURNING content, burn, encrypted, e2e_encrypted, lang, expire_at`, key, time.Now().Unix())
 
-	var raw string
+	var content []byte
+	var burnInt, encInt, e2eInt int
+	var lang string
 	var expireAt *int64
-	if err := row.Scan(&raw, &expireAt); err == sql.ErrNoRows {
+	if err := row.Scan(&content, &burnInt, &encInt, &e2eInt, &lang, &expireAt); err == sql.ErrNoRows {
 		return nil, nil
 	} else if err != nil {
 		return nil, err
 	}
-	paste, err := unmarshalPaste([]byte(raw))
-	if err != nil {
-		return nil, err
+	paste := &PasteData{
+		Content:      content,
+		Burn:         intToBool(burnInt),
+		Encrypted:    intToBool(encInt),
+		E2EEncrypted: intToBool(e2eInt),
+		Lang:         lang,
 	}
 	if expireAt != nil {
 		t := time.Unix(*expireAt, 0)
@@ -235,11 +335,10 @@ func (s *SQLiteStorage) GetAndDelete(key string) (*PasteData, error) {
 func (s *SQLiteStorage) Close() error {
 	close(s.stop)
 	s.wg.Wait()
-	// The goroutine is fully stopped — no mutex needed from here on.
+	// The goroutine is fully stopped.
 
 	var freelistBefore, freelistAfter int
 	s.db.QueryRow(`PRAGMA freelist_count`).Scan(&freelistBefore)
-
 	if freelistBefore > 0 {
 		if _, err := s.db.Exec(`PRAGMA incremental_vacuum`); err != nil {
 			slog.Warn("final incremental vacuum failed", "err", err)
@@ -254,34 +353,111 @@ func (s *SQLiteStorage) Close() error {
 	return s.db.Close()
 }
 
+// walFileSize returns the current WAL file size in bytes, or 0 if absent.
+func (s *SQLiteStorage) walFileSize() int64 {
+	fi, err := os.Stat(s.dbPath + "-wal")
+	if err != nil {
+		return 0
+	}
+	return fi.Size()
+}
+
+// vacuumDB reclaims SQLite free pages.
+// If full=true, runs a full VACUUM (blocks all writers); otherwise runs
+// incremental_vacuum up to maxPages pages.
+func (s *SQLiteStorage) vacuumDB(full bool, maxPages int) {
+	var freelistPages int
+	err := s.db.QueryRow(`PRAGMA freelist_count`).Scan(&freelistPages)
+
+	if err != nil {
+		slog.Error("vacuumDB: freelist_count failed", "err", err)
+		return
+	}
+	if freelistPages == 0 {
+		slog.Debug("vacuumDB: no free pages to reclaim")
+		return
+	}
+	slog.Debug("vacuumDB: free pages available", "count", freelistPages)
+
+	var execErr error
+	if full {
+		_, execErr = s.db.Exec(`VACUUM`)
+	} else {
+		_, execErr = s.db.Exec(fmt.Sprintf(`PRAGMA incremental_vacuum(%d)`, maxPages))
+	}
+	op := "incremental_vacuum"
+	if full {
+		op = "VACUUM"
+	}
+	if execErr != nil {
+		slog.Error(op+" failed", "err", execErr)
+		return
+	}
+
+	var remaining int
+	s.db.QueryRow(`PRAGMA freelist_count`).Scan(&remaining)
+	slog.Debug(op+" completed",
+		"pages_reclaimed", freelistPages-remaining,
+		"remaining", remaining,
+	)
+}
+
 func (s *SQLiteStorage) cleanupLoop() {
 	defer s.wg.Done()
 
+	// Run hourly and delete expired pastes
 	cleanupTicker := time.NewTicker(time.Hour)
 	defer cleanupTicker.Stop()
 
-	vacuumTicker := time.NewTicker(24 * time.Hour)
+	// Run periodically and reclaim the space
+	vacuumTicker := time.NewTicker(6 * time.Hour)
 	defer vacuumTicker.Stop()
 
-	// Add an initial vacuum after startup
-	s.mu.Lock()
-	_, err := s.db.Exec(`PRAGMA incremental_vacuum(1000)`)
-	s.mu.Unlock()
-	if err != nil {
-		slog.Error("initial incremental vacuum failed", "err", err)
+	// Run periodically and reclaim whole space
+	fullVacuumTicker := time.NewTicker(50 * time.Hour)
+	defer fullVacuumTicker.Stop()
+
+	// Truncate WAL File
+	walCheckTicker := time.NewTicker(20 * time.Minute)
+	defer walCheckTicker.Stop()
+
+	// Initial incremental vacuum on startup — reclaim up to 10 000 pages (~40 MB).
+	slog.Debug("initial incremental vacuum start")
+	_, initErr := s.db.Exec(`PRAGMA incremental_vacuum(10000)`)
+	if initErr != nil {
+		slog.Error("initial incremental vacuum failed", "err", initErr)
 	} else {
 		slog.Debug("initial incremental vacuum completed")
+	}
+
+	// Integrity check on startup — log any problems found.
+	rows, icErr := s.db.Query(`PRAGMA integrity_check`)
+	if icErr != nil {
+		slog.Error("integrity_check failed", "err", icErr)
+	} else {
+		defer rows.Close() // always close, even on early exit
+		for rows.Next() {
+			var msg string
+			if err := rows.Scan(&msg); err != nil {
+				slog.Error("integrity_check scan failed", "err", err)
+				break
+			}
+			if msg != "ok" {
+				slog.Warn("integrity_check", "result", msg)
+			}
+		}
+		if err := rows.Err(); err != nil {
+			slog.Error("integrity_check rows error", "err", err)
+		}
 	}
 
 	for {
 		select {
 		case <-cleanupTicker.C:
-			s.mu.Lock()
 			result, err := s.db.Exec(
 				`DELETE FROM pastes WHERE expire_at IS NOT NULL AND expire_at < ?`,
 				time.Now().Unix(),
 			)
-			s.mu.Unlock()
 			if err != nil {
 				slog.Error("cleanup delete failed", "err", err)
 				continue
@@ -291,31 +467,20 @@ func (s *SQLiteStorage) cleanupLoop() {
 			}
 
 		case <-vacuumTicker.C:
-			s.mu.Lock()
-			
-			// First, check if there are free pages to reclaim
-			var freelistPages int
-			err := s.db.QueryRow(`PRAGMA freelist_count`).Scan(&freelistPages)
-			if err == nil && freelistPages > 0 {
-				slog.Debug("free pages available", "count", freelistPages)
-				
-				// Reclaim up to 1000 pages
-				_, err := s.db.Exec(`PRAGMA incremental_vacuum(1000)`)
+			s.vacuumDB(false, 10000)
+
+		case <-fullVacuumTicker.C:
+			s.vacuumDB(true, 0)
+
+		case <-walCheckTicker.C:
+			size := s.walFileSize()
+			if size > 128*1024*1024 { // 128 MB threshold
+				slog.Info("WAL file large, checkpointing", "size_mb", size/1024/1024)
+				_, err := s.db.Exec(`PRAGMA wal_checkpoint(TRUNCATE)`)
 				if err != nil {
-					slog.Error("incremental vacuum failed", "err", err)
-				} else {
-					// Check remaining freelist
-					var remaining int
-					s.db.QueryRow(`PRAGMA freelist_count`).Scan(&remaining)
-					slog.Debug("incremental vacuum completed", 
-						"pages_reclaimed", freelistPages-remaining,
-						"remaining", remaining)
+					slog.Error("WAL checkpoint failed", "err", err)
 				}
-			} else {
-				slog.Debug("no free pages to reclaim")
 			}
-			
-			s.mu.Unlock()
 
 		case <-s.stop:
 			return
@@ -324,11 +489,13 @@ func (s *SQLiteStorage) cleanupLoop() {
 }
 
 // =============================================================================
-// PostgreSQL
+// PostgreSQL – stores content as BYTE
 // =============================================================================
 
 type PostgresStorage struct {
-	db *sql.DB
+	db   *sql.DB
+	stop chan struct{}
+	wg   sync.WaitGroup
 }
 
 func newPostgresStorage(dsn string) (*PostgresStorage, error) {
@@ -341,54 +508,122 @@ func newPostgresStorage(dsn string) (*PostgresStorage, error) {
 	db.SetConnMaxLifetime(time.Hour)
 
 	_, err = db.Exec(`CREATE TABLE IF NOT EXISTS pastes (
-		id        TEXT PRIMARY KEY,
-		data      JSONB NOT NULL,
-		expire_at TIMESTAMPTZ
+		id              TEXT PRIMARY KEY,
+		content         BYTEA NOT NULL,
+		burn            BOOLEAN NOT NULL DEFAULT FALSE,
+		encrypted       BOOLEAN NOT NULL DEFAULT FALSE,
+		e2e_encrypted   BOOLEAN NOT NULL DEFAULT FALSE,
+		lang            TEXT NOT NULL DEFAULT 'text',
+		expire_at       TIMESTAMPTZ
 	)`)
 	if err != nil {
 		return nil, err
 	}
 
-	return &PostgresStorage{db: db}, nil
+	s := &PostgresStorage{
+		db:   db,
+		stop: make(chan struct{}),
+	}
+	s.wg.Add(1)
+	go s.cleanupLoop()
+	return s, nil
 }
 
-func (s *PostgresStorage) Save(key string, d *PasteData, ttl time.Duration) error {
-	b, err := marshalPaste(d)
-	if err != nil {
-		return err
+// cleanupLoop deletes expired rows from PostgreSQL hourly.
+func (s *PostgresStorage) cleanupLoop() {
+	defer s.wg.Done()
+
+	ticker := time.NewTicker(time.Hour)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			result, err := s.db.Exec(
+				`DELETE FROM pastes WHERE expire_at IS NOT NULL AND expire_at < NOW()`,
+			)
+			if err != nil {
+				slog.Error("postgres cleanup delete failed", "err", err)
+				continue
+			}
+			if n, _ := result.RowsAffected(); n > 0 {
+				slog.Debug("postgres: deleted expired pastes", "rows_deleted", n)
+			}
+		case <-s.stop:
+			return
+		}
 	}
+}
+
+// Save inserts a new paste. Uses ON CONFLICT DO NOTHING so that a collision returns ErrSlugConflict rather than overwriting an existing paste.
+func (s *PostgresStorage) Save(key string, d *PasteData, ttl time.Duration) error {
 	var expireAt *time.Time
 	if ttl > 0 {
 		t := time.Now().Add(ttl)
 		expireAt = &t
 	}
-	_, err = s.db.Exec(`
-		INSERT INTO pastes (id, data, expire_at)
-		VALUES ($1, $2, $3)
-		ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data, expire_at = EXCLUDED.expire_at`,
-		key, string(b), expireAt,
+	res, err := s.db.Exec(`
+		INSERT INTO pastes (id, content, burn, encrypted, e2e_encrypted, lang, expire_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		ON CONFLICT (id) DO NOTHING`,
+		key, d.Content, d.Burn, d.Encrypted, d.E2EEncrypted, d.Lang, expireAt,
 	)
-	return err
+	if err != nil {
+		return err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return ErrSlugConflict
+	}
+	return nil
 }
 
-func (s *PostgresStorage) Get(key string) (*PasteData, error) {
+func (s *PostgresStorage) PeekMeta(key string) (*PasteData, error) {
 	row := s.db.QueryRow(`
-		SELECT data, expire_at FROM pastes
+		SELECT burn, encrypted, e2e_encrypted, lang, expire_at
+		FROM pastes
 		WHERE id = $1 AND (expire_at IS NULL OR expire_at > NOW())`, key)
 
-	var raw string
+	var burn, encrypted, e2eEncrypted bool
+	var lang string
 	var expireAt *time.Time
-	if err := row.Scan(&raw, &expireAt); err == sql.ErrNoRows {
+	if err := row.Scan(&burn, &encrypted, &e2eEncrypted, &lang, &expireAt); err == sql.ErrNoRows {
 		return nil, nil
 	} else if err != nil {
 		return nil, err
 	}
-	paste, err := unmarshalPaste([]byte(raw))
-	if err != nil {
+	return &PasteData{
+		Content:      nil,
+		Burn:         burn,
+		Encrypted:    encrypted,
+		E2EEncrypted: e2eEncrypted,
+		Lang:         lang,
+		ExpireAt:     expireAt,
+	}, nil
+}
+
+func (s *PostgresStorage) Get(key string) (*PasteData, error) {
+	row := s.db.QueryRow(`
+		SELECT content, burn, encrypted, e2e_encrypted, lang, expire_at
+		FROM pastes
+		WHERE id = $1 AND (expire_at IS NULL OR expire_at > NOW())`, key)
+
+	var content []byte
+	var burn, encrypted, e2eEncrypted bool
+	var lang string
+	var expireAt *time.Time
+	if err := row.Scan(&content, &burn, &encrypted, &e2eEncrypted, &lang, &expireAt); err == sql.ErrNoRows {
+		return nil, nil
+	} else if err != nil {
 		return nil, err
 	}
-	paste.ExpireAt = expireAt
-	return paste, nil
+	return &PasteData{
+		Content:      content,
+		Burn:         burn,
+		Encrypted:    encrypted,
+		E2EEncrypted: e2eEncrypted,
+		Lang:         lang,
+		ExpireAt:     expireAt,
+	}, nil
 }
 
 func (s *PostgresStorage) Delete(key string) error {
@@ -401,27 +636,35 @@ func (s *PostgresStorage) GetAndDelete(key string) (*PasteData, error) {
 	row := s.db.QueryRow(`
 		DELETE FROM pastes
 		WHERE id = $1 AND (expire_at IS NULL OR expire_at > NOW())
-		RETURNING data, expire_at`, key)
+		RETURNING content, burn, encrypted, e2e_encrypted, lang, expire_at`, key)
 
-	var raw string
+	var content []byte
+	var burn, encrypted, e2eEncrypted bool
+	var lang string
 	var expireAt *time.Time
-	if err := row.Scan(&raw, &expireAt); err == sql.ErrNoRows {
+	if err := row.Scan(&content, &burn, &encrypted, &e2eEncrypted, &lang, &expireAt); err == sql.ErrNoRows {
 		return nil, nil
 	} else if err != nil {
 		return nil, err
 	}
-	paste, err := unmarshalPaste([]byte(raw))
-	if err != nil {
-		return nil, err
-	}
-	paste.ExpireAt = expireAt
-	return paste, nil
+	return &PasteData{
+		Content:      content,
+		Burn:         burn,
+		Encrypted:    encrypted,
+		E2EEncrypted: e2eEncrypted,
+		Lang:         lang,
+		ExpireAt:     expireAt,
+	}, nil
 }
 
-func (s *PostgresStorage) Close() error { return s.db.Close() }
+func (s *PostgresStorage) Close() error {
+	close(s.stop)
+	s.wg.Wait()
+	return s.db.Close()
+}
 
 // =============================================================================
-// Redis
+// REDIS - stores HASHes PasteData (binary safe)
 // =============================================================================
 
 type RedisStorage struct {
@@ -439,88 +682,204 @@ func newRedisStorage(url string) (*RedisStorage, error) {
 	if err := client.Ping(ctx).Err(); err != nil {
 		return nil, fmt.Errorf("redis ping failed: %w", err)
 	}
+
 	return &RedisStorage{client: client}, nil
 }
 
 func (s *RedisStorage) Save(key string, d *PasteData, ttl time.Duration) error {
-	b, err := marshalPaste(d)
+	ctx := context.Background()
+
+	// Use SET NX (via a Lua script or HSETNX on a sentinel field) to avoid overwriting an existing paste on the rare slug collision. Use a pipeline: HSETNX on the "content" field as the collision gate, then HSET the remaining fields only if the key was fresh.
+	pipe := s.client.TxPipeline()
+	hsetnx := pipe.HSetNX(ctx, key, "content", d.Content)
+	_, err := pipe.Exec(ctx)
 	if err != nil {
 		return err
 	}
-	ctx := context.Background()
-	return s.client.Set(ctx, key, b, ttl).Err()
+	if !hsetnx.Val() {
+		// content field already existed → slug collision
+		return ErrSlugConflict
+	}
+
+	// Key is new — write remaining fields and TTL.
+	pipe2 := s.client.TxPipeline()
+	pipe2.HSet(ctx, key, map[string]interface{}{
+		"burn": boolToInt(d.Burn),
+		"enc":  boolToInt(d.Encrypted),
+		"e2e":  boolToInt(d.E2EEncrypted),
+		"lang": d.Lang,
+	})
+	if ttl > 0 {
+		pipe2.Expire(ctx, key, ttl)
+	}
+	_, err = pipe2.Exec(ctx)
+	return err
 }
 
+// PeekMeta fetches all metadata fields in a single HMGet round trip.
+func (s *RedisStorage) PeekMeta(key string) (*PasteData, error) {
+	ctx := context.Background()
+
+	// Single round trip: fetch burn, enc, e2e, lang together.
+	vals, err := s.client.HMGet(ctx, key, "burn", "enc", "e2e", "lang").Result()
+	if err != nil {
+		return nil, err
+	}
+	// HMGet returns nils for all fields when the key does not exist.
+	if vals[0] == nil {
+		return nil, nil
+	}
+
+	burn  := valToInt(vals[0])
+	enc   := valToInt(vals[1])
+	e2e   := valToInt(vals[2])
+	lang  := valToString(vals[3])
+
+	p := &PasteData{
+		Content:      nil,
+		Burn:         intToBool(burn),
+		Encrypted:    intToBool(enc),
+		E2EEncrypted: intToBool(e2e),
+		Lang:         lang,
+	}
+	if ttl := s.client.TTL(ctx, key).Val(); ttl > 0 {
+		t := time.Now().Add(ttl)
+		p.ExpireAt = &t
+	}
+	return p, nil
+}
+
+// Get retrieves a paste from Redis in two round trips: one HMGet for all
+// fields (including content) and one TTL call.
 func (s *RedisStorage) Get(key string) (*PasteData, error) {
 	ctx := context.Background()
 
-	// Pipeline GET + TTL together — two round-trips would be a race.
-	pipe := s.client.Pipeline()
-	getCmd := pipe.Get(ctx, key)
-	ttlCmd := pipe.TTL(ctx, key)
-	if _, err := pipe.Exec(ctx); err != nil && err != redis.Nil {
-		return nil, err
-	}
-
-	b, err := getCmd.Bytes()
-	if err == redis.Nil {
-		return nil, nil
-	}
+	// Fetch all fields in one round trip.
+	vals, err := s.client.HMGet(ctx, key, "content", "burn", "enc", "e2e", "lang").Result()
 	if err != nil {
 		return nil, err
 	}
-
-	paste, err := unmarshalPaste(b)
-	if err != nil {
-		return nil, err
+	if vals[0] == nil {
+		return nil, nil // key does not exist
 	}
-	// TTL > 0 means the key has an expiry; -1 = no expiry, -2 = key gone.
-	if ttl := ttlCmd.Val(); ttl > 0 {
+
+	content, err := valToBytes(vals[0])
+	if err != nil {
+		return nil, fmt.Errorf("redis Get: decode content: %w", err)
+	}
+	burn := valToInt(vals[1])
+	enc  := valToInt(vals[2])
+	e2e  := valToInt(vals[3])
+	lang := valToString(vals[4])
+
+	p := &PasteData{
+		Content:      content,
+		Burn:         intToBool(burn),
+		Encrypted:    intToBool(enc),
+		E2EEncrypted: intToBool(e2e),
+		Lang:         lang,
+	}
+	if ttl := s.client.TTL(ctx, key).Val(); ttl > 0 {
 		t := time.Now().Add(ttl)
-		paste.ExpireAt = &t
+		p.ExpireAt = &t
 	}
-	return paste, nil
+	return p, nil
 }
 
 func (s *RedisStorage) Delete(key string) error {
 	return s.client.Del(context.Background(), key).Err()
 }
 
-// GetAndDelete uses a pipeline to read TTL then GETDEL atomically enough —
-// a true atomic GETDEL drops the TTL so we read it first in the same pipeline.
 func (s *RedisStorage) GetAndDelete(key string) (*PasteData, error) {
 	ctx := context.Background()
 
-	// Run returns the raw []interface{} from the Lua table.
-	res, err := burnScript.Run(ctx, s.client, []string{key}).Slice()
-	if err != nil {
-		if err == redis.Nil {
-			return nil, nil // key did not exist
-		}
+	pipe := s.client.TxPipeline()
+
+	contentCmd := pipe.HGet(ctx, key, "content")
+	burnCmd    := pipe.HGet(ctx, key, "burn")
+	encCmd     := pipe.HGet(ctx, key, "enc")
+	e2eCmd     := pipe.HGet(ctx, key, "e2e")
+	langCmd    := pipe.HGet(ctx, key, "lang")
+	ttlCmd     := pipe.TTL(ctx, key)
+
+	pipe.Del(ctx, key)
+
+	_, err := pipe.Exec(ctx)
+	if err != nil && err != redis.Nil {
 		return nil, err
 	}
 
-	// res[0] is the raw value (string), res[1] is PTTL in milliseconds.
-	raw, ok := res[0].(string)
-	if !ok || raw == "" {
-		return nil, nil // Lua returned false → key was missing
-	}
-
-	paste, err := unmarshalPaste([]byte(raw))
-	if err != nil {
+	content, err := contentCmd.Bytes()
+	if err == redis.Nil {
+		return nil, nil
+	} else if err != nil {
 		return nil, err
 	}
 
-	// PTTL returns -1 (no expiry) or -2 (key gone) or ms remaining.
-	if pttl, ok := res[1].(int64); ok && pttl > 0 {
-		t := time.Now().Add(time.Duration(pttl) * time.Millisecond)
-		paste.ExpireAt = &t
+	burn, _ := burnCmd.Int()
+	enc, _  := encCmd.Int()
+	e2e, _  := e2eCmd.Int()
+	lang, _ := langCmd.Result()
+	ttl     := ttlCmd.Val()
+
+	p := &PasteData{
+		Content:      content,
+		Burn:         intToBool(burn),
+		Encrypted:    intToBool(enc),
+		E2EEncrypted: intToBool(e2e),
+		Lang:         lang,
 	}
 
-	return paste, nil
+	if ttl > 0 {
+		t := time.Now().Add(ttl)
+		p.ExpireAt = &t
+	}
+
+	return p, nil
 }
 
-func (s *RedisStorage) Close() error { return s.client.Close() }
+func (s *RedisStorage) Close() error {
+	return s.client.Close()
+}
+
+// ---------------------------------------------------------------------------
+// Redis HMGet value helpers
+// HMGet returns []interface{} where each element is either a string or nil.
+// ---------------------------------------------------------------------------
+
+func valToString(v interface{}) string {
+	if v == nil {
+		return ""
+	}
+	if s, ok := v.(string); ok {
+		return s
+	}
+	return fmt.Sprintf("%v", v)
+}
+
+func valToInt(v interface{}) int {
+	s := valToString(v)
+	if s == "" {
+		return 0
+	}
+	n := 0
+	fmt.Sscanf(s, "%d", &n)
+	return n
+}
+
+func valToBytes(v interface{}) ([]byte, error) {
+	if v == nil {
+		return nil, nil
+	}
+	switch t := v.(type) {
+	case string:
+		return []byte(t), nil
+	case []byte:
+		return t, nil
+	default:
+		return []byte(fmt.Sprintf("%v", v)), nil
+	}
+}
 
 // =============================================================================
 // Backend selector
@@ -542,10 +901,8 @@ func newStorage(cfg *Settings) Storage {
 			slog.Info("using PostgreSQL backend")
 			return s
 		}
-		slog.Warn("PostgreSQL unavailable, falling back", "err", err)
 	}
-
-	s, err := newSQLiteStorage(cfg.SQLitePath)
+	s, err := newSQLiteStorage(cfg.SQLitePath, cfg)
 	if err != nil {
 		slog.Error("SQLite init failed", "err", err)
 		os.Exit(1)

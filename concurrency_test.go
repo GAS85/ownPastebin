@@ -77,13 +77,13 @@ func TestConcurrentStorageAccess(t *testing.T) {
 	var wg sync.WaitGroup
 	errors := make(chan string, writers+readers)
 
-	// Writers
+	// Writers — Content is []byte, not string.
 	for i := range writers {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
 			key := fmt.Sprintf("concurrent-%d", i)
-			if err := s.Save(key, &PasteData{Content: "data"}, 0); err != nil {
+			if err := s.Save(key, &PasteData{Content: []byte("data")}, 0); err != nil {
 				errors <- fmt.Sprintf("Save %s: %v", key, err)
 			}
 		}(i)

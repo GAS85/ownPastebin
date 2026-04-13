@@ -13,6 +13,8 @@ import (
 	"testing"
 	"time"
 
+	"golang.org/x/time/rate"
+
 	"github.com/GAS85/ownPastebin/plugins"
 )
 
@@ -26,8 +28,8 @@ type TestConfig struct {
 	PathPrefix string
 	// MaxPasteSize defaults to 5MB if 0.
 	MaxPasteSize int64
-	// MaxParallelUploads defaults to 20
-	MaxParallelUploads int 
+	// MaxParallelUploads defaults to 20.
+	MaxParallelUploads int
 }
 
 // NewAppForTest builds a fully wired *App backed by a throwaway SQLite DB.
@@ -74,7 +76,7 @@ func NewAppForTest(t *testing.T, tc TestConfig) (*App, http.Handler) {
 	}
 
 	// ── Storage ───────────────────────────────────────────────────────────────
-	store, err := newSQLiteStorage(dbPath)
+	store, err := newSQLiteStorage(dbPath, cfg)
 	if err != nil {
 		t.Fatalf("NewAppForTest: open sqlite: %v", err)
 	}
@@ -106,6 +108,7 @@ func NewAppForTest(t *testing.T, tc TestConfig) (*App, http.Handler) {
 			}
 			return t.Format(time.RFC3339)
 		},
+		"toJSON": toJSON,
 	}
 	tmpl, err := template.New("index.html").Funcs(funcMap).Parse(stubTmpl)
 	if err != nil {
@@ -116,13 +119,19 @@ func NewAppForTest(t *testing.T, tc TestConfig) (*App, http.Handler) {
 	mgr := plugins.NewManager(plugins.DefaultBase(cfg.PathPrefix), nil)
 
 	// ── App ───────────────────────────────────────────────────────────────────
+	// Rate limiter — must be non-nil; rateLimitMiddleware dereferences it.
+	// Use a very high limit so the limiter never interferes with test logic.
+	lim := newIPRateLimiter(rate.Limit(1000), maxUploads, 5*time.Minute)
+	t.Cleanup(func() { lim.Close() })
+
 	app := &App{
-		cfg:     cfg,
-		storage: store,
-		crypto:  cry,
-		tmpl:    tmpl,
-		plugins: mgr,
+		cfg:       cfg,
+		storage:   store,
+		crypto:    cry,
+		tmpl:      tmpl,
+		plugins:   mgr,
 		uploadSem: make(chan struct{}, maxUploads),
+		limiter:   lim,
 	}
 
 	return app, app.router()

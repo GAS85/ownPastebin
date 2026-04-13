@@ -1,6 +1,7 @@
 package main
 
 import (
+	"net"
 	"os"
 	"strconv"
 	"strings"
@@ -16,16 +17,24 @@ type Settings struct {
 	// App
 	BaseURL            string
 	PathPrefix         string // e.g. "" for http://host:port  or  "/pastebin" for http://host:port/pastebin
+	DefaultBurn        bool
 	DefaultTTL         time.Duration
 	MaxTTL             time.Duration
 	SlugLen            int
 	MaxPasteSize       int64
 	MaxParallelUploads int
+	SQLitePageSize     int // 0 = SQLite default (4096); only effective on new databases
 	Version            string
 
 	// Security
 	ServerSideEncryptionEnabled bool
 	ServerSideEncryptionKey     string
+
+	// TrustedProxy is the CIDR range (or single IP) of a reverse proxy whose
+	// X-Forwarded-For header is trusted for real-IP logging.
+	// Empty / unset means XFF is never trusted — r.RemoteAddr is always used.
+	// Set via PASTEBIN_TRUSTED_PROXY, e.g. "127.0.0.1" or "10.0.0.0/8".
+	TrustedProxy *net.IPNet
 }
 
 func loadSettings() *Settings {
@@ -39,11 +48,13 @@ func loadSettings() *Settings {
 		BaseURL:      baseURL,
 		PathPrefix:   extractPathPrefix(baseURL),
 		SlugLen:      getEnvInt("PASTEBIN_SLUG_LEN", 20),
+		DefaultBurn:  getEnvBool("PASTEBIN_DEFAULT_BURN", false),
 		MaxPasteSize: parseSize(getEnv("PASTEBIN_MAX_PASTE_SIZE", "5MB")),
 		MaxParallelUploads: getEnvInt("PASTEBIN_MAX_PARALLEL_UPLOADS", 20), // 50 concurrent uploads max
 																			// It needs 2 GB RAM for 25 MB pastes
 																			// uploadSem = RAM / Max Upload size
 																			// uploadSem = 1,5GB / 30 MB = 50
+		SQLitePageSize:     getEnvInt("PASTEBIN_SQLITE_PAGE_SIZE", 0),
 
 		ServerSideEncryptionEnabled: getEnvBool("PASTEBIN_SERVER_SIDE_ENCRYPTION_ENABLED", false),
 		ServerSideEncryptionKey:     os.Getenv("PASTEBIN_SERVER_SIDE_ENCRYPTION_KEY"),
@@ -56,7 +67,41 @@ func loadSettings() *Settings {
 	s.DefaultTTL = parseTime(getEnv("PASTEBIN_DEFAULT_TTL", "0"))
 	s.MaxTTL = parseTime(os.Getenv("PASTEBIN_MAX_TTL"))
 
+	if raw := os.Getenv("PASTEBIN_TRUSTED_PROXY"); raw != "" {
+		s.TrustedProxy = parseCIDR(raw)
+	}
+
 	return s
+}
+
+// parseCIDR parses a CIDR string ("10.0.0.0/8") or a bare IP ("127.0.0.1")
+// into a *net.IPNet. Returns nil and logs a warning on invalid input so that
+// a misconfigured value never silently trusts all peers.
+func parseCIDR(raw string) *net.IPNet {
+	input := strings.TrimSpace(raw)
+
+	// Bare IP — promote to host-only CIDR (/32 for IPv4, /128 for IPv6).
+	if !strings.Contains(input, "/") {
+		ip := net.ParseIP(input)
+		if ip == nil {
+			// Logger may not be initialised yet at config-load time.
+			os.Stderr.WriteString("PASTEBIN_TRUSTED_PROXY: invalid IP \"" + raw + "\"; XFF will not be trusted\n")
+			return nil
+		}
+		bits := 32
+		if ip.To4() == nil {
+			bits = 128
+		}
+		_, network, _ := net.ParseCIDR(ip.String() + "/" + strconv.Itoa(bits))
+		return network
+	}
+
+	_, network, err := net.ParseCIDR(input)
+	if err != nil {
+		os.Stderr.WriteString("PASTEBIN_TRUSTED_PROXY: invalid CIDR \"" + raw + "\"; XFF will not be trusted\n")
+		return nil
+	}
+	return network
 }
 
 func getEnv(key, fallback string) string {

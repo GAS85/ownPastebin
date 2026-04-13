@@ -1,59 +1,170 @@
+/* ── Root: full viewport height via flex column ── */
 html {
   height: 100%;
 }
 
 body {
-  display: flex;
-  flex-direction: column;
-  min-height: 100vh;         /* always at least full viewport height */
-  padding-top: 3.5rem;       /* clear the fixed navbar */
+  min-height: 100%; /* fills viewport; grows with content */
   margin: 0;
-}
-
-main.container-fluid {
-  flex: 1;                   /* grow to fill all space between navbar and footer */
   display: flex;
   flex-direction: column;
-  padding-bottom: 0;
 }
 
-/* Make .form-group (the textarea wrapper) grow to fill main */
-main.container-fluid > .form-group {
-  flex: 1;
+/* ── Main grows to push footer down AND hosts the stretching textarea ── */
+main {
+  flex: 1 1 auto; /* grow to fill remaining vertical space */
   display: flex;
   flex-direction: column;
+  /* no padding-bottom here — textarea itself handles internal spacing */
+}
+
+/* ── The w3-section div wrapping the textarea must also stretch ── */
+main > .w3-section {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 0; /* override W3.CSS default margin so no gap */
+}
+
+/* ── Textarea fills its flex parent completely ── */
+#content-textarea {
+  flex: 1 1 auto;
+  resize: none;
+  min-height: 300px; /* fallback floor so it is never tiny */
+  width: 100%;
+  box-sizing: border-box;
+  font-family: "Courier New", Courier, monospace;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+/* ── Code block: horizontal scroll, never overflow ── */
+pre {
+  overflow-x: auto;
+  background: #f8f8f8;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 1rem;
   margin-bottom: 0;
 }
 
-/* Textarea: fills the entire available area, user can still resize manually */
-#content-textarea {
-  flex: 1;                   /* fill the .form-group */
-  resize: vertical;          /* keep manual resize handle */
-  min-height: 200px;         /* sensible minimum so it never collapses */
-  width: 100%;
-  box-sizing: border-box;
+pre[class*="language-"] {
+  background: #343a40;
+  border: none;
 }
 
-/* ── Footer: always at the bottom, never overlapping content ─────────────── */
-.footer {
-  flex-shrink: 0;            /* never compress — always full 60px */
-  width: 100%;
-  height: 60px;
-  line-height: 60px;
-  background-color: #f5f5f5;
+body.light-mode pre[class*="language-"] {
+  background: #eee;
 }
 
-.footer a {
-  color: #000;
+/* ── Sticky-nav scroll compensation for line highlights ── */
+/* scroll-margin-top shifts the scrollIntoView target down by the navbar
+   height so the highlighted line isn't hidden behind the sticky topnav.
+   Keep this value in sync with the actual rendered height of #topnav.     */
+.line-highlight {
+  scroll-margin-top: 60px; /* matches #topnav height (w3-large + w3-padding) */
 }
 
-/* ── Textarea spacing ────────────────────────────────────────────────────── */
-.form-group textarea {
-  margin: 0.5em 0;
+/* ── Footer stays at the bottom naturally via flex ── */
+footer {
+  flex-shrink: 0;
 }
 
-/* ── Prism.js: suppress the decorative drop-shadow pseudo-elements ────────── */
-pre[class*="language-"]:before,
-pre[class*="language-"]:after {
-  display: none;
+/* ── Modals sit above the sticky navbar ── */
+.w3-modal {
+  z-index: 200;
+}
+
+/* Adjust other element colors for dark mode */
+.w3-bar,
+.w3-sidebar,
+.w3-content,
+.w3-card,
+.w3-button {
+  transition:
+    background-color 0.5s,
+    color 0.5s;
+  /* Smooth transition */
+}
+
+body.light-mode .w3-bar,
+body.light-mode .w3-sidebar,
+body.light-mode .w3-card {
+  background-color: #f8f9fa !important;
+  color: #383838 !important;
+}
+
+body.light-mode .w3-asphalt,
+body.light-mode .w3-select {
+  background-color: #eee !important;
+  color: #000000 !important;
+}
+
+body.light-mode .w3-input {
+  background-color: #ffffff !important;
+  color: #000000 !important;
+}
+
+#topnav {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+#footer {
+  position: sticky;
+  bottom: 0;
+  z-index: 100;
+}
+
+/* shadow broken */
+pre[class*="language-"]::after,
+pre[class*="language-"]::before {
+  bottom: 4.1em !important;
+}
+
+/* Sidebar base state */
+#navbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 250px;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  transform: translateX(-100%); /* hidden off-screen by default */
+  transition: transform 0.3s ease;
+  z-index: 150;
+}
+
+/* Visible state */
+#navbar.open {
+  transform: translateX(0);
+}
+
+@media (max-width: 600px) {
+  #navbar.open {
+    width: 100%; /* full screen on mobile */
+  }
+}
+
+#desktopNav {
+  flex: 1 1 auto;
+  overflow-y: auto; /* items scroll independently when list is very long */
+}
+
+#navbar-bottom {
+  flex-shrink: 0;
+}
+
+#main-content,
+#footer,
+#topnav {
+  transition: margin-left 0.3s ease;
+}
+
+/* Smooth animation for password strength bar */
+#password-strength-bar {
+  transition: width 0.3s ease;
 }

@@ -49,12 +49,35 @@ elif [ -n "${PASTEBIN_POSTGRES_URL+x}" ]; then
     DB_INFO="PostgreSQL"
 else
     DB_INFO="SQLite ($PASTEBIN_SQLITE_PATH)"
-    DB_SIZE="$(du -h $PASTEBIN_SQLITE_PATH | awk '{ print $1 }')"
-    echo $DB_SIZE
+    # We can only check SQlite DB as it is mounted to the container
+    DB_SIZE="$(du -h $PASTEBIN_SQLITE_PATH | awk '{ print $1 }' 2>/dev/null)"
     SQLITE_DIR=$(dirname "$PASTEBIN_SQLITE_PATH")
     if [ ! -w "$SQLITE_DIR" ]; then
         log ERROR "$SQLITE_DIR is not writable by UID $(id -u). Exiting."
         exit 1
+    fi
+    # Check if PASTEBIN_SQLITE_PAGE_SIZE set and is between 512 and 65536 and power of 2
+    if [ -n "${PASTEBIN_SQLITE_PAGE_SIZE}" ]; then
+        # Check if it's a number
+        case "${PASTEBIN_SQLITE_PAGE_SIZE}" in
+        *[!0-9]*)
+            log ERROR "$PASTEBIN_SQLITE_PAGE_SIZE is not a valid number. Exiting."
+            exit 1
+            ;;
+        *)
+            # Valid number, continue
+            ;;
+        esac
+        # Check range and power of 2
+        if [ "${PASTEBIN_SQLITE_PAGE_SIZE}" -ge 512 ] &&
+           [ "${PASTEBIN_SQLITE_PAGE_SIZE}" -le 65536 ] &&
+           [ $((PASTEBIN_SQLITE_PAGE_SIZE & (PASTEBIN_SQLITE_PAGE_SIZE - 1))) -eq 0 ]; then
+            # Valid value
+            :
+        else
+            log ERROR "$PASTEBIN_SQLITE_PAGE_SIZE has not valid value. Valid values are from 512 to 65536, power of 2. Exiting."
+            exit 1
+        fi
     fi
 fi
 
@@ -68,22 +91,44 @@ fi
 # ── Startup summary ───────────────────────────────────────────────────────────
 log INFO "Welcome to own Pastebin $VERSION"
 log INFO "Storage:                $DB_INFO"
-if [ ! -z "${DB_SIZE+x}" ]; then
+if [ -n "${DB_SIZE}" ]; then
     log INFO "Storage size:           ${DB_SIZE}"
+fi
+if [ -n "${PASTEBIN_SQLITE_PAGE_SIZE}" ]; then
+    log INFO "Custom SQLite Page size:${PASTEBIN_SQLITE_PAGE_SIZE}"
 fi
 log INFO "Listen:                 ${PASTEBIN_HOST}:${PASTEBIN_PORT}"
 log INFO "Base URL:               $PASTEBIN_BASE_URL"
 log INFO "Server side Encryption: $PASTEBIN_SERVER_SIDE_ENCRYPTION_ENABLED"
 log INFO "Max TTL:                ${PASTEBIN_MAX_TTL:-unlimited}"
 log INFO "Default TTL:            $PASTEBIN_DEFAULT_TTL"
+log INFO "Burn by default         ${PASTEBIN_DEFAULT_BURN:-false}"
 log INFO "Max paste:              $PASTEBIN_MAX_PASTE_SIZE"
 log INFO "Max Parallel Uploads:   $PASTEBIN_MAX_PARALLEL_UPLOADS"
 log INFO "Uniq URL Length:        $PASTEBIN_SLUG_LEN"
 log INFO "TLS key:                ${PASTEBIN_TLS_KEY:-not set}"
 log INFO "TLS cert:               ${PASTEBIN_TLS_CERT:-not set}"
+log INFO "Trusted proxy:          ${PASTEBIN_TRUSTED_PROXY:-not set (XFF ignored)}"
 log INFO "Timezone:               ${TZ:-not set}"
 log INFO "Log level:              $PASTEBIN_LOG_LEVEL"
 log INFO "Date format:            ${PASTEBIN_DATE_FORMAT:-not set}"
 log INFO "Shell Date format:      $PASTEBIN_SHELL_DATE_FORMAT"
 
+# ── File Logging  ─────────────────────────────────────────────────────────────
+if [ -n "${PASTEBIN_FILE_LOG+x}" ]; then
+    touch "$PASTEBIN_FILE_LOG" 2>/dev/null || {
+        log ERROR "Cannot create log file under $PASTEBIN_FILE_LOG as UID $(id -u). Check permissions or disable file logging. Exiting."
+        exit 1
+    }
+    if [ -w "$PASTEBIN_FILE_LOG" ]; then
+        log INFO "Logging to file:        $PASTEBIN_FILE_LOG"
+        exec >>"$PASTEBIN_FILE_LOG" 2>&1
+        # After this point everything will be logged to the file.
+    else
+        log ERROR "Log file not writable: $PASTEBIN_FILE_LOG"
+        exit 1
+    fi
+fi
+
+# ── Start the app  ────────────────────────────────────────────────────────────
 exec /app/pastebin

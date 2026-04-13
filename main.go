@@ -7,8 +7,12 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
+
+	"golang.org/x/time/rate"
 
 	"github.com/GAS85/ownPastebin/plugins"
 )
@@ -26,7 +30,52 @@ var prismFS, _ = fs.Sub(staticFS, "static")
 
 var Version string
 
+// reapZombies runs for the lifetime of the process and reaps any zombie
+// children whenever SIGCHLD is delivered.
+//
+// Why this is needed
+// ──────────────────
+// In Alpine-based containers the Go binary often runs as PID 1.  PID 1 is
+// special: the kernel never auto-reaps its direct children, so every process
+// that exits while still having Go as its parent becomes a zombie until PID 1
+// calls wait(2).  Go's runtime does not do this automatically.
+//
+// The immediate culprit is the Docker / Kubernetes health-check command, which
+// on Alpine is typically:
+//
+//	wget -q -O /dev/null https://localhost:8080/config
+//
+// Busybox wget forks an ssl_client helper process for each TLS connection.
+// When wget exits it does not always reap ssl_client synchronously, leaving
+// it as a zombie child of PID 1 (this Go process).  One zombie appears per
+// health-check cycle — hence the steady accumulation every ~5 minutes.
+//
+// The fix: listen for SIGCHLD and call waitpid(-1, WNOHANG) in a tight loop
+// until there are no more children to reap.
+func reapZombies() {
+	ch := make(chan os.Signal, 1)
+	signal.Notify(ch, syscall.SIGCHLD)
+	for range ch {
+		for {
+			var ws syscall.WaitStatus
+			pid, err := syscall.Wait4(-1, &ws, syscall.WNOHANG, nil)
+			if pid <= 0 || err != nil {
+				// No more children ready to be reaped right now.
+				break
+			}
+			slog.Debug("reaped zombie child", "pid", pid, "status", ws)
+		}
+	}
+}
+
 func main() {
+	// ── Zombie reaper ─────────────────────────────────────────────────────────
+	// Must be started before any other goroutines so that SIGCHLD from health-
+	// check helpers (ssl_client) is never missed.  Safe to run even when the
+	// process is not PID 1: waitpid(-1, WNOHANG) on a process with no children
+	// returns ECHILD immediately and the loop exits cleanly.
+	go reapZombies()
+
 	// ── Logger ────────────────────────────────────────────────────────────────
 	// Must be first so all subsequent log calls use the configured handler.
 	initLogger()
@@ -55,7 +104,7 @@ func main() {
 		&plugins.MermaidPlugin{},
 	}
 
-	// Forward PathPrefix to the plugins
+	// Forward PathPrefix to the plugins via the Base struct.
 	mgr := plugins.NewManager(plugins.DefaultBase(cfg.PathPrefix), activePlugins)
 
 	// ── Templates ─────────────────────────────────────────────────────────────
@@ -71,6 +120,11 @@ func main() {
 			}
 			return t.Format("2006-01-02 15:04:05 UTC")
 		},
+		// {{toJSON .JSInits}} — serialises a Go value to a JSON literal safe for
+		// embedding inside <script type="application/json">. Defined here so the
+		// template parser can resolve it at parse time; the implementation lives
+		// in routes.go as toJSON().
+		"toJSON": toJSON,
 	}
 	tmpl, err := template.New("index.html").Funcs(funcMap).ParseFS(templateFS, "templates/index.html")
 	if err != nil {
@@ -78,14 +132,45 @@ func main() {
 		os.Exit(1)
 	}
 
+	// ── Rate limiter ──────────────────────────────────────────────────────────
+	// Both parameters are derived from MaxParallelUploads so they stay correct
+	// when the operator changes PASTEBIN_MAX_PARALLEL_UPLOADS.
+	//
+	// Burst = MaxParallelUploads
+	//   A single IP must be able to fire exactly MaxParallelUploads concurrent
+	//   POSTs without being rate-limited, because the upload semaphore — not the
+	//   rate limiter — is the intended binding constraint on upload concurrency.
+	//   If burst < MaxParallelUploads the rate limiter would reject legitimate
+	//   concurrent uploads before the semaphore even gets a chance to throttle.
+	//
+	// Sustained rate = MaxParallelUploads / 2  req/s
+	//   Assumes each upload occupies the semaphore for ~2 s on average (network
+	//   read + encrypt + SQLite write for a mid-sized paste).  This allows one
+	//   IP to keep all slots busy continuously without triggering the limiter,
+	//   while still blocking a scripted flood of tiny, fast requests.
+	//   Floor of 1 req/s prevents a zero-rate if MaxParallelUploads is ever 1.
+	uploadBurst := cfg.MaxParallelUploads
+	uploadRate := rate.Limit(cfg.MaxParallelUploads) / 2
+	if uploadRate < 1 {
+		uploadRate = 1
+	}
+	lim := newIPRateLimiter(uploadRate, uploadBurst, 5*time.Minute)
+	slog.Info("rate limiter configured",
+		"rate_per_sec", uploadRate,
+		"burst", uploadBurst,
+		"derived_from", cfg.MaxParallelUploads,
+	)
+	defer lim.Close()
+
 	// ── App ───────────────────────────────────────────────────────────────────
 	app := &App{
-		cfg:     cfg,
-		storage: store,
-		crypto:  cry,
-		tmpl:    tmpl,
-		plugins: mgr,
-		uploadSem: make(chan struct{}, cfg.SlugLen),
+		cfg:       cfg,
+		storage:   store,
+		crypto:    cry,
+		tmpl:      tmpl,
+		plugins:   mgr,
+		uploadSem: make(chan struct{}, cfg.MaxParallelUploads),
+		limiter:   lim,
 	}
 
 	// ── Static file server ────────────────────────────────────────────────────
@@ -95,7 +180,7 @@ func main() {
 		slog.Error("static fs setup failed", "err", err)
 		os.Exit(1)
 	}
-	staticHandler := http.FileServer(http.FS(staticSub))
+	staticHandler := longCacheMiddleware(http.FileServer(http.FS(staticSub)))
 
 	mux := app.router()
 

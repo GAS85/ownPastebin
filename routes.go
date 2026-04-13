@@ -1,14 +1,14 @@
 package main
 
 import (
-	"encoding/base64"
+	"encoding/json"
 	"html/template"
 	"io"
 	"os"
 	"log/slog"
 	"net/http"
+	"runtime"
 	"strconv"
-	"strings"
 	"time"
 	"unicode/utf8"
 
@@ -20,33 +20,37 @@ import (
 
 // App holds all shared dependencies for handlers.
 type App struct {
-	cfg     *Settings
-	storage Storage
-	crypto  *Crypto // nil if encryption disabled
-	tmpl    *template.Template
-	plugins *plugins.Manager
-	uploadSem  chan struct{}
+	cfg       *Settings
+	storage   Storage
+	crypto    *Crypto // nil if encryption disabled
+	tmpl      *template.Template
+	plugins   *plugins.Manager
+	uploadSem chan struct{}
+	limiter   *ipRateLimiter
 }
 
 // TemplateData is passed to index.html for every render.
 type TemplateData struct {
-	IsEditable   bool
-	IsCreated    bool
-	IsBurned     bool
-	IsBurn       bool       // true = this paste is configured as burn-on-read
-	IsError      bool
-	IsEncrypted  bool
-	IsClone      bool
-	PastebinCode string
-	PastebinID   string
-	PastebinCls  string
-	Version      string
-	ExpireAt     *time.Time // nil = never expires
-	CSSImports   []string
-	JSImports    []string
-	JSInits      []string
-	ExpiryTimes  []ExpiryOption
-	URIPrefix    string
+	IsEditable    bool
+	IsCreated     bool
+	IsBurned      bool
+	IsBurn        bool       // true = this paste is configured as burn-on-read
+	IsError       bool
+	IsEncrypted   bool
+	IsClone       bool
+	PastebinCode  string
+	PastebinID    string
+	PastebinCls   string
+	Version       string
+	ExpireAt      *time.Time // nil = never expires
+	CSSImports    []string   // plugin CSS — loaded before custom.css
+	TailCSSImports []string  // loaded last — custom.css always wins the cascade
+	JSImports     []string
+	JSInits       []string
+	ExpiryTimes   []ExpiryOption
+	URIPrefix     string
+	DefaultExpiry string
+	DefaultBurn   bool
 
 	// Flash / redirect params (mirroring Python ?level=&msg=&glyph=&url=)
 	Level    string
@@ -67,39 +71,36 @@ var defaultExpiryTimes = []ExpiryOption{
 	{"1 hour", "3600"},
 	{"1 day", "86400"},
 	{"1 week", "604800"},
-	{"1 month", "18144000"},
-	{"1 year", "220752000"},
+	{"1 month", "2592000"},
+	{"1 year", "31536000"},
 }
 
 func (a *App) baseData(r *http.Request) TemplateData {
+	// New-paste page: no language known yet — exclude conditional plugins (Mermaid).
+	css, js, inits := a.plugins.BuildFor("")
 	return TemplateData{
-		Version:     os.Getenv("VERSION"),
-		URIPrefix:   a.cfg.PathPrefix,
-		CSSImports:  a.plugins.CSSImports,
-		JSImports:   a.plugins.JSImports,
-		JSInits:     a.plugins.JSInits,
-		ExpiryTimes: defaultExpiryTimes,
-		Level:       r.URL.Query().Get("level"),
-		Msg:         r.URL.Query().Get("msg"),
-		Glyph:       r.URL.Query().Get("glyph"),
-		FlashURL:    r.URL.Query().Get("url"),
+		Version:        os.Getenv("VERSION"),
+		URIPrefix:      a.cfg.PathPrefix,
+		CSSImports:     css,
+		TailCSSImports: a.plugins.TailCSSImports(),
+		JSImports:      js,
+		JSInits:        inits,
+		ExpiryTimes:    defaultExpiryTimes,
+		DefaultExpiry:  strconv.FormatInt(int64(a.cfg.DefaultTTL.Seconds()), 10),
+		DefaultBurn:    a.cfg.DefaultBurn,
+		Level:          r.URL.Query().Get("level"),
+		Msg:            r.URL.Query().Get("msg"),
+		Glyph:          r.URL.Query().Get("glyph"),
+		FlashURL:       r.URL.Query().Get("url"),
 	}
 }
 
-// ---- encode / decode --------------------------------------------------------
-
-func (a *App) encodeForStorage(raw []byte) (string, error) {
-	if a.cfg.ServerSideEncryptionEnabled && a.crypto != nil {
-		return a.crypto.encrypt(raw)
+func toJSON(v any) template.JS {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return template.JS("[]") // fallback to empty array
 	}
-	return base64.StdEncoding.EncodeToString(raw), nil
-}
-
-func (a *App) decodeFromStorage(stored string) ([]byte, error) {
-	if a.cfg.ServerSideEncryptionEnabled && a.crypto != nil {
-		return a.crypto.decrypt(stored)
-	}
-	return base64.StdEncoding.DecodeString(stored)
+	return template.JS(b)
 }
 
 // ---- routes -----------------------------------------------------------------
@@ -108,20 +109,27 @@ func (a *App) router() http.Handler {
 	r := chi.NewRouter()
 
 	// Access log — wraps every route including swagger and config.
-	r.Use(accessLogMiddleware)
+	r.Use(a.accessLogMiddleware)
+	// Per-IP rate limiting on all routes.
+	r.Use(a.rateLimitMiddleware)
+
+	// Paste content — must never be cached: content can be burned/deleted at
+	// any moment, and serving a stale copy after deletion would be a data leak.
+	r.With(noCacheMiddleware).Get("/raw/{id}", a.handleRaw)
+	r.With(noCacheMiddleware).Get("/download/{id}", a.handleDownload)
+
+	// Long-lived cacheable endpoints — safe to cache for 6 months.
+	r.With(longCacheMiddleware).Get("/config", a.handleConfig)
+	r.With(longCacheMiddleware).Get("/openapi.json", a.handleOpenAPISpec)
+	r.With(longCacheMiddleware).Get("/swagger-ui", a.handleSwaggerUI)
 
 	r.Get("/", a.handleNewPaste)
 	r.Post("/", a.handleCreatePaste)
-	r.Get("/config", a.handleConfig)
-	r.Get("/raw/{id}", a.handleRaw)
-	r.Get("/download/{id}", a.handleDownload)
-
-	// API documentation
-	r.Get("/openapi.json", a.handleOpenAPISpec)
-	r.Get("/swagger-ui", a.handleSwaggerUI)
 
 	// /{id} must be last — it is a catch-all wildcard.
-	r.Get("/{id}", a.handleView)
+	// Paste view shares the no-cache policy: burn-on-read pastes vanish after
+	// the first fetch and must not be replayed from any cache.
+	r.With(noCacheMiddleware).Get("/{id}", a.handleView)
 	r.Delete("/{id}", a.handleDelete)
 
 	return r
@@ -136,14 +144,9 @@ func (a *App) handleNewPaste(w http.ResponseWriter, r *http.Request) {
 
 // POST /
 func (a *App) handleCreatePaste(w http.ResponseWriter, r *http.Request) {
-	// Acquire a slot. If the channel is full, reject immediately.
-	select {
-	case a.uploadSem <- struct{}{}:
-		defer func() { <-a.uploadSem }() // release on return
-	default:
-		http.Error(w, "server busy, try again", http.StatusServiceUnavailable)
-		return
-	}
+	// Read body first, before acquiring a semaphore slot.
+	// This prevents a slow client upload from holding a slot for the entire
+	// transfer duration and blocking other concurrent uploads unnecessarily.
 	if r.ContentLength > a.cfg.MaxPasteSize {
 		http.Error(w, "paste too large", http.StatusRequestEntityTooLarge)
 		return
@@ -158,15 +161,56 @@ func (a *App) handleCreatePaste(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	content, err := a.encodeForStorage(raw)
-	raw = nil // allow GC of the original before marshal + DB write
-	if err != nil {
-		slog.Error("encrypt error", "err", err)
-		http.Error(w, "encryption error", http.StatusInternalServerError)
+	// Acquire a slot only for the CPU/memory-intensive work (encrypt + save).
+	// If the channel is full, reject immediately.
+	select {
+	case a.uploadSem <- struct{}{}:
+		defer func() {
+			<-a.uploadSem
+			// When the last slot drains (burst is over), hint the GC to reclaim
+			// heap. FreeOSMemory is intentionally NOT called here — it forces a
+			// stop-the-world double-GC plus madvise on every free span, which can
+			// pause the server for tens of milliseconds. GOMEMLIMIT is the right
+			// knob for controlling RSS. A single GC() is enough to let the runtime
+			// schedule memory return at its own pace.
+			if len(a.uploadSem) == 0 {
+				runtime.GC()
+			}
+		}()
+	default:
+		http.Error(w, "server busy, try again", http.StatusServiceUnavailable)
 		return
 	}
 
+	// Apply server-side encryption if enabled.
+	// Nil out raw immediately after use so the original plaintext slice is eligible for GC while content (the encrypted copy) is still live.
+	// Without this, both slices are held in memory until the function returns, doubling peak memory per concurrent upload.
+	content := raw
+	encryptedFlag := false
+	if a.cfg.ServerSideEncryptionEnabled && a.crypto != nil {
+		encrypted, err := a.crypto.Encrypt(raw)
+		// release the plaintext — don't hold both copies simultaneously
+		raw = nil
+		if err != nil {
+			slog.Error("encrypt error", "err", err)
+			http.Error(w, "encryption error", http.StatusInternalServerError)
+			return
+		}
+		content = encrypted
+		encryptedFlag = true
+	}
+
 	q := r.URL.Query()
+
+	// use default Burn values
+	burnParam := q.Get("burn")
+
+	var burn bool
+	if burnParam == "" {
+		burn = a.cfg.DefaultBurn
+	} else {
+		burn = burnParam == "true"
+	}
 
 	var ttl time.Duration
 	if s := q.Get("ttl"); s != "" {
@@ -179,12 +223,6 @@ func (a *App) handleCreatePaste(w http.ResponseWriter, r *http.Request) {
 	}
 	ttl = a.cfg.resolveTTL(ttl)
 
-	id, err := gonanoid.New(a.cfg.SlugLen)
-	if err != nil {
-		http.Error(w, "id generation failed", http.StatusInternalServerError)
-		return
-	}
-
 	lang := q.Get("lang")
 	if lang == "" {
 		lang = "text"
@@ -192,14 +230,32 @@ func (a *App) handleCreatePaste(w http.ResponseWriter, r *http.Request) {
 
 	paste := &PasteData{
 		Content:      content,
-		Burn:         q.Get("burn") == "true",
-		Encrypted:    a.cfg.ServerSideEncryptionEnabled,
+		Burn:         burn,
+		Encrypted:    encryptedFlag,
 		E2EEncrypted: q.Get("encrypted") == "true",
 		Lang:         lang,
 	}
 
-	if err := a.storage.Save(id, paste, ttl); err != nil {
-		slog.Error("storage save error", "err", err)
+	// Generate a unique slug and save. Retry on the extremely unlikely collision.
+	// INSERT OR IGNORE is used in storage so a conflict returns ErrSlugConflict
+	// rather than silently overwriting an existing paste.
+	const maxSlugRetries = 3
+	var id string
+	for i := 0; i < maxSlugRetries; i++ {
+		id, err = gonanoid.New(a.cfg.SlugLen)
+		if err != nil {
+			http.Error(w, "id generation failed", http.StatusInternalServerError)
+			return
+		}
+		saveErr := a.storage.Save(id, paste, ttl)
+		if saveErr == nil {
+			break
+		}
+		if saveErr == ErrSlugConflict && i < maxSlugRetries-1 {
+			slog.Warn("slug collision, retrying", "id", id, "attempt", i+1)
+			continue
+		}
+		slog.Error("storage save error", "err", saveErr)
 		http.Error(w, "storage error", http.StatusInternalServerError)
 		return
 	}
@@ -235,18 +291,18 @@ func (a *App) handleRaw(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	data, err := a.decodeFromStorage(paste.Content)
+	content, err := a.decryptIfNeeded(paste)
 	if err != nil {
-		http.Error(w, "decode error", http.StatusInternalServerError)
+		http.Error(w, "decryption error", http.StatusInternalServerError)
 		return
 	}
-	if utf8.Valid(data) {
+	if utf8.Valid(content) {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-		w.Write(data)
+		w.Write(content)
 	} else {
 		w.Header().Set("Content-Type", "application/octet-stream")
 		w.Header().Set("Content-Disposition", "attachment; filename="+chi.URLParam(r, "id"))
-		w.Write(data)
+		w.Write(content)
 	}
 }
 
@@ -258,14 +314,14 @@ func (a *App) handleDownload(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	data, err := a.decodeFromStorage(paste.Content)
+	content, err := a.decryptIfNeeded(paste)
 	if err != nil {
-		http.Error(w, "decode error", http.StatusInternalServerError)
+		http.Error(w, "decryption error", http.StatusInternalServerError)
 		return
 	}
 	w.Header().Set("Content-Type", "application/octet-stream")
 	w.Header().Set("Content-Disposition", "attachment; filename="+id)
-	w.Write(data)
+	w.Write(content)
 }
 
 // GET /{id}
@@ -278,27 +334,33 @@ func (a *App) handleView(w http.ResponseWriter, r *http.Request) {
 		a.render(w, d, http.StatusNotFound)
 		return
 	}
-
-	data, err := a.decodeFromStorage(paste.Content)
+	content, err := a.decryptIfNeeded(paste)
 	if err != nil {
-		http.Error(w, "decode error", http.StatusInternalServerError)
+		http.Error(w, "decryption error", http.StatusInternalServerError)
 		return
 	}
-
 	text := "[binary data]"
-	if utf8.Valid(data) {
-		text = string(data)
+	if utf8.Valid(content) {
+		text = string(content)
 	}
 
+	// Build CSS/JS imports for the actual language of this paste.
+	// Conditional plugins (e.g. Mermaid) are included only when their language
+	// is active, so mermaid.min.js is never loaded for non-mermaid pastes.
+	css, js, inits := a.plugins.BuildFor(paste.Lang)
+
 	d := a.baseData(r)
-	d.IsCreated = true
-	d.IsBurned = paste.Burn
-	d.IsBurn = paste.Burn
-	d.IsEncrypted = paste.E2EEncrypted
-	d.PastebinCode = text
-	d.PastebinID = id
-	d.PastebinCls = "language-" + paste.Lang
-	d.ExpireAt = paste.ExpireAt
+	d.CSSImports     = css
+	d.JSImports      = js
+	d.JSInits        = inits
+	d.IsCreated      = true
+	d.IsBurned       = paste.Burn
+	d.IsBurn         = paste.Burn
+	d.IsEncrypted    = paste.E2EEncrypted
+	d.PastebinCode   = text
+	d.PastebinID     = id
+	d.PastebinCls    = "language-" + paste.Lang
+	d.ExpireAt       = paste.ExpireAt
 	a.render(w, d, http.StatusOK)
 }
 
@@ -314,9 +376,16 @@ func (a *App) handleDelete(w http.ResponseWriter, r *http.Request) {
 
 // ---- helpers ----------------------------------------------------------------
 
-// fetchPaste handles burn-on-read: if burn=true the paste is atomically
-// deleted on the first read so no second caller can ever retrieve it.
+// fetchPaste handles burn-on-read: for burn pastes we go directly to GetAndDelete so the content is loaded exactly once and atomically removed.
+// The previous pattern (Get - check Burn - GetAndDelete) loaded the full content blob twice, doubling memory usage for every burn-paste read.
 func (a *App) fetchPaste(id string) (*PasteData, error) {
+	// Use a metadata-only peek to check the burn flag without loading the content blob. If the storage backend supports PeekMeta, we avoid the double-load entirely. Otherwise fall back to the single Get path.
+	if meta, err := a.storage.PeekMeta(id); err == nil && meta != nil {
+		if meta.Burn {
+			return a.storage.GetAndDelete(id)
+		}
+		return a.storage.Get(id)
+	}
 	paste, err := a.storage.Get(id)
 	if err != nil || paste == nil {
 		return nil, err
@@ -327,21 +396,18 @@ func (a *App) fetchPaste(id string) (*PasteData, error) {
 	return paste, nil
 }
 
+// decryptIfNeeded returns the plaintext content if server-side encryption is enabled, otherwise returns the stored content as-is.
+func (a *App) decryptIfNeeded(paste *PasteData) ([]byte, error) {
+	if paste.Encrypted && a.crypto != nil {
+		return a.crypto.Decrypt(paste.Content)
+	}
+	return paste.Content, nil
+}
+
 func (a *App) render(w http.ResponseWriter, d TemplateData, status int) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(status)
 	if err := a.tmpl.Execute(w, d); err != nil {
 		slog.Error("template render error", "err", err)
 	}
-}
-
-// sanitizeLang prevents path traversal or XSS in the CSS class name.
-func sanitizeLang(lang string) string {
-	lang = strings.ToLower(lang)
-	for _, c := range lang {
-		if !('a' <= c && c <= 'z') && !('0' <= c && c <= '9') && c != '-' {
-			return "text"
-		}
-	}
-	return lang
 }

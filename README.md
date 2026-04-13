@@ -17,7 +17,7 @@ A minimal, RAM-friendly paste service with support for raw uploads, TTL, burn-af
 
 ## Demo
 
-https://sitnikov.eu/pastebin/
+<https://sitnikov.eu/pastebin/>
 
 ## ✨ Features
 
@@ -26,13 +26,14 @@ https://sitnikov.eu/pastebin/
 
   * Redis (optional, in-memory)
   * PostgreSQL (optional, persistent)
-  * SQLite (default fallback)
+  * SQLite (default)
 
 * 🔥 Burn-after-read pastes
 * ⏳ TTL (expiration support)
-* 🔐 Optional server-side encryption
+* 🔐 Optional server-side encryption with AES-GCM
+* 🔐 Optional end-to-end encryption with AES-GCM
 * 📦 Binary-safe uploads/downloads
-* 🧠 Designed to be memory efficient (no caching layer)
+* 🧠 Designed to be memory efficient
 
 ## ⚙️ Configuration
 
@@ -42,9 +43,9 @@ All configuration is done via environment variables.
 
 The application automatically selects the first available backend:
 
-1. `PASTEBIN_REDIS_URL`
-2. `PASTEBIN_POSTGRES_URL`
-3. SQLite (fallback)
+1. [Redis](https://github.com/redis/redis) - `PASTEBIN_REDIS_URL`
+2. [Postgres](https://github.com/postgres/postgres) - `PASTEBIN_POSTGRES_URL`
+3. [SQLite](https://github.com/sqlite/sqlite) default if none above was set - `PASTEBIN_SQLITE_PATH`
 
 ### Variables
 
@@ -66,6 +67,10 @@ The application automatically selects the first available backend:
   /app/data/pastes.db
   ```
 
+* `PASTEBIN_SQLITE_PAGE_SIZE` - You can set SQLite Page size for a new table. Valid values are power of 2 from `512` to `65536`. You can calculate it roughly on following basis:
+  * `4096` is default — good for typical text pastes (< 100 KB).
+  * `8192` or `16384`  — better when pastes are regularly several MB, because each paste fits in fewer pages, reducing I/O and B-tree depth.
+
 ## 🌐 Application Settings
 
 * `PASTEBIN_BASE_URL`- Public base URL of your service. Default:
@@ -76,14 +81,17 @@ The application automatically selects the first available backend:
 
   Following prefixes are supported:
 
-  * No prefix `PASTEBIN_BASE_URL=http://localhost:8080`
+  * No prefix `PASTEBIN_BASE_URL=http://localhost:8080` or `PASTEBIN_BASE_URL=https://pastebin.myserver.com`
   * Behind nginx at `/pastebin` - `PASTEBIN_BASE_URL=https://myserver.com/pastebin`
   * Behind nginx at `/tools/paste` - `PASTEBIN_BASE_URL=https://myserver.com/tools/paste`
 
 * `PASTEBIN_HOST` - Bind address. Default: `0.0.0.0`
-* `PASTEBIN_PORT` - Port. Default: `8080`
+* `PASTEBIN_PORT` - Port to listen to. Default: `8080`
 * `PASTEBIN_TLS_KEY` - Provide path to TLS Key to enable TLS Support directly on a service.
 * `PASTEBIN_TLS_CERT` - Provide path to TLS Certificate to enable TLS Support directly on a service.
+* `PASTEBIN_TRUSTED_PROXY` - Provide IP or CIDR of trusted proxies, so that X-Forwarded-For header will be used.
+* `PASTEBIN_LOG_LEVEL` - Set log level. Default: `Info`
+* `PASTEBIN_FILE_LOG` - Set log file location to log all App output. Default is not set, it is logged to stdout. If you need log file, simply provide a path writable by user "nobody". Recommended is `/app/data/pastebin.log`.
 
 ## ⏳ TTL Settings
 
@@ -91,22 +99,23 @@ The application automatically selects the first available backend:
 * `PASTEBIN_MAX_TTL` -  Maximum allowed TTL. It is recommended to set this value for internet accessible sites. If set:
   * caps user-provided TTL
   * used when no TTL is provided
+* `PASTEBIN_DEFAULT_BURN` - If enabled all pastes without `burn=false` will be saved to be viewed only once. You can still set `burn=false` via UI or CLI. Default: `false`.
 
-### Supported Formats
+Supported Formats:
 
 | Format       | Example |
 |:-------------|:-------:|
 | Seconds      | `3600`  |
 | Hours        | `1h`    |
 | Days         | `1d`    |
-| Months (30d) | `1mo`    |
+| Months (30d) | `1mo`   |
 
 ## 📏 Limits
 
-* `PASTEBIN_MAX_PARALLEL_UPLOADS` - Max amount of parallel POST requests. Default `20`. Be aware that each requests needs memory. E.g. if `PASTEBIN_MAX_PASTE_SIZE=5MB` and `PASTEBIN_MAX_PARALLEL_UPLOADS=20`, that needs around 5 * 20 * 3,3 (roughly amount of modifications) = 400 Mb of RAM and with `PASTEBIN_MAX_PASTE_SIZE=30MB` around 2 GB of RAM.
+* `PASTEBIN_MAX_PARALLEL_UPLOADS` - Max amount of parallel POST requests. Default `20`. Be aware that each requests needs memory. E.g. if `PASTEBIN_MAX_PASTE_SIZE=5MB` and `PASTEBIN_MAX_PARALLEL_UPLOADS=20`, that needs around 5 *20* 3,3 (roughly amount of modifications) = 400 Mb of RAM and with `PASTEBIN_MAX_PASTE_SIZE=30MB` around 2 GB of RAM.
 * `PASTEBIN_MAX_PASTE_SIZE` - Max upload size. Default: `5MB`
 
-### Supported Formats
+Supported Formats:
 
 | Format    | Example |
 |:----------|:-------:|
@@ -117,7 +126,7 @@ The application automatically selects the first available backend:
 
 ## 🔐 Security
 
-* `PASTEBIN_SERVER_SIDE_ENCRYPTION_ENABLED`- Enable encryption before storage. Default disabled.
+* `PASTEBIN_SERVER_SIDE_ENCRYPTION_ENABLED`- Enable encryption before storage. Default `false` - disabled.
 * `PASTEBIN_SERVER_SIDE_ENCRYPTION_KEY`- 32-byte base64 key (required if encryption enabled). You can generate Key with openssl, or directly with this container.
 
 ```bash
@@ -130,7 +139,7 @@ Or:
 docker run -e GENERATE_KEY=true gas85/ownpastebin:latest
 ```
 
-**If you ever rotate the key or loose it, old pastes become permanently unreadable.**
+⚠️ If you ever rotate the key or loose it, **old pastes become permanently unreadable.** ⚠️
 
 ## 🕒 Misc
 
@@ -158,7 +167,7 @@ docker run -e GENERATE_KEY=true gas85/ownpastebin:latest
 
 ### Docker
 
-```shell
+```bash
 docker run -d \
   --name pastebin \
   -p 8080:8080 \
@@ -171,13 +180,30 @@ docker run -d \
 
 ### Docker Compose
 
+Please refer to [docker-compose.yml](https://github.com/GAS85/ownPastebin/blob/main/docker-compose.yml) as example.
+
 ```bash
 docker compose up -d
 ```
 
+## Build
+
+You can build it with following commands:
+
+```bash
+go mod download
+CGO_ENABLED=1 GOOS=linux go build -ldflags="-s -w" -o pastebin .
+```
+
+Or use docker
+
+```bash
+docker build -t ownpastebin:latest .
+```
+
 ## 📦 Pastebin API
 
-You can find API documentation under `/swagger-ui` e.g. https://sitnikov.eu/pastebin/swagger-ui
+You can find API documentation under `/swagger-ui` e.g. <https://sitnikov.eu/pastebin/swagger-ui>
 
 ### 🚀 Create Paste - `POST /`
 

@@ -21,47 +21,53 @@ func newCrypto(b64Key string) (*Crypto, error) {
 	if b64Key == "" {
 		return nil, errors.New("PASTEBIN_SERVER_SIDE_ENCRYPTION_KEY is empty; set a 32-byte base64 key")
 	}
+
 	key, err := base64.StdEncoding.DecodeString(b64Key)
 	if err != nil {
-		// Try raw bytes if not base64
-		key = []byte(b64Key)
+		// Do NOT fall back to treating the value as a raw string.
+		return nil, fmt.Errorf(
+			"PASTEBIN_SERVER_SIDE_ENCRYPTION_KEY must be base64-encoded (run with GENERATE_KEY=true to create one): %w",
+			err,
+		)
 	}
+
 	if len(key) != 32 {
-		return nil, fmt.Errorf("Encryption key must be 32 bytes, got %d", len(key))
+		return nil, fmt.Errorf("encryption key must be 32 bytes after base64 decoding, got %d", len(key))
 	}
+
 	return &Crypto{key: key}, nil
 }
 
-func (c *Crypto) encrypt(plaintext []byte) (string, error) {
-	block, err := aes.NewCipher(c.key)
-	if err != nil {
-		return "", err
-	}
-	gcm, err := cipher.NewGCM(block)
-	if err != nil {
-		return "", err
-	}
-
-	nonce := make([]byte, gcm.NonceSize()) // 12 bytes
-	if _, err = io.ReadFull(rand.Reader, nonce); err != nil {
-		return "", err
-	}
-
-	// Seal appends ciphertext+tag to nonce
-	sealed := gcm.Seal(nonce, nonce, plaintext, nil)
-	return base64.StdEncoding.EncodeToString(sealed), nil
-}
-
-func (c *Crypto) decrypt(encoded string) ([]byte, error) {
-	data, err := base64.StdEncoding.DecodeString(encoded)
-	if err != nil {
-		return nil, fmt.Errorf("Base64 decode failed: %w", err)
-	}
-
+// Encrypt returns raw binary: nonce || ciphertext || tag
+func (c *Crypto) Encrypt(plaintext []byte) ([]byte, error) {
 	block, err := aes.NewCipher(c.key)
 	if err != nil {
 		return nil, err
 	}
+
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return nil, err
+	}
+
+	nonce := make([]byte, gcm.NonceSize()) // 12 bytes
+	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
+		return nil, err
+	}
+
+	// prepend nonce
+	ciphertext := gcm.Seal(nonce, nonce, plaintext, nil)
+
+	return ciphertext, nil
+}
+
+// Decrypt expects raw binary: nonce || ciphertext || tag
+func (c *Crypto) Decrypt(data []byte) ([]byte, error) {
+	block, err := aes.NewCipher(c.key)
+	if err != nil {
+		return nil, err
+	}
+
 	gcm, err := cipher.NewGCM(block)
 	if err != nil {
 		return nil, err
@@ -73,5 +79,11 @@ func (c *Crypto) decrypt(encoded string) ([]byte, error) {
 	}
 
 	nonce, ciphertext := data[:nonceSize], data[nonceSize:]
-	return gcm.Open(nil, nonce, ciphertext, nil)
+
+	plaintext, err := gcm.Open(nil, nonce, ciphertext, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return plaintext, nil
 }

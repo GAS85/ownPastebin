@@ -25,11 +25,13 @@ services:
       #- PASTEBIN_PORT=8080
       #- PASTEBIN_TLS_KEY=/path/to/tls.pem
       #- PASTEBIN_TLS_CERT=/path/to/tls.cer
+      #- PASTEBIN_TRUSTED_PROXY=127.0.0.1
       #- PASTEBIN_DEFAULT_TTL=30d
+      #- PASTEBIN_DEFAULT_BURN=true
       #- PASTEBIN_MAX_PASTE_SIZE=10Mb
       #- PASTEBIN_MAX_TTL=360d
       #- PASTEBIN_SERVER_SIDE_ENCRYPTION_ENABLED=true
-      # You can generate a random 32-byte key using: `openssl rand -base64 32` or docker container 'docker exec -it ownpastebin openssl rand -base64 32'
+      # You can generate a random 32-byte key using: `openssl rand -base64 32` or docker container 'docker run -e GENERATE_KEY=true gas85/ownpastebin:latest'
       #- PASTEBIN_SERVER_SIDE_ENCRYPTION_KEY=your_base64_encoded_32_byte_key_here
       # Date format for the Go application
       #- PASTEBIN_DATE_FORMAT="2006-01-02 15:04:05"

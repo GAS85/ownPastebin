@@ -1,6 +1,5 @@
 # ── Build stage ──────────────────────────────────────────────────────────────
 FROM golang:1.26-alpine AS builder
-# 1.26
 
 # CGO is required for go-sqlite3
 RUN apk add --no-cache gcc musl-dev
@@ -13,21 +12,29 @@ COPY . .
 # Will be used in a plugin.go
 # Check for updates under https://cdnjs.com
 # CSS
-ADD https://cdnjs.cloudflare.com/ajax/libs/bootstrap/4.6.2/css/bootstrap.min.css ./static
-ADD https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css ./static
+ADD https://www.w3schools.com/w3css/5/w3.css ./static
+ADD https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css ./static
 # Fonts
-ADD https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/webfonts/fa-solid-900.woff2 ./static
-ADD https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/webfonts/fa-brands-400.woff2 ./static
+ADD https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/webfonts/fa-solid-900.woff2 ./static
+ADD https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/webfonts/fa-regular-400.woff2 ./static
+ADD https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/webfonts/fa-brands-400.woff2 ./static
 # JS
-ADD https://cdnjs.cloudflare.com/ajax/libs/bootstrap/4.6.2/js/bootstrap.min.js ./static
-ADD https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js ./static
-ADD https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js ./static
-ADD https://cdnjs.cloudflare.com/ajax/libs/popper.js/2.11.8/umd/popper.min.js ./static
 ADD https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.11/clipboard.min.js ./static
 ADD https://cdnjs.cloudflare.com/ajax/libs/mermaid/11.12.0/mermaid.min.js ./static
 # Replace relative links to static
 RUN sed -i 's|../webfonts/||g' ./static/all.min.css
-RUN mkdir -p /usr/local/go/src/pastebin/plugins && cp plugins/*.* /usr/local/go/src/pastebin/plugins
+
+# Add local script hashes to the CSP
+RUN apk add --no-cache openssl
+RUN export InternalHashes=$(grep -oE 'on[a-zA-Z]+="[^"]+"' ./templates/index.html \
+    | sed 's/^on[a-zA-Z]*="//; s/"$//' \
+    | sort -u \
+    | while IFS= read -r line; do \
+        hash=$(printf "%s" "$line" | openssl dgst -sha256 -binary | openssl base64); \
+        printf "'sha256-%s' " "$hash"; \
+    done) && \
+    sed -i "s|SHA-HASHES|$InternalHashes|g" ./templates/index.html
+
 RUN go mod download
 
 RUN CGO_ENABLED=1 GOOS=linux go build -ldflags="-s -w" -o pastebin .
@@ -60,6 +67,7 @@ COPY --from=builder --chmod=555 /build/pastebin /app/pastebin
 COPY --chmod=555 entrypoint.sh /entrypoint.sh
 
 RUN mkdir -p /app/data && \
+    touch /app/data/pastebin.log && \
     chown -R $USER /app/data
 
 USER $USER
@@ -68,7 +76,7 @@ EXPOSE 8080
 
 ENTRYPOINT ["/entrypoint.sh"]
 
-HEALTHCHECK --interval=1m \
+HEALTHCHECK --interval=5m \
             --timeout=5s \
-            --retries=1 \
-            CMD pgrep pastebin
+            --retries=3 \
+            CMD wget -qO- ${PASTEBIN_BASE_URL:-http://localhost/8080}/config > /dev/null || exit
