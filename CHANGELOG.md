@@ -6,6 +6,7 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
+- Add caching middleware Headers for static assets and no-cache for dynamic content.
 - SVG favicon support: replaced `static/favicon.ico` with `static/favicon.svg` and updated HTML template references.
 - Zombie reaper for Alpine containers to handle `SIGCHLD` and prevent orphaned processes.
 - IP rate limiting support in test application setup and per-IP rate limiting in storage/plugin flows.

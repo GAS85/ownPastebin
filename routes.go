@@ -113,18 +113,23 @@ func (a *App) router() http.Handler {
 	// Per-IP rate limiting on all routes.
 	r.Use(a.rateLimitMiddleware)
 
+	// Paste content — must never be cached: content can be burned/deleted at
+	// any moment, and serving a stale copy after deletion would be a data leak.
+	r.With(noCacheMiddleware).Get("/raw/{id}", a.handleRaw)
+	r.With(noCacheMiddleware).Get("/download/{id}", a.handleDownload)
+
+	// Long-lived cacheable endpoints — safe to cache for 6 months.
+	r.With(longCacheMiddleware).Get("/config", a.handleConfig)
+	r.With(longCacheMiddleware).Get("/openapi.json", a.handleOpenAPISpec)
+	r.With(longCacheMiddleware).Get("/swagger-ui", a.handleSwaggerUI)
+
 	r.Get("/", a.handleNewPaste)
 	r.Post("/", a.handleCreatePaste)
-	r.Get("/config", a.handleConfig)
-	r.Get("/raw/{id}", a.handleRaw)
-	r.Get("/download/{id}", a.handleDownload)
-
-	// API documentation
-	r.Get("/openapi.json", a.handleOpenAPISpec)
-	r.Get("/swagger-ui", a.handleSwaggerUI)
 
 	// /{id} must be last — it is a catch-all wildcard.
-	r.Get("/{id}", a.handleView)
+	// Paste view shares the no-cache policy: burn-on-read pastes vanish after
+	// the first fetch and must not be replayed from any cache.
+	r.With(noCacheMiddleware).Get("/{id}", a.handleView)
 	r.Delete("/{id}", a.handleDelete)
 
 	return r

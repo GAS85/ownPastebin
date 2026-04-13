@@ -183,6 +183,26 @@ func (l *ipRateLimiter) Close() {
 	l.stopOnce.Do(func() { close(l.stop) })
 }
 
+// ---------------------------------------------------------------------------
+// Cache-Control headers
+// ---------------------------------------------------------------------------
+
+// noCacheMiddleware sets headers that prevent any caching of the response — used for paste content endpoints (/raw, /download, /{id}) where stale data must never be served, especially after a burn-on-read deletion.
+func noCacheMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate")
+		next.ServeHTTP(w, r)
+	})
+}
+
+// longCacheMiddleware allows public caches to store the response for 6 months (15 552 000 s). Used for static assets, the OpenAPI spec, the Swagger UI, and the /config endpoint — all of which are either truly static or change only on a new deployment.
+func longCacheMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "public, max-age=15552000, immutable")
+		next.ServeHTTP(w, r)
+	})
+}
+
 // rateLimitMiddleware rejects requests that exceed the per-IP rate limit with
 // 429 Too Many Requests. The client IP is resolved the same way as in the
 // access log (respecting PASTEBIN_TRUSTED_PROXY).

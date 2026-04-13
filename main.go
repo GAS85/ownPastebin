@@ -180,7 +180,7 @@ func main() {
 		slog.Error("static fs setup failed", "err", err)
 		os.Exit(1)
 	}
-	staticHandler := http.FileServer(http.FS(staticSub))
+	staticHandler := longCacheMiddleware(http.FileServer(http.FS(staticSub)))
 
 	mux := app.router()
 
