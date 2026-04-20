@@ -32,7 +32,7 @@
 
 <body>
   <!-- TOP NAV -->
-  <div class="w3-container w3-display-container w3-sidebar w3-bar-block w3-dark-grey w3-large" id="navbar">
+  <div class="w3-container w3-display-container w3-sidebar w3-bar-block w3-asphalt w3-large" id="navbar">
 
     <a href="#" class="w3-button w3-round w3-large w3-margin w3-display-topleft fa fa-x" onclick="toggleMobileMenu()"></a>
 
@@ -254,7 +254,7 @@
 
       <small id="password-strength-text"></small>
 
-      <button id="send-btn-sidebar" class="w3-bar-item w3-button w3-margin-top w3-green w3-hover-light-green w3-round w3-center">Send</button>
+      <button id="send-btn-sidebar" class="w3-bar-item w3-button w3-margin-top w3-green w3-hover-light-green w3-round w3-center"><i class="fa-solid fa-upload"></i> Send</button>
       {{end}}
 
     </div>
@@ -280,13 +280,13 @@
 
     <a href="#" class="w3-button w3-round w3-margin" onclick="toggleMobileMenu()"><i class="fa-solid fa-bars"></i></a>
 
-    <a href="{{.URIPrefix}}/" class="w3-button w3-round w3-margin" style="position: absolute; left: 50%; transform: translateX(-50%);">Pastebin</a>
+    <a href="{{.URIPrefix}}/" class="w3-button w3-round w3-margin w3-display-topmiddle">Pastebin</a>
     {{if .IsEditable}}
     <a id="send-btn-top" class="w3-button w3-round w3-margin w3-green w3-hover-light-green"><i class="fa-solid fa-upload"></i><span class="w3-hide-small"> Send</span></a>
     {{end}}
     {{if .IsCreated}}
     {{if not .IsBurned}}
-    <a class="w3-button w3-round w3-margin w3-border" href=" {{.URIPrefix}}/download/{{.PastebinID}}"><i class="fa-solid fa-download"></i><span class="w3-hide-small"> Download</span></a>
+    <a class="w3-button w3-round w3-margin w3-border" href="{{.URIPrefix}}/download/{{.PastebinID}}"><i class="fa-solid fa-download"></i><span class="w3-hide-small"> Download</span></a>
     {{end}}
     {{if .IsBurned}}
     <a class="w3-button w3-round w3-margin w3-border w3-hover-pale-red" href="{{.URIPrefix}}/"><i class="fa-solid fa-x"></i><span class="w3-hide-small"> Close</span></a>
@@ -295,12 +295,12 @@
   </div>
 
   <!-- MAIN -->
-  <main class="w3-container w3-asphalt" id="main-content">
+  <main class="w3-container w3-dark-grey" id="main-content">
 
     {{if .IsError}}
     <!-- 404 view -->
     <div class="w3-section w3-center">
-      <span class="w3-xxxlarge w3-text-grey">404</span>
+      <span class="w3-xxxlarge"><i class="fa-solid fa-square-xmark"></i> 404</span>
       <p class="w3-large">The page you are looking for was not found.</p>
       <a href="{{.URIPrefix}}/" class="w3-button w3-dark-grey w3-round">Back to Home</a>
     </div>

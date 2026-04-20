@@ -49,12 +49,12 @@ pre {
 }
 
 pre[class*="language-"] {
-  background: #343a40;
+  background: #616161;
   border: none;
 }
 
 body.light-mode pre[class*="language-"] {
-  background: #eee;
+  background: #f8f9fa;
 }
 
 /* ── Sticky-nav scroll compensation for line highlights ── */
@@ -87,10 +87,8 @@ footer {
   /* Smooth transition */
 }
 
-body.light-mode .w3-bar,
-body.light-mode .w3-sidebar,
-body.light-mode .w3-card {
-  background-color: #f8f9fa !important;
+body.light-mode .w3-dark-grey {
+  background-color: #f8f9fa !important; /* paper */
   color: #383838 !important;
 }
 
