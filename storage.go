@@ -35,13 +35,58 @@ type PasteData struct {
 	ExpireAt     *time.Time
 }
 
-// Storage interface – all methods work with raw bytes.
+// StorageStats holds counts collected at startup — logged once by newStorage.
+// All counts reflect the state at the moment of the query; the DB may change
+// immediately after. Zero values mean the backend could not determine the count.
+type StorageStats struct {
+	Backend      string // "sqlite", "postgres", "redis"
+	Total        int64  // active (non-expired) pastes
+	Permanent    int64  // pastes with no TTL
+	Expiring     int64  // pastes with a TTL set
+	BurnOnRead   int64  // burn=true pastes
+	SSEncrypted  int64  // server-side encrypted
+	E2EEncrypted int64  // client-side encrypted
+
+	// SQLite-only — zero for other backends.
+	DBFileBytes  int64
+	WALFileBytes int64
+	PageSize     int64
+	PageCount    int64
+	FreePages    int64
+}
+
+// logStats emits one INFO line per stat group so the log stays readable.
+func logStats(st StorageStats) {
+	slog.Info("storage stats",
+		"backend", st.Backend,
+		"total_active", st.Total,
+		"permanent", st.Permanent,
+		"expiring", st.Expiring,
+		"burn_on_read", st.BurnOnRead,
+		"ss_encrypted", st.SSEncrypted,
+		"e2e_encrypted", st.E2EEncrypted,
+	)
+	if st.Backend == "sqlite" {
+		slog.Info("sqlite file stats",
+			"db_bytes", st.DBFileBytes,
+			"wal_bytes", st.WALFileBytes,
+			"page_size", st.PageSize,
+			"page_count", st.PageCount,
+			"free_pages", st.FreePages,
+		)
+	}
+}
+
+// Storage is the common interface all backends implement.
 type Storage interface {
 	Save(key string, data *PasteData, ttl time.Duration) error
 	Get(key string) (*PasteData, error)
 	PeekMeta(key string) (*PasteData, error) // returns metadata without Content
 	Delete(key string) error
+	// GetAndDelete atomically reads and removes — used for burn-on-read.
 	GetAndDelete(key string) (*PasteData, error)
+	// Stats collects startup statistics. Called once after the backend is initialized; errors are non-fatal and result in partial stats.
+	Stats() StorageStats
 	Close() error
 }
 
@@ -73,7 +118,7 @@ func newSQLiteStorage(path string, cfg *Settings) (*SQLiteStorage, error) {
 		return nil, err
 	}
 	// Open connections scaled to MaxParallelUploads so writers do not queue
-	// behind a 4-connection ceiling while many concurrent uploads are active.
+	// behind a fixed ceiling while many concurrent uploads are active.
 	maxOpen := cfg.MaxParallelUploads + 4
 	db.SetMaxOpenConns(maxOpen)
 	db.SetMaxIdleConns(4)
@@ -90,13 +135,13 @@ func newSQLiteStorage(path string, cfg *Settings) (*SQLiteStorage, error) {
 
 	// New schema: content BLOB, explicit columns for all fields
 	_, err = db.Exec(`CREATE TABLE IF NOT EXISTS pastes (
-		id              TEXT PRIMARY KEY,
-		content         BLOB NOT NULL,
-		burn            INTEGER NOT NULL DEFAULT 0,
-		encrypted       INTEGER NOT NULL DEFAULT 0,
-		e2e_encrypted   INTEGER NOT NULL DEFAULT 0,
-		lang            TEXT NOT NULL DEFAULT 'text',
-		expire_at       INTEGER
+		id            TEXT    PRIMARY KEY,
+		content       BLOB    NOT NULL,
+		burn          INTEGER NOT NULL DEFAULT 0,
+		encrypted     INTEGER NOT NULL DEFAULT 0,
+		e2e_encrypted INTEGER NOT NULL DEFAULT 0,
+		lang          TEXT    NOT NULL DEFAULT 'text',
+		expire_at     INTEGER
 	)`)
 	if err != nil {
 		db.Close()
@@ -206,6 +251,49 @@ func ensureIncrementalVacuum(db *sql.DB) error {
 
 	slog.Info("SQLite auto_vacuum migration complete", "mode", mode)
 	return nil
+}
+
+// Stats collects SQLite statistics in a single query plus three PRAGMA calls.
+func (s *SQLiteStorage) Stats() StorageStats {
+	st := StorageStats{Backend: "sqlite"}
+	now := time.Now().Unix()
+
+	// All counts in one pass — no table scan of content BLOB.
+	row := s.db.QueryRow(`
+		SELECT
+			COUNT(*)                                                   AS total,
+			SUM(CASE WHEN expire_at IS NULL     THEN 1 ELSE 0 END)     AS permanent,
+			SUM(CASE WHEN expire_at IS NOT NULL THEN 1 ELSE 0 END)     AS expiring,
+			SUM(CASE WHEN burn = 1              THEN 1 ELSE 0 END)     AS burn,
+			SUM(CASE WHEN encrypted = 1         THEN 1 ELSE 0 END)     AS ss_enc,
+			SUM(CASE WHEN e2e_encrypted = 1     THEN 1 ELSE 0 END)     AS e2e_enc
+		FROM pastes
+		WHERE expire_at IS NULL OR expire_at > ?`, now)
+
+	var perm, expiring, burn, ssEnc, e2eEnc sql.NullInt64
+	if err := row.Scan(&st.Total, &perm, &expiring, &burn, &ssEnc, &e2eEnc); err != nil {
+		slog.Warn("sqlite stats query failed", "err", err)
+	}
+	st.Permanent    = perm.Int64
+	st.Expiring     = expiring.Int64
+	st.BurnOnRead   = burn.Int64
+	st.SSEncrypted  = ssEnc.Int64
+	st.E2EEncrypted = e2eEnc.Int64
+
+	// File sizes from the OS — no DB connection needed.
+	if fi, err := os.Stat(s.dbPath); err == nil {
+		st.DBFileBytes = fi.Size()
+	}
+	if fi, err := os.Stat(s.dbPath + "-wal"); err == nil {
+		st.WALFileBytes = fi.Size()
+	}
+
+	// PRAGMA calls are cheap single-row reads.
+	s.db.QueryRow(`PRAGMA page_size`).Scan(&st.PageSize)
+	s.db.QueryRow(`PRAGMA page_count`).Scan(&st.PageCount)
+	s.db.QueryRow(`PRAGMA freelist_count`).Scan(&st.FreePages)
+
+	return st
 }
 
 // Save inserts a new paste. It uses INSERT OR IGNORE so that a slug collision returns ErrSlugConflict instead of silently overwriting an existing paste.  The caller (handleCreatePaste) retries with a fresh ID.
@@ -489,7 +577,7 @@ func (s *SQLiteStorage) cleanupLoop() {
 }
 
 // =============================================================================
-// PostgreSQL – stores content as BYTE
+// PostgreSQL – stores content as BYTEA
 // =============================================================================
 
 type PostgresStorage struct {
@@ -508,13 +596,13 @@ func newPostgresStorage(dsn string) (*PostgresStorage, error) {
 	db.SetConnMaxLifetime(time.Hour)
 
 	_, err = db.Exec(`CREATE TABLE IF NOT EXISTS pastes (
-		id              TEXT PRIMARY KEY,
-		content         BYTEA NOT NULL,
-		burn            BOOLEAN NOT NULL DEFAULT FALSE,
-		encrypted       BOOLEAN NOT NULL DEFAULT FALSE,
-		e2e_encrypted   BOOLEAN NOT NULL DEFAULT FALSE,
-		lang            TEXT NOT NULL DEFAULT 'text',
-		expire_at       TIMESTAMPTZ
+		id            TEXT    PRIMARY KEY,
+		content       BYTEA   NOT NULL,
+		burn          BOOLEAN NOT NULL DEFAULT FALSE,
+		encrypted     BOOLEAN NOT NULL DEFAULT FALSE,
+		e2e_encrypted BOOLEAN NOT NULL DEFAULT FALSE,
+		lang          TEXT    NOT NULL DEFAULT 'text',
+		expire_at     TIMESTAMPTZ
 	)`)
 	if err != nil {
 		return nil, err
@@ -543,7 +631,7 @@ func (s *PostgresStorage) cleanupLoop() {
 				`DELETE FROM pastes WHERE expire_at IS NOT NULL AND expire_at < NOW()`,
 			)
 			if err != nil {
-				slog.Error("postgres cleanup delete failed", "err", err)
+				slog.Error("postgres cleanup failed", "err", err)
 				continue
 			}
 			if n, _ := result.RowsAffected(); n > 0 {
@@ -553,6 +641,28 @@ func (s *PostgresStorage) cleanupLoop() {
 			return
 		}
 	}
+}
+
+// Stats collects Postgres statistics in a single query.
+func (s *PostgresStorage) Stats() StorageStats {
+	st := StorageStats{Backend: "postgres"}
+
+	row := s.db.QueryRow(`
+		SELECT
+			COUNT(*)                                                          AS total,
+			COUNT(*) FILTER (WHERE expire_at IS NULL)                        AS permanent,
+			COUNT(*) FILTER (WHERE expire_at IS NOT NULL)                    AS expiring,
+			COUNT(*) FILTER (WHERE burn = TRUE)                              AS burn,
+			COUNT(*) FILTER (WHERE encrypted = TRUE)                         AS ss_enc,
+			COUNT(*) FILTER (WHERE e2e_encrypted = TRUE)                     AS e2e_enc
+		FROM pastes
+		WHERE expire_at IS NULL OR expire_at > NOW()`)
+
+	if err := row.Scan(&st.Total, &st.Permanent, &st.Expiring,
+		&st.BurnOnRead, &st.SSEncrypted, &st.E2EEncrypted); err != nil {
+		slog.Warn("postgres stats query failed", "err", err)
+	}
+	return st
 }
 
 // Save inserts a new paste. Uses ON CONFLICT DO NOTHING so that a collision returns ErrSlugConflict rather than overwriting an existing paste.
@@ -664,7 +774,7 @@ func (s *PostgresStorage) Close() error {
 }
 
 // =============================================================================
-// REDIS - stores HASHes PasteData (binary safe)
+// Redis – stores pastes as Hashes (binary-safe)
 // =============================================================================
 
 type RedisStorage struct {
@@ -684,6 +794,56 @@ func newRedisStorage(url string) (*RedisStorage, error) {
 	}
 
 	return &RedisStorage{client: client}, nil
+}
+
+// Stats scans all keys to collect counts. This is O(N) and should only be called once at startup. A 5-second timeout prevents blocking startup indefinitely on very large keyspaces.
+func (s *RedisStorage) Stats() StorageStats {
+	st := StorageStats{Backend: "redis"}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	var cursor uint64
+	for {
+		keys, next, err := s.client.Scan(ctx, cursor, "*", 200).Result()
+		if err != nil {
+			slog.Warn("redis stats scan failed", "err", err)
+			break
+		}
+
+		for _, key := range keys {
+			vals, err := s.client.HMGet(ctx, key, "burn", "enc", "e2e").Result()
+			if err != nil {
+				continue
+			}
+			if vals[0] == nil {
+				continue // key expired between SCAN and HMGet
+			}
+			st.Total++
+			if intToBool(valToInt(vals[0])) {
+				st.BurnOnRead++
+			}
+			if intToBool(valToInt(vals[1])) {
+				st.SSEncrypted++
+			}
+			if intToBool(valToInt(vals[2])) {
+				st.E2EEncrypted++
+			}
+			// Distinguish permanent vs expiring by TTL.
+			ttl := s.client.TTL(ctx, key).Val()
+			if ttl > 0 {
+				st.Expiring++
+			} else {
+				st.Permanent++
+			}
+		}
+
+		cursor = next
+		if cursor == 0 {
+			break
+		}
+	}
+	return st
 }
 
 func (s *RedisStorage) Save(key string, d *PasteData, ttl time.Duration) error {
@@ -886,27 +1046,40 @@ func valToBytes(v interface{}) ([]byte, error) {
 // =============================================================================
 
 func newStorage(cfg *Settings) Storage {
+	var store Storage
+
 	if cfg.RedisURL != "" {
 		s, err := newRedisStorage(cfg.RedisURL)
 		if err == nil {
 			slog.Info("using Redis backend")
-			return s
+			store = s
+		} else {
+			slog.Warn("Redis unavailable, falling back", "err", err)
 		}
-		slog.Warn("Redis unavailable, falling back", "err", err)
 	}
 
-	if cfg.PostgresURL != "" {
+	if store == nil && cfg.PostgresURL != "" {
 		s, err := newPostgresStorage(cfg.PostgresURL)
 		if err == nil {
 			slog.Info("using PostgreSQL backend")
-			return s
+			store = s
+		} else {
+			slog.Warn("PostgreSQL unavailable, falling back", "err", err)
 		}
 	}
-	s, err := newSQLiteStorage(cfg.SQLitePath, cfg)
-	if err != nil {
-		slog.Error("SQLite init failed", "err", err)
-		os.Exit(1)
+
+	if store == nil {
+		s, err := newSQLiteStorage(cfg.SQLitePath, cfg)
+		if err != nil {
+			slog.Error("SQLite init failed", "err", err)
+			os.Exit(1)
+		}
+		slog.Info("using SQLite backend", "path", cfg.SQLitePath)
+		store = s
 	}
-	slog.Info("using SQLite backend", "path", cfg.SQLitePath)
-	return s
+
+	// Collect and log startup statistics — non-fatal, best-effort.
+	logStats(store.Stats())
+
+	return store
 }
