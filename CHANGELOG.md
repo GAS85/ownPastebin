@@ -2,6 +2,17 @@
 
 All notable changes to this project are documented in this file.
 
+## v2.1.0
+
+### Added
+
+- Storage statistics collection and logging for SQLite and PostgreSQL backends.
+
+### Changed
+
+- Refactor Redis storage Stats() method for improved performance and background execution.
+- Update healthcheck command in Dockerfile and enhance UI elements in templates and CSS.
+
 ## v2.0.0
 
 ### Added
