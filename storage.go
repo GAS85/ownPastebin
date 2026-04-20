@@ -796,81 +796,123 @@ func newRedisStorage(url string) (*RedisStorage, error) {
 	return &RedisStorage{client: client}, nil
 }
 
-// Stats scans all keys to collect counts. This is O(N) and should only be called once at startup. A 5-second timeout prevents blocking startup indefinitely on very large keyspaces.
+// redisPastePrefix is prepended to every paste key so Stats() SCAN only
+// matches paste keys even when the Redis instance is shared with other apps.
+// Save() uses the same prefix; Get/Delete/GetAndDelete strip it via the caller
+// passing the already-prefixed key, since handleCreatePaste controls the ID.
+const redisPastePrefix = "paste:"
+
+// redisKey returns the full storage key for a paste ID.
+func redisKey(id string) string { return redisPastePrefix + id }
+
+// Stats scans paste keys to collect counts. Runs in a background goroutine
+// and logs results when done so startup is never blocked.
+//
+// Three fixes over the naive approach:
+//  1. SCAN uses the "paste:*" pattern — avoids counting keys from other apps
+//     sharing the same Redis instance.
+//  2. HMGet and TTL are pipelined per batch — one round-trip per SCAN page
+//     instead of one round-trip per key (O(N) → O(N/batchSize)).
+//  3. Background execution — does not delay startup.
 func (s *RedisStorage) Stats() StorageStats {
-	st := StorageStats{Backend: "redis"}
+	go func() {
+		st := StorageStats{Backend: "redis"}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
+		// 30 seconds is generous enough for large keyspaces but still bounded
+		// so the goroutine does not leak indefinitely.
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
 
-	var cursor uint64
-	for {
-		keys, next, err := s.client.Scan(ctx, cursor, "*", 200).Result()
-		if err != nil {
-			slog.Warn("redis stats scan failed", "err", err)
-			break
-		}
-
-		for _, key := range keys {
-			vals, err := s.client.HMGet(ctx, key, "burn", "enc", "e2e").Result()
+		var cursor uint64
+		for {
+			keys, next, err := s.client.Scan(ctx, cursor, redisPastePrefix+"*", 200).Result()
 			if err != nil {
-				continue
+				slog.Warn("redis stats scan failed", "err", err)
+				break
 			}
-			if vals[0] == nil {
-				continue // key expired between SCAN and HMGet
-			}
-			st.Total++
-			if intToBool(valToInt(vals[0])) {
-				st.BurnOnRead++
-			}
-			if intToBool(valToInt(vals[1])) {
-				st.SSEncrypted++
-			}
-			if intToBool(valToInt(vals[2])) {
-				st.E2EEncrypted++
-			}
-			// Distinguish permanent vs expiring by TTL.
-			ttl := s.client.TTL(ctx, key).Val()
-			if ttl > 0 {
-				st.Expiring++
-			} else {
-				st.Permanent++
-			}
-		}
 
-		cursor = next
-		if cursor == 0 {
-			break
+			if len(keys) > 0 {
+				// Pipeline all HMGet + TTL calls for the current batch —
+				// one round-trip instead of len(keys) separate round-trips.
+				pipe := s.client.Pipeline()
+				hmgetCmds := make([]*redis.SliceCmd, len(keys))
+				ttlCmds := make([]*redis.DurationCmd, len(keys))
+				for i, key := range keys {
+					hmgetCmds[i] = pipe.HMGet(ctx, key, "burn", "enc", "e2e")
+					ttlCmds[i] = pipe.TTL(ctx, key)
+				}
+				if _, err := pipe.Exec(ctx); err != nil && err != redis.Nil {
+					slog.Warn("redis stats pipeline failed", "err", err)
+					break
+				}
+
+				for i := range keys {
+					vals := hmgetCmds[i].Val()
+					// vals[0] == nil: key expired between SCAN and pipeline exec,
+					// OR the hash has no "burn" field (partial write from a failed
+					// Save after the first HSETNX pipeline but before the second).
+					// Either way, skip — partial entries are not valid pastes.
+					if len(vals) < 3 || vals[0] == nil {
+						continue
+					}
+					st.Total++
+					if intToBool(valToInt(vals[0])) {
+						st.BurnOnRead++
+					}
+					if intToBool(valToInt(vals[1])) {
+						st.SSEncrypted++
+					}
+					if intToBool(valToInt(vals[2])) {
+						st.E2EEncrypted++
+					}
+					if ttlCmds[i].Val() > 0 {
+						st.Expiring++
+					} else {
+						st.Permanent++
+					}
+				}
+			}
+
+			cursor = next
+			if cursor == 0 {
+				break
+			}
 		}
-	}
-	return st
+		logStats(st)
+	}()
+
+	// Return an empty placeholder immediately — logStats fires in the background.
+	return StorageStats{Backend: "redis"}
 }
 
 func (s *RedisStorage) Save(key string, d *PasteData, ttl time.Duration) error {
 	ctx := context.Background()
+	rkey := redisKey(key)
 
-	// Use SET NX (via a Lua script or HSETNX on a sentinel field) to avoid overwriting an existing paste on the rare slug collision. Use a pipeline: HSETNX on the "content" field as the collision gate, then HSET the remaining fields only if the key was fresh.
+	// HSETNX on "content" as collision gate: if the field already exists,
+	// the slug was taken — return ErrSlugConflict without overwriting.
 	pipe := s.client.TxPipeline()
-	hsetnx := pipe.HSetNX(ctx, key, "content", d.Content)
+	hsetnx := pipe.HSetNX(ctx, rkey, "content", d.Content)
 	_, err := pipe.Exec(ctx)
 	if err != nil {
 		return err
 	}
 	if !hsetnx.Val() {
-		// content field already existed → slug collision
 		return ErrSlugConflict
 	}
 
 	// Key is new — write remaining fields and TTL.
+	// A failure here leaves a partial hash (content only); Stats() detects
+	// this via the nil "burn" field and skips the entry.
 	pipe2 := s.client.TxPipeline()
-	pipe2.HSet(ctx, key, map[string]interface{}{
+	pipe2.HSet(ctx, rkey, map[string]interface{}{
 		"burn": boolToInt(d.Burn),
 		"enc":  boolToInt(d.Encrypted),
 		"e2e":  boolToInt(d.E2EEncrypted),
 		"lang": d.Lang,
 	})
 	if ttl > 0 {
-		pipe2.Expire(ctx, key, ttl)
+		pipe2.Expire(ctx, rkey, ttl)
 	}
 	_, err = pipe2.Exec(ctx)
 	return err
@@ -879,30 +921,20 @@ func (s *RedisStorage) Save(key string, d *PasteData, ttl time.Duration) error {
 // PeekMeta fetches all metadata fields in a single HMGet round trip.
 func (s *RedisStorage) PeekMeta(key string) (*PasteData, error) {
 	ctx := context.Background()
-
+	rkey := redisKey(key)
 	// Single round trip: fetch burn, enc, e2e, lang together.
-	vals, err := s.client.HMGet(ctx, key, "burn", "enc", "e2e", "lang").Result()
+	vals, err := s.client.HMGet(ctx, rkey, "burn", "enc", "e2e", "lang").Result()
 	if err != nil {
 		return nil, err
 	}
-	// HMGet returns nils for all fields when the key does not exist.
 	if vals[0] == nil {
 		return nil, nil
 	}
-
-	burn  := valToInt(vals[0])
-	enc   := valToInt(vals[1])
-	e2e   := valToInt(vals[2])
-	lang  := valToString(vals[3])
-
 	p := &PasteData{
-		Content:      nil,
-		Burn:         intToBool(burn),
-		Encrypted:    intToBool(enc),
-		E2EEncrypted: intToBool(e2e),
-		Lang:         lang,
+		Burn: intToBool(valToInt(vals[0])), Encrypted: intToBool(valToInt(vals[1])),
+		E2EEncrypted: intToBool(valToInt(vals[2])), Lang: valToString(vals[3]),
 	}
-	if ttl := s.client.TTL(ctx, key).Val(); ttl > 0 {
+	if ttl := s.client.TTL(ctx, rkey).Val(); ttl > 0 {
 		t := time.Now().Add(ttl)
 		p.ExpireAt = &t
 	}
@@ -913,33 +945,25 @@ func (s *RedisStorage) PeekMeta(key string) (*PasteData, error) {
 // fields (including content) and one TTL call.
 func (s *RedisStorage) Get(key string) (*PasteData, error) {
 	ctx := context.Background()
-
+	rkey := redisKey(key)
 	// Fetch all fields in one round trip.
-	vals, err := s.client.HMGet(ctx, key, "content", "burn", "enc", "e2e", "lang").Result()
+	vals, err := s.client.HMGet(ctx, rkey, "content", "burn", "enc", "e2e", "lang").Result()
 	if err != nil {
 		return nil, err
 	}
 	if vals[0] == nil {
-		return nil, nil // key does not exist
+		return nil, nil  // key does not exist
 	}
-
 	content, err := valToBytes(vals[0])
 	if err != nil {
-		return nil, fmt.Errorf("redis Get: decode content: %w", err)
+		return nil, fmt.Errorf("redis Get decode content: %w", err)
 	}
-	burn := valToInt(vals[1])
-	enc  := valToInt(vals[2])
-	e2e  := valToInt(vals[3])
-	lang := valToString(vals[4])
-
 	p := &PasteData{
-		Content:      content,
-		Burn:         intToBool(burn),
-		Encrypted:    intToBool(enc),
-		E2EEncrypted: intToBool(e2e),
-		Lang:         lang,
+		Content: content, Burn: intToBool(valToInt(vals[1])),
+		Encrypted: intToBool(valToInt(vals[2])), E2EEncrypted: intToBool(valToInt(vals[3])),
+		Lang: valToString(vals[4]),
 	}
-	if ttl := s.client.TTL(ctx, key).Val(); ttl > 0 {
+	if ttl := s.client.TTL(ctx, rkey).Val(); ttl > 0 {
 		t := time.Now().Add(ttl)
 		p.ExpireAt = &t
 	}
@@ -947,22 +971,21 @@ func (s *RedisStorage) Get(key string) (*PasteData, error) {
 }
 
 func (s *RedisStorage) Delete(key string) error {
-	return s.client.Del(context.Background(), key).Err()
+	return s.client.Del(context.Background(), redisKey(key)).Err()
 }
 
 func (s *RedisStorage) GetAndDelete(key string) (*PasteData, error) {
 	ctx := context.Background()
+	rkey := redisKey(key)
 
 	pipe := s.client.TxPipeline()
-
-	contentCmd := pipe.HGet(ctx, key, "content")
-	burnCmd    := pipe.HGet(ctx, key, "burn")
-	encCmd     := pipe.HGet(ctx, key, "enc")
-	e2eCmd     := pipe.HGet(ctx, key, "e2e")
-	langCmd    := pipe.HGet(ctx, key, "lang")
-	ttlCmd     := pipe.TTL(ctx, key)
-
-	pipe.Del(ctx, key)
+	contentCmd := pipe.HGet(ctx, rkey, "content")
+	burnCmd    := pipe.HGet(ctx, rkey, "burn")
+	encCmd     := pipe.HGet(ctx, rkey, "enc")
+	e2eCmd     := pipe.HGet(ctx, rkey, "e2e")
+	langCmd    := pipe.HGet(ctx, rkey, "lang")
+	ttlCmd     := pipe.TTL(ctx, rkey)
+	pipe.Del(ctx, rkey)
 
 	_, err := pipe.Exec(ctx)
 	if err != nil && err != redis.Nil {
@@ -1004,7 +1027,6 @@ func (s *RedisStorage) Close() error {
 
 // ---------------------------------------------------------------------------
 // Redis HMGet value helpers
-// HMGet returns []interface{} where each element is either a string or nil.
 // ---------------------------------------------------------------------------
 
 func valToString(v interface{}) string {
