@@ -63,7 +63,7 @@
 
 <body>
   <!-- TOP NAV -->
-  <div class="w3-container w3-display-container w3-sidebar w3-bar-block w3-dark-grey w3-large" id="navbar">
+  <div class="w3-container w3-display-container w3-sidebar w3-bar-block w3-asphalt w3-large" id="navbar">
 
     <a href="#" class="w3-button w3-round w3-large w3-margin w3-display-topleft fa fa-x" onclick="toggleMobileMenu()"></a>
 
@@ -279,7 +279,7 @@
 
       <small id="password-strength-text"></small>
 
-      <button id="send-btn-sidebar" class="w3-bar-item w3-button w3-margin-top w3-green w3-hover-light-green w3-round w3-center">Send</button>
+      <button id="send-btn-sidebar" class="w3-bar-item w3-button w3-margin-top w3-green w3-hover-light-green w3-round w3-center"><i class="fa-solid fa-upload"></i> Send</button>
 
     </div>
 
@@ -306,7 +306,7 @@
     <!-- <div class="w3-flex" style="flex-direction:row;justify-content:space-between;flex-basis: 50%"> -->
     <a href="#" class="w3-button w3-round w3-margin" onclick="toggleMobileMenu()"><i class="fa-solid fa-bars"></i></a>
 
-    <a href="/" class="w3-button w3-round w3-margin" style="position: absolute; left: 50%; transform: translateX(-50%);">Pastebin</a>
+    <a href="/" class="w3-button w3-round w3-margin w3-display-topmiddle">Pastebin</a>
     <!-- </div> -->
     <a id="send-btn-top" class="w3-button w3-round w3-margin w3-green w3-hover-light-green"><i class="fa-solid fa-upload"></i><span class="w3-hide-small"> Send</span></a>
 
@@ -317,13 +317,13 @@
   </div>
 
   <!-- MAIN -->
-  <main class="w3-container w3-asphalt" id="main-content">
+  <main class="w3-container w3-dark-grey" id="main-content">
 
     <!-- 404 view -->
     <div id="error-region" style="display:none;" class="w3-section w3-center">
-      <span class="w3-xxxlarge w3-text-grey">404</span>
+      <span class="w3-xxxlarge"><i class="fa-solid fa-square-xmark"></i> 404</span>
       <p class="w3-large">The page you are looking for was not found.</p>
-      <a href="/" class="w3-button w3-dark-grey w3-round">Back to Home</a>
+      <a href="/" class="w3-button w3-asphalt w3-round">Back to Home</a>
     </div>
 
     <!-- Alerts region (toggled by dev switcher) -->
