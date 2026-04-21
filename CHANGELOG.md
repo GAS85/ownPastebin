@@ -2,7 +2,7 @@
 
 All notable changes to this project are documented in this file.
 
-## dev
+## v2.2.1
 
 ### Added
 
