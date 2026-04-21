@@ -11,6 +11,7 @@ All notable changes to this project are documented in this file.
 ### Changed
 
 - Swagger_ui icon path update
+- License now in a docker Labels and folder after build
 
 ## v2.1.0
 
