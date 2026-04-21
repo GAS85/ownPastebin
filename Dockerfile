@@ -24,8 +24,12 @@ ADD https://cdnjs.cloudflare.com/ajax/libs/mermaid/11.12.0/mermaid.min.js ./stat
 # Replace relative links to static
 RUN sed -i 's|../webfonts/||g' ./static/all.min.css
 
+# Install needed packages
+RUN apk add --no-cache \
+        openssl \
+        minify
+
 # Add local script hashes to the CSP
-RUN apk add --no-cache openssl
 RUN export InternalHashes=$(grep -oE 'on[a-zA-Z]+="[^"]+"' ./templates/index.html \
     | sed 's/^on[a-zA-Z]*="//; s/"$//' \
     | sort -u \
@@ -34,6 +38,23 @@ RUN export InternalHashes=$(grep -oE 'on[a-zA-Z]+="[^"]+"' ./templates/index.htm
         printf "'sha256-%s' " "$hash"; \
     done) && \
     sed -i "s|SHA-HASHES|$InternalHashes|g" ./templates/index.html
+
+# Minify css, js, html, json and svg except "min" files
+RUN find static/ -type f -name "*.css" ! -name "*.min.*" -exec minify -i "{}" \; && \
+    find static/ -type f -name "*.js" ! -name "*.min.*" -exec minify -i "{}" \; && \
+    minify -i "static/favicon.svg" && \
+    minify -i "templates/swagger_ui.html" && \
+    sed -i 's/{{.SSEEnabled}}/123456/g; \
+        s/{{.MaxSize}}/345678/g; \
+        s/{{.MaxTTL}}/567890/g; \
+        s/{{.Version}}/789012/g; \
+        s/{{.BaseURL}}/901234/g' "templates/openapi.json.tmpl" && \
+    minify --type application/json -i "templates/openapi.json.tmpl" && \
+    sed -i 's/123456/{{.SSEEnabled}}/g; \
+         s/345678/{{.MaxSize}}/g; \
+         s/567890/{{.MaxTTL}}/g; \
+         s/789012/{{.Version}}/g; \
+         s/901234/{{.BaseURL}}/g' "templates/openapi.json.tmpl"
 
 RUN go mod download
 
@@ -53,6 +74,7 @@ LABEL maintainer="Georgiy Sitnikov <g.own.pastebin@sitnikov.eu>" \
     org.opencontainers.image.source="https://github.com/GAS85/ownPastebin" \
     org.opencontainers.image.url="https://hub.docker.com/r/gas85/ownpastebin" \
     org.opencontainers.image.documentation="https://github.com/GAS85/ownPastebin#" \
+    org.opencontainers.image.licenses="MIT" \
     org.opencontainers.image.version=$VERSION \
     org.opencontainers.image.revision=$VCS_REF
 
@@ -65,6 +87,7 @@ WORKDIR /app
 
 COPY --from=builder --chmod=555 /build/pastebin /app/pastebin
 COPY --chmod=555 entrypoint.sh /entrypoint.sh
+COPY --chmod=444 LICENSE /app/LICENSE
 
 RUN mkdir -p /app/data && \
     touch /app/data/pastebin.log && \

@@ -2,6 +2,17 @@
 
 All notable changes to this project are documented in this file.
 
+## v2.2.1
+
+### Added
+
+- Minify css and js during the build.
+
+### Changed
+
+- Swagger_ui icon path update
+- License now in a docker Labels and folder after build
+
 ## v2.1.0
 
 ### Added
