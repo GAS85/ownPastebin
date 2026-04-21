@@ -2,6 +2,16 @@
 
 All notable changes to this project are documented in this file.
 
+## dev
+
+### Added
+
+- Minify css and js during the build.
+
+### Changed
+
+- Swagger_ui icon path update
+
 ## v2.1.0
 
 ### Added
