@@ -91,7 +91,7 @@ The application automatically selects the first available backend:
 * `PASTEBIN_TLS_CERT` - Provide path to TLS Certificate to enable TLS Support directly on a service.
 * `PASTEBIN_TRUSTED_PROXY` - Provide IP or CIDR of trusted proxies, so that X-Forwarded-For header will be used.
 * `PASTEBIN_LOG_LEVEL` - Set log level. Default: `Info`.
-* `PASTEBIN_LOG_FORMAT` - Set it to `json`, to have JSON logs output. Default: `plain`.
+* `PASTEBIN_LOG_FORMAT` - Set it to `json`, to have JSON logs output. Default: `text`.
 * `PASTEBIN_FILE_LOG` - Set log file location to log all App output. Default is not set, it is logged to stdout. If you need log file, simply provide a path writable by user "nobody". Recommended is `/app/data/pastebin.log`.
 
 ## ⏳ TTL Settings
@@ -320,7 +320,7 @@ Example:
 ```
 
 ```json
-{"ts":"2026-04-27T15:15:35.392417168+02:00","level":"INFO","msg":"access","component":"pastebin","method":"GET","path":"/","status":200,"duration":"819µs","bytes":14562,"ip":"172.18.0.1:57020"}
+{"level":"INFO","msg":{"bytes":14562,"duration":"710µs","ip":"192.168.65.1:59435","message":"access","method":"GET","path":"/","status":200},"time":"2026-04-27T20:13:34.986291506+02:00"}
 ```
 
 ## 🛠️ Notes
