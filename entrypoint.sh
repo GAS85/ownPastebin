@@ -11,7 +11,11 @@ export PASTEBIN_MAX_PASTE_SIZE="${PASTEBIN_MAX_PASTE_SIZE:-5MB}"
 export PASTEBIN_SERVER_SIDE_ENCRYPTION_ENABLED="${PASTEBIN_SERVER_SIDE_ENCRYPTION_ENABLED:-false}"
 export PASTEBIN_HOST="${PASTEBIN_HOST:-0.0.0.0}"
 export PASTEBIN_PORT="${PASTEBIN_PORT:-8080}"
-export PASTEBIN_SHELL_DATE_FORMAT="${PASTEBIN_SHELL_DATE_FORMAT:-%Y-%m-%d %H:%M:%S}"
+export PASTEBIN_DATE_FORMAT="${PASTEBIN_DATE_FORMAT:-%Y-%m-%d %H:%M:%S}"
+# Keep date format for the shell
+export PASTEBIN_SHELL_DATE_FORMAT="${PASTEBIN_DATE_FORMAT}"
+# Rewrite to Go format
+export PASTEBIN_DATE_FORMAT="$(date -D "%Y-%m-%dT%H:%M:%S" -d "2006-01-02T15:04:05" +"$PASTEBIN_DATE_FORMAT")"
 export PASTEBIN_LOG_LEVEL="${PASTEBIN_LOG_LEVEL:-INFO}"
 
 ts() { date +"$PASTEBIN_SHELL_DATE_FORMAT"; }
@@ -111,8 +115,7 @@ log INFO "TLS cert:               ${PASTEBIN_TLS_CERT:-not set}"
 log INFO "Trusted proxy:          ${PASTEBIN_TRUSTED_PROXY:-not set (XFF ignored)}"
 log INFO "Timezone:               ${TZ:-not set}"
 log INFO "Log level:              $PASTEBIN_LOG_LEVEL"
-log INFO "Date format:            ${PASTEBIN_DATE_FORMAT:-not set}"
-log INFO "Shell Date format:      $PASTEBIN_SHELL_DATE_FORMAT"
+log INFO "Date format:            ${PASTEBIN_SHELL_DATE_FORMAT}"
 
 # ── File Logging  ─────────────────────────────────────────────────────────────
 if [ -n "${PASTEBIN_FILE_LOG+x}" ]; then

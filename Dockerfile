@@ -79,6 +79,7 @@ LABEL maintainer="Georgiy Sitnikov <g.own.pastebin@sitnikov.eu>" \
     org.opencontainers.image.revision=$VCS_REF
 
 ENV VERSION=$VERSION
+ENV VCS_REF=$VCS_REF
 ENV TZ=Europe/Zurich
 
 RUN apk add --no-cache ca-certificates tzdata openssl

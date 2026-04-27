@@ -186,6 +186,14 @@ Please refer to [docker-compose.yml](https://github.com/GAS85/ownPastebin/blob/m
 docker compose up -d
 ```
 
+### Kubernetes / Openshift
+
+Please refer to [k8s.yml](https://github.com/GAS85/ownPastebin/blob/main/k8s.yml) as example.
+
+```bash
+kubectl apply -f k8s.yml
+```
+
 ## Build
 
 You can build it with following commands:
@@ -230,6 +238,13 @@ Create a new paste.
 
 ```bash
 curl "http://localhost:8080" --data-binary "@file.txt"
+```
+
+E.g. you can push all docker logs to the pastebin:
+
+```bash
+# As per https://wiki.sitnikov.eu/doku.php?id=howto:docker#push_all_docker_logs_to_the_pastebin
+docker ps --format '{{.Names}}' | xargs -I {} sh -c 'docker logs --timestamps -tail 500 {} 2>&1 | sed "s/^/[{}] /"' | curl http://localhost.eu:8080 --data-binary @-
 ```
 
 #### Burn after read + TTL

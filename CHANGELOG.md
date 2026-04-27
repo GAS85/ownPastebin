@@ -2,6 +2,20 @@
 
 All notable changes to this project are documented in this file.
 
+## dev
+
+### Added
+
+- K8s example to deploy.
+
+### Changed
+
+- `.dockerignore` update.
+- Commit hash saved inside of the container as variable.
+- `PASTEBIN_DATE_FORMAT` refactoring in `entrypoint.sh`.
+- `README.md` update with k8s and examples.
+- Move some Info messages to Debug.
+
 ## v2.2.1
 
 ### Added
