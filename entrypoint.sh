@@ -11,20 +11,27 @@ export PASTEBIN_MAX_PASTE_SIZE="${PASTEBIN_MAX_PASTE_SIZE:-5MB}"
 export PASTEBIN_SERVER_SIDE_ENCRYPTION_ENABLED="${PASTEBIN_SERVER_SIDE_ENCRYPTION_ENABLED:-false}"
 export PASTEBIN_HOST="${PASTEBIN_HOST:-0.0.0.0}"
 export PASTEBIN_PORT="${PASTEBIN_PORT:-8080}"
-export PASTEBIN_DATE_FORMAT="${PASTEBIN_DATE_FORMAT:-%Y-%m-%d %H:%M:%S}"
-# Keep date format for the shell
-export PASTEBIN_SHELL_DATE_FORMAT="${PASTEBIN_DATE_FORMAT}"
-# Rewrite to Go format
-export PASTEBIN_DATE_FORMAT="$(date -D "%Y-%m-%dT%H:%M:%S" -d "2006-01-02T15:04:05" +"$PASTEBIN_DATE_FORMAT")"
+export PASTEBIN_LOG_FORMAT="${PASTEBIN_LOG_FORMAT:-text}"
 export PASTEBIN_LOG_LEVEL="${PASTEBIN_LOG_LEVEL:-INFO}"
-export PASTEBIN_LOG_FORMAT="${PASTEBIN_LOG_FORMAT:-plain}"
+export PASTEBIN_DATE_FORMAT="${PASTEBIN_DATE_FORMAT:-%Y-%m-%d %H:%M:%S}"
 
-PASTEBIN_LOG_FORMAT=json
+if [ ${PASTEBIN_LOG_FORMAT} = "json" ]; then
+    # strict RFC 3339
+    ts() { date -Ins | sed 's/,/./'; }
+else
+    # Keep date format for the shell
+    export PASTEBIN_SHELL_DATE_FORMAT="${PASTEBIN_DATE_FORMAT}"
+    # Convert strftime format to Go time layout for the Go binary
+    # This converts common formats:
+    # %Y -> 2006, %m -> 01, %d -> 02, %H -> 15, %M -> 04, %S -> 05, %Z -> MST, %z -> -0700
+    #export PASTEBIN_DATE_FORMAT="$(date -D "%Y-%m-%dT%H:%M:%S %z" -d "2006-01-02T15:04:05 0700" +"$PASTEBIN_DATE_FORMAT")"
+    export PASTEBIN_DATE_FORMAT="$(echo "$PASTEBIN_SHELL_DATE_FORMAT" | sed 's/%Y/2006/g; s/%m/01/g; s/%d/02/g; s/%H/15/g; s/%M/04/g; s/%S/05/g; s/%Z/MST/g; s/%z/-0700/g')"
+    ts() { date +"$PASTEBIN_SHELL_DATE_FORMAT"; }
+fi
 
-ts() { date +"$PASTEBIN_SHELL_DATE_FORMAT"; }
 log() {
     if [ ${PASTEBIN_LOG_FORMAT} = "json" ]; then
-        echo "{\"ts\":\"$(ts)\",\"level\":\"$1\",\"component\":\"$(basename "$0")\",\"msg\":\"$(echo $2 | sed 's/[[:space:]]\+/ /g; s/\\t//g')\"}"
+        echo "{\"level\":\"$1\",\"component\":\"$(basename "$0")\",\"msg\":\"$(echo $2 | sed 's/[[:space:]]\+/ /g; s/\\t//g')\",\"time\":\"$(ts)\"}"
     else
         echo -e "$(ts) - $1 - $(basename "$0") - $(echo "$2" | grep -v '^$')"
     fi
@@ -130,7 +137,7 @@ if [ -n "${PASTEBIN_FILE_LOG+x}" ]; then
         exit 1
     }
     if [ -w "$PASTEBIN_FILE_LOG" ]; then
-        log INFO "Logging to file:        ${PASTEBIN_FILE_LOG}"
+        log INFO "Logging to file: ${PASTEBIN_FILE_LOG}"
         exec >>"$PASTEBIN_FILE_LOG" 2>&1
         # After this point everything will be logged to the file.
     else
