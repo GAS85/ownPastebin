@@ -13,23 +13,46 @@ import (
 //
 //	PASTEBIN_LOG_LEVEL       one of DEBUG, INFO, WARN, ERROR  (default: INFO)
 //	PASTEBIN_DATE_FORMAT     strftime-style Go time layout     (default: "2006-01-02 15:04:05")
+//	PASTEBIN_LOG_FORMAT      "json" for structured JSON, anything else for text (default: text)
 //
 // The output format mirrors the Python/entrypoint.sh style:
 //
 //	2006-01-02 15:04:05 - INFO - main - message key=value
+//
+// JSON format uses stdlib slog.JSONHandler:
+//
+//	{"time":"2006-01-02T15:04:05Z","level":"INFO","msg":"message","key":"value"}
 func initLogger() {
 	level := parseLogLevel(os.Getenv("PASTEBIN_LOG_LEVEL"))
-	dateFormat := os.Getenv("PASTEBIN_DATE_FORMAT")
-	if dateFormat == "" {
-		dateFormat = "2006-01-02 15:04:05"
-	}
 
-	handler := &textHandler{
-		w:          os.Stdout,
-		level:      level,
-		dateFormat: dateFormat,
-	}
+	var handler slog.Handler
 
+	if strings.ToLower(strings.TrimSpace(os.Getenv("PASTEBIN_LOG_FORMAT"))) == "json" {
+		handler = slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+			Level: level,
+			ReplaceAttr: func(groups []string, a slog.Attr) slog.Attr {
+				if a.Key == slog.TimeKey {
+					a.Key = "ts"
+				}
+				if a.Key == slog.LevelKey {
+					a.Key = "level"
+				}
+				return a
+			},
+		}).WithAttrs([]slog.Attr{
+			slog.String("component", "pastebin"),
+		})
+	} else {
+		dateFormat := os.Getenv("PASTEBIN_DATE_FORMAT")
+		if dateFormat == "" {
+			dateFormat = "2006-01-02 15:04:05"
+		}
+		handler = &textHandler{
+			w:          os.Stdout,
+			level:      level,
+			dateFormat: dateFormat,
+		}
+	}
 	slog.SetDefault(slog.New(handler))
 }
 

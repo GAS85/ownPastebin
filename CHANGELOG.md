@@ -7,6 +7,7 @@ All notable changes to this project are documented in this file.
 ### Added
 
 - K8s example to deploy.
+- JSON Logs support via `PASTEBIN_LOG_FORMAT`
 
 ### Changed
 
