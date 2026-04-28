@@ -39,6 +39,12 @@
             "in": "query",
             "description": "Mark paste as client-side (E2E) encrypted. The server stores the ciphertext as-is.",
             "schema": { "type": "boolean", "default": false }
+          },
+          {
+            "name": "protected",
+            "in": "query",
+            "description": "Prevent deletion via the DELETE endpoint (returns 403). Only accepted when the server has PASTEBIN_PROTECTED_PASTE_ENABLED=true; ignored otherwise.",
+            "schema": { "type": "boolean", "default": false }
           }
         ],
         "requestBody": {
@@ -106,6 +112,7 @@
               }
             }
           },
+          "403": { "description": "Paste is protected — deletion is not permitted" },
           "500": { "description": "Storage error" }
         }
       }
@@ -185,9 +192,10 @@
       "CreateResponse": {
         "type": "object",
         "properties": {
-          "url":  { "type": "string", "format": "uri", "example": "{{.BaseURL}}/V1StGXR8_Z5jdHi6B-myT" },
-          "id":   { "type": "string", "example": "V1StGXR8_Z5jdHi6B-myT" },
-          "lang": { "type": "string", "example": "python" }
+          "url":       { "type": "string", "format": "uri", "example": "{{.BaseURL}}/V1StGXR8_Z5jdHi6B-myT" },
+          "id":        { "type": "string", "example": "V1StGXR8_Z5jdHi6B-myT" },
+          "lang":      { "type": "string", "example": "python" },
+          "protected": { "type": "boolean", "description": "Whether the paste is protected from deletion.", "example": false }
         }
       },
       "DeleteResponse": {
@@ -199,10 +207,11 @@
       "ConfigResponse": {
         "type": "object",
         "properties": {
-          "max_ttl":               { "type": "integer", "description": "Maximum TTL in seconds. 0 = unlimited.", "example": 0 },
-          "default_ttl":           { "type": "integer", "description": "Default TTL in seconds.", "example": 0 },
-          "max_paste_size":        { "type": "integer", "description": "Maximum paste size in bytes.", "example": {{.MaxSize}} },
-          "server_side_encryption":{ "type": "boolean", "description": "Whether server-side AES-256-GCM encryption is active.", "example": {{.SSEEnabled}} }
+          "max_ttl":                  { "type": "integer", "description": "Maximum TTL in seconds. 0 = unlimited.", "example": 0 },
+          "default_ttl":              { "type": "integer", "description": "Default TTL in seconds.", "example": 0 },
+          "max_paste_size":           { "type": "integer", "description": "Maximum paste size in bytes.", "example": {{.MaxSize}} },
+          "server_side_encryption":   { "type": "boolean", "description": "Whether server-side AES-256-GCM encryption is active.", "example": {{.SSEEnabled}} },
+          "protected_paste_enabled":  { "type": "boolean", "description": "Whether the ?protected=true creation flag is accepted.", "example": false }
         }
       }
     }

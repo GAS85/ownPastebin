@@ -30,6 +30,12 @@ type Settings struct {
 	ServerSideEncryptionEnabled bool
 	ServerSideEncryptionKey     string
 
+	// ProtectedPasteEnabled enables the ?protected=true creation flag.
+	// When true, pastes created with protected=true cannot be deleted via the
+	// DELETE API — attempts return HTTP 403.  Existing pastes are unaffected by
+	// toggling this flag at runtime (the protected column is always persisted).
+	ProtectedPasteEnabled bool
+
 	// TrustedProxy is the CIDR range (or single IP) of a reverse proxy whose
 	// X-Forwarded-For header is trusted for real-IP logging.
 	// Empty / unset means XFF is never trusted — r.RemoteAddr is always used.
@@ -58,6 +64,8 @@ func loadSettings() *Settings {
 
 		ServerSideEncryptionEnabled: getEnvBool("PASTEBIN_SERVER_SIDE_ENCRYPTION_ENABLED", false),
 		ServerSideEncryptionKey:     os.Getenv("PASTEBIN_SERVER_SIDE_ENCRYPTION_KEY"),
+
+		ProtectedPasteEnabled: getEnvBool("PASTEBIN_PROTECTED_PASTE_ENABLED", false),
 
 		Version: os.Getenv("VERSION"),
 	}

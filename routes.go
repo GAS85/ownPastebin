@@ -38,6 +38,7 @@ type TemplateData struct {
 	IsError       bool
 	IsEncrypted   bool
 	IsClone       bool
+	IsProtected   bool       // true = DELETE is blocked; hides/disables delete button in UI
 	PastebinCode  string
 	PastebinID    string
 	PastebinCls   string
@@ -228,11 +229,15 @@ func (a *App) handleCreatePaste(w http.ResponseWriter, r *http.Request) {
 		lang = "text"
 	}
 
+	// Only honour ?protected=true when the feature is enabled in config.
+	protected := a.cfg.ProtectedPasteEnabled && q.Get("protected") == "true"
+
 	paste := &PasteData{
 		Content:      content,
 		Burn:         burn,
 		Encrypted:    encryptedFlag,
 		E2EEncrypted: q.Get("encrypted") == "true",
+		Protected:    protected,
 		Lang:         lang,
 	}
 
@@ -266,7 +271,7 @@ func (a *App) handleCreatePaste(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Location", url)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	w.Write([]byte(`{"url":"` + url + `","id":"` + id + `","lang":"` + lang + `"}`))
+	w.Write([]byte(`{"url":"` + url + `","id":"` + id + `","lang":"` + lang + `","protected":` + strconv.FormatBool(protected) + `}`))
 }
 
 // GET /config
@@ -280,7 +285,8 @@ func (a *App) handleConfig(w http.ResponseWriter, r *http.Request) {
 		`"max_ttl":` + strconv.FormatInt(maxTTL, 10) + `,` +
 		`"default_ttl":` + strconv.FormatInt(int64(a.cfg.DefaultTTL.Seconds()), 10) + `,` +
 		`"max_paste_size":` + strconv.FormatInt(a.cfg.MaxPasteSize, 10) + `,` +
-		`"server_side_encryption":` + strconv.FormatBool(a.cfg.ServerSideEncryptionEnabled) +
+		`"server_side_encryption":` + strconv.FormatBool(a.cfg.ServerSideEncryptionEnabled) + `,` +
+		`"protected_paste_enabled":` + strconv.FormatBool(a.cfg.ProtectedPasteEnabled) +
 		`}`))
 }
 
@@ -357,6 +363,7 @@ func (a *App) handleView(w http.ResponseWriter, r *http.Request) {
 	d.IsBurned       = paste.Burn
 	d.IsBurn         = paste.Burn
 	d.IsEncrypted    = paste.E2EEncrypted
+	d.IsProtected    = paste.Protected
 	d.PastebinCode   = text
 	d.PastebinID     = id
 	d.PastebinCls    = "language-" + paste.Lang
@@ -366,7 +373,23 @@ func (a *App) handleView(w http.ResponseWriter, r *http.Request) {
 
 // DELETE /{id}
 func (a *App) handleDelete(w http.ResponseWriter, r *http.Request) {
-	if err := a.storage.Delete(chi.URLParam(r, "id")); err != nil {
+	id := chi.URLParam(r, "id")
+	// Guard: when the protected-paste feature is active, peek at metadata before
+	// deleting. Protected pastes return 403 — all other features (TTL, burn) are
+	// unaffected. The check is skipped entirely when the feature is disabled so
+	// there is zero overhead for deployments that never use it.
+	if a.cfg.ProtectedPasteEnabled {
+		meta, err := a.storage.PeekMeta(id)
+		if err != nil {
+			http.Error(w, "delete failed", http.StatusInternalServerError)
+			return
+		}
+		if meta != nil && meta.Protected {
+			http.Error(w, "paste is protected", http.StatusForbidden)
+			return
+		}
+	}
+	if err := a.storage.Delete(id); err != nil {
 		http.Error(w, "delete failed", http.StatusInternalServerError)
 		return
 	}
