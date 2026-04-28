@@ -4,7 +4,6 @@ set -e
 # ── Defaults ──────────────────────────────────────────────────────────────────
 export PASTEBIN_BASE_URL="${PASTEBIN_BASE_URL:-http://localhost:8080}"
 export PASTEBIN_SQLITE_PATH="${PASTEBIN_SQLITE_PATH:-/app/data/pastes.db}"
-export PASTEBIN_DEFAULT_TTL="${PASTEBIN_DEFAULT_TTL:-0}"
 export PASTEBIN_SLUG_LEN="${PASTEBIN_SLUG_LEN:-20}"
 export PASTEBIN_MAX_PARALLEL_UPLOADS="${PASTEBIN_MAX_PARALLEL_UPLOADS:-20}"
 export PASTEBIN_MAX_PASTE_SIZE="${PASTEBIN_MAX_PASTE_SIZE:-5MB}"
@@ -108,27 +107,33 @@ if [ "$PASTEBIN_SERVER_SIDE_ENCRYPTION_ENABLED" = "true" ] && [ -z "$PASTEBIN_SE
     exit 1
 fi
 
+# ── Protected pastes sanity check ──────────────────────────────────────────────
+if [ "$PASTEBIN_PROTECTED_PASTE_ENABLED" = "true" ] && [ -z "$PASTEBIN_MAX_TTL" ]; then
+    log WARNING "You have enabled support for protected pastes, but you haven’t set a maximum TTL (PASTEBIN_MAX_TTL). This could result in pastes that live indefinitely. They can only be removed via direct database access."
+fi
+
 # ── Startup summary ───────────────────────────────────────────────────────────
 
-log INFO "Welcome to own Pastebin $VERSION, build $VCS_REF.
-\t\tStorage:                ${DB_INFO},
-$([ -n "${DB_SIZE}" ] && echo "\t\tStorage size:           ${DB_SIZE},";)
-$([ -n "${PASTEBIN_SQLITE_PAGE_SIZE}" ] && echo "\t\tCustom SQLite Page size:${PASTEBIN_SQLITE_PAGE_SIZE},";)
-\t\tListen:                 ${PASTEBIN_HOST}:${PASTEBIN_PORT},
-\t\tBase URL:               ${PASTEBIN_BASE_URL},
-\t\tServer side Encryption: ${PASTEBIN_SERVER_SIDE_ENCRYPTION_ENABLED},
-\t\tMax TTL:                ${PASTEBIN_MAX_TTL:-unlimited},
-\t\tDefault TTL:            ${PASTEBIN_DEFAULT_TTL:-not set},
-\t\tBurn by default         ${PASTEBIN_DEFAULT_BURN:-false},
-\t\tMax paste:              ${PASTEBIN_MAX_PASTE_SIZE},
-\t\tMax Parallel Uploads:   ${PASTEBIN_MAX_PARALLEL_UPLOADS},
-\t\tUniq URL Length:        ${PASTEBIN_SLUG_LEN},
-\t\tTLS key:                ${PASTEBIN_TLS_KEY:-not set},
-\t\tTLS cert:               ${PASTEBIN_TLS_CERT:-not set},
-\t\tTrusted proxy:          ${PASTEBIN_TRUSTED_PROXY:-not set (XFF ignored)},
-\t\tTimezone:               ${TZ:-not set},
-\t\tLog level:              ${PASTEBIN_LOG_LEVEL},
-\t\tDate format:            ${PASTEBIN_SHELL_DATE_FORMAT}"
+log INFO "Welcome to own Pastebin ${VERSION}, build ${VCS_REF}.
+\t\tStorage:                 ${DB_INFO},
+$([ -n "${DB_SIZE}" ] && echo "\t\tStorage size:            ${DB_SIZE},";)
+$([ -n "${PASTEBIN_SQLITE_PAGE_SIZE}" ] && echo "\t\tCustom SQLite Page size: ${PASTEBIN_SQLITE_PAGE_SIZE},";)
+\t\tListen:                  ${PASTEBIN_HOST}:${PASTEBIN_PORT},
+\t\tBase URL:                ${PASTEBIN_BASE_URL},
+\t\tServer side Encryption:  ${PASTEBIN_SERVER_SIDE_ENCRYPTION_ENABLED},
+\t\tMax TTL:                 ${PASTEBIN_MAX_TTL:-unlimited},
+$([ -n "${PASTEBIN_DEFAULT_TTL}" ] && echo "\t\tDefault TTL:             ${PASTEBIN_DEFAULT_TTL},";)
+$([ -n "${PASTEBIN_DEFAULT_BURN}" ] && echo "\t\tBurn by default:         ${PASTEBIN_DEFAULT_BURN},";)
+$([ -n "${PASTEBIN_PROTECTED_PASTE_ENABLED}" ] && echo "\t\tEnable Protected Pastes: ${PASTEBIN_PROTECTED_PASTE_ENABLED},";)
+\t\tMax paste:               ${PASTEBIN_MAX_PASTE_SIZE},
+\t\tMax Parallel Uploads:    ${PASTEBIN_MAX_PARALLEL_UPLOADS},
+\t\tUniq URL Length:         ${PASTEBIN_SLUG_LEN},
+$([ -n "${PASTEBIN_TLS_KEY}" ] && echo "\t\tTLS key:                 ${PASTEBIN_TLS_KEY},";)
+$([ -n "${PASTEBIN_TLS_CERT}" ] && echo "\t\tTLS cert:                ${PASTEBIN_TLS_CERT},";)
+\t\tTrusted proxy:           ${PASTEBIN_TRUSTED_PROXY:-not set (XFF ignored)},
+$([ -n "${TZ}" ] && echo "\t\tTimezone:                ${TZ},";)
+\t\tLog level:               ${PASTEBIN_LOG_LEVEL},
+\t\tDate format:             ${PASTEBIN_SHELL_DATE_FORMAT}"
 
 # ── File Logging  ─────────────────────────────────────────────────────────────
 if [ -n "${PASTEBIN_FILE_LOG+x}" ]; then

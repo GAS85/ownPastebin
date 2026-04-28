@@ -31,27 +31,28 @@ type App struct {
 
 // TemplateData is passed to index.html for every render.
 type TemplateData struct {
-	IsEditable    bool
-	IsCreated     bool
-	IsBurned      bool
-	IsBurn        bool       // true = this paste is configured as burn-on-read
-	IsError       bool
-	IsEncrypted   bool
-	IsClone       bool
-	IsProtected   bool       // true = DELETE is blocked; hides/disables delete button in UI
-	PastebinCode  string
-	PastebinID    string
-	PastebinCls   string
-	Version       string
-	ExpireAt      *time.Time // nil = never expires
-	CSSImports    []string   // plugin CSS — loaded before custom.css
-	TailCSSImports []string  // loaded last — custom.css always wins the cascade
-	JSImports     []string
-	JSInits       []string
-	ExpiryTimes   []ExpiryOption
-	URIPrefix     string
-	DefaultExpiry string
-	DefaultBurn   bool
+	IsEditable            bool
+	IsCreated             bool
+	IsBurned              bool
+	IsBurn                bool       // true = this paste is configured as burn-on-read
+	IsError               bool
+	IsEncrypted           bool
+	IsClone               bool
+	IsProtected           bool       // true = DELETE is blocked; hides/disables delete button in UI
+	ProtectedPasteEnabled bool       // true = add protected option to the UI
+	PastebinCode          string
+	PastebinID            string
+	PastebinCls           string
+	Version               string
+	ExpireAt              *time.Time // nil = never expires
+	CSSImports            []string   // plugin CSS — loaded before custom.css
+	TailCSSImports        []string   // loaded last — custom.css always wins the cascade
+	JSImports             []string
+	JSInits               []string
+	ExpiryTimes           []ExpiryOption
+	URIPrefix             string
+	DefaultExpiry         string
+	DefaultBurn           bool
 
 	// Flash / redirect params (mirroring Python ?level=&msg=&glyph=&url=)
 	Level    string
@@ -80,19 +81,20 @@ func (a *App) baseData(r *http.Request) TemplateData {
 	// New-paste page: no language known yet — exclude conditional plugins (Mermaid).
 	css, js, inits := a.plugins.BuildFor("")
 	return TemplateData{
-		Version:        os.Getenv("VERSION"),
-		URIPrefix:      a.cfg.PathPrefix,
-		CSSImports:     css,
-		TailCSSImports: a.plugins.TailCSSImports(),
-		JSImports:      js,
-		JSInits:        inits,
-		ExpiryTimes:    defaultExpiryTimes,
-		DefaultExpiry:  strconv.FormatInt(int64(a.cfg.DefaultTTL.Seconds()), 10),
-		DefaultBurn:    a.cfg.DefaultBurn,
-		Level:          r.URL.Query().Get("level"),
-		Msg:            r.URL.Query().Get("msg"),
-		Glyph:          r.URL.Query().Get("glyph"),
-		FlashURL:       r.URL.Query().Get("url"),
+		Version:               os.Getenv("VERSION"),
+		URIPrefix:             a.cfg.PathPrefix,
+		CSSImports:            css,
+		TailCSSImports:        a.plugins.TailCSSImports(),
+		JSImports:             js,
+		JSInits:               inits,
+		ExpiryTimes:           defaultExpiryTimes,
+		DefaultExpiry:         strconv.FormatInt(int64(a.cfg.DefaultTTL.Seconds()), 10),
+		DefaultBurn:           a.cfg.DefaultBurn,
+		ProtectedPasteEnabled: a.cfg.ProtectedPasteEnabled,
+		Level:                 r.URL.Query().Get("level"),
+		Msg:                   r.URL.Query().Get("msg"),
+		Glyph:                 r.URL.Query().Get("glyph"),
+		FlashURL:              r.URL.Query().Get("url"),
 	}
 }
 
