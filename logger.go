@@ -14,16 +14,17 @@ import (
 //
 //	PASTEBIN_LOG_LEVEL       one of DEBUG, INFO, WARN, ERROR  (default: INFO)
 //	PASTEBIN_DATE_FORMAT     strftime-style Go time layout for TEXT format only (default: "2006-01-02 15:04:05")
-//	                         JSON format always uses RFC3339 ("2006-01-02T15:04:05Z07:00")
+//	                         JSON format always uses RFC3339Nano ("2006-01-02T15:04:05.999999999Z07:00")
 //	PASTEBIN_LOG_FORMAT      "json" for structured JSON, anything else for text (default: text)
 //
 // The output format mirrors the Python/entrypoint.sh style for TEXT format:
 //
 //	2006-01-02 15:04:05 - INFO - component - message key=value
 //
-// JSON format uses custom handler that nests all attributes under "msg":
+// JSON format uses a custom handler with component hoisted to the top level and
+// all remaining attributes nested under "msg":
 //
-//	{"time":"2006-01-02T15:04:05Z07:00","level":"INFO","component":"storage","msg":{"message":"sqlite file stats","db_bytes":4096,...}}
+//	{"time":"2006-01-02T15:04:05.000000000Z07:00","level":"INFO","component":"storage","msg":{"message":"sqlite file stats","db_bytes":4096,...}}
 func initLogger() {
 	level := parseLogLevel(os.Getenv("PASTEBIN_LOG_LEVEL"))
 	format := strings.ToLower(strings.TrimSpace(os.Getenv("PASTEBIN_LOG_FORMAT")))
@@ -31,7 +32,8 @@ func initLogger() {
 	var handler slog.Handler
 
 	if format == "json" {
-		// Custom JSON handler that nests attributes under "msg"
+		// Custom JSON handler that hoists component to the top level and nests
+		// remaining attributes under "msg".
 		handler = &jsonMsgHandler{
 			w:     os.Stdout,
 			level: level,
@@ -65,8 +67,9 @@ func parseLogLevel(s string) slog.Level {
 	}
 }
 
-// jsonMsgHandler is a custom slog.Handler that writes JSON with all attributes
-// nested under a "msg" field as a JSON object.
+// jsonMsgHandler is a custom slog.Handler that writes JSON with:
+//   - "time", "level", and "component" as top-level fields
+//   - all other attributes nested under a "msg" object alongside "message"
 type jsonMsgHandler struct {
 	w     io.Writer
 	level slog.Level
@@ -78,40 +81,44 @@ func (h *jsonMsgHandler) Enabled(_ context.Context, l slog.Level) bool {
 }
 
 func (h *jsonMsgHandler) Handle(_ context.Context, r slog.Record) error {
-	// Build the log entry
-	logEntry := make(map[string]interface{})
-
-	// Add standard fields
-	logEntry["time"] = r.Time.Format(time.RFC3339Nano)
-	logEntry["level"] = r.Level.String()
-
-	// Build the msg object
+	// Extract component from pre-attached attrs and record attrs, collect the rest.
+	component := "pastebin"
 	msgObj := make(map[string]interface{})
 
-	// First, add all pre-attached attributes (like component)
 	for _, attr := range h.attrs {
-		msgObj[attr.Key] = attr.Value.Any()
+		attr.Value = attr.Value.Resolve()
+		if attr.Key == "component" && attr.Value.Kind() == slog.KindString {
+			component = attr.Value.String()
+		} else {
+			msgObj[attr.Key] = attr.Value.Any()
+		}
 	}
 
-	// Then add the main message as a special field
 	msgObj["message"] = r.Message
 
-	// Add all record attributes
 	r.Attrs(func(a slog.Attr) bool {
-		msgObj[a.Key] = a.Value.Any()
+		a.Value = a.Value.Resolve()
+		if a.Key == "component" && a.Value.Kind() == slog.KindString {
+			component = a.Value.String()
+		} else {
+			msgObj[a.Key] = a.Value.Any()
+		}
 		return true
 	})
 
-	logEntry["msg"] = msgObj
+	logEntry := map[string]interface{}{
+		"time":      r.Time.Format(time.RFC3339Nano),
+		"level":     r.Level.String(),
+		"component": component,
+		"msg":       msgObj,
+	}
 
-	// Marshal to JSON
 	encoder := json.NewEncoder(h.w)
-	encoder.SetEscapeHTML(false) // Don't escape HTML characters
+	encoder.SetEscapeHTML(false)
 	return encoder.Encode(logEntry)
 }
 
 func (h *jsonMsgHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
-	// Merge existing attrs with new ones
 	newAttrs := make([]slog.Attr, len(h.attrs)+len(attrs))
 	copy(newAttrs, h.attrs)
 	copy(newAttrs[len(h.attrs):], attrs)
@@ -150,6 +157,7 @@ func (h *textHandler) Handle(_ context.Context, r slog.Record) error {
 
 	// Add pre-attached attributes first
 	for _, attr := range h.attrs {
+		attr.Value = attr.Value.Resolve()
 		if attr.Key == "component" && attr.Value.Kind() == slog.KindString {
 			component = attr.Value.String()
 		} else {
@@ -162,6 +170,7 @@ func (h *textHandler) Handle(_ context.Context, r slog.Record) error {
 
 	// Then add record attributes
 	r.Attrs(func(a slog.Attr) bool {
+		a.Value = a.Value.Resolve()
 		if a.Key == "component" && a.Value.Kind() == slog.KindString {
 			component = a.Value.String()
 		} else {
@@ -180,7 +189,6 @@ func (h *textHandler) Handle(_ context.Context, r slog.Record) error {
 }
 
 func (h *textHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
-	// Merge existing attrs with new ones
 	newAttrs := make([]slog.Attr, len(h.attrs)+len(attrs))
 	copy(newAttrs, h.attrs)
 	copy(newAttrs[len(h.attrs):], attrs)

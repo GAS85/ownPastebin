@@ -31,7 +31,7 @@ fi
 
 log() {
     if [ ${PASTEBIN_LOG_FORMAT} = "json" ]; then
-        echo "{\"level\":\"$1\",\"component\":\"$(basename "$0")\",\"msg\":\"$(echo $2 | sed 's/[[:space:]]\+/ /g; s/\\t//g')\",\"time\":\"$(ts)\"}"
+        echo "{\"component\":\"$(basename "$0")\",\"level\":\"$1\",\"msg\":\"$(echo $2 | sed 's/[[:space:]]\+/ /g; s/\\t//g')\",\"time\":\"$(ts)\"}"
     else
         echo -e "$(ts) - $1 - $(basename "$0") - $(echo "$2" | grep -v '^$')"
     fi
