@@ -204,3 +204,129 @@ func TestSubpathPrefix(t *testing.T) {
 		t.Fatalf("URL missing prefix: %s", res.Body.String())
 	}
 }
+
+// ---- Protected paste tests --------------------------------------------------
+
+func TestProtectedPasteDeleteBlocked(t *testing.T) {
+	_, handler := NewAppForTest(t, TestConfig{ProtectedPasteEnabled: true})
+
+	res := doRequest(t, handler, "POST", "/?protected=true", strings.NewReader("secret"))
+	if res.Code != 201 {
+		t.Fatalf("create: expected 201, got %d", res.Code)
+	}
+	body := res.Body.String()
+	if !strings.Contains(body, `"protected":true`) {
+		t.Fatalf("response missing protected:true — got: %s", body)
+	}
+	id := extractID(t, body)
+
+	res = doRequest(t, handler, "DELETE", "/"+id, nil)
+	if res.Code != 403 {
+		t.Fatalf("delete protected: expected 403, got %d", res.Code)
+	}
+}
+
+func TestProtectedPasteStillReadable(t *testing.T) {
+	_, handler := NewAppForTest(t, TestConfig{ProtectedPasteEnabled: true})
+
+	res := doRequest(t, handler, "POST", "/?protected=true", strings.NewReader("readable secret"))
+	id := extractID(t, res.Body.String())
+
+	res = doRequest(t, handler, "GET", "/"+id, nil)
+	if res.Code != 200 {
+		t.Fatalf("read protected: expected 200, got %d", res.Code)
+	}
+	if !strings.Contains(res.Body.String(), "readable secret") {
+		t.Fatalf("body missing paste content: %s", res.Body.String())
+	}
+}
+
+func TestProtectedPasteRawAndDownloadWork(t *testing.T) {
+	_, handler := NewAppForTest(t, TestConfig{ProtectedPasteEnabled: true})
+
+	res := doRequest(t, handler, "POST", "/?protected=true", strings.NewReader("raw secret"))
+	id := extractID(t, res.Body.String())
+
+	res = doRequest(t, handler, "GET", "/raw/"+id, nil)
+	if res.Code != 200 {
+		t.Fatalf("raw: expected 200, got %d", res.Code)
+	}
+
+	res = doRequest(t, handler, "GET", "/download/"+id, nil)
+	if res.Code != 200 {
+		t.Fatalf("download: expected 200, got %d", res.Code)
+	}
+}
+
+func TestProtectedFlagIgnoredWhenFeatureDisabled(t *testing.T) {
+	// With ProtectedPasteEnabled=false (default), ?protected=true is silently
+	// ignored and DELETE must succeed normally.
+	_, handler := NewAppForTest(t, TestConfig{})
+
+	res := doRequest(t, handler, "POST", "/?protected=true", strings.NewReader("not really protected"))
+	if res.Code != 201 {
+		t.Fatalf("create: expected 201, got %d", res.Code)
+	}
+	body := res.Body.String()
+	// Feature disabled → protected should be false in the response.
+	if !strings.Contains(body, `"protected":false`) {
+		t.Fatalf("expected protected:false when feature disabled — got: %s", body)
+	}
+	id := extractID(t, body)
+
+	res = doRequest(t, handler, "DELETE", "/"+id, nil)
+	if res.Code != 200 {
+		t.Fatalf("delete when feature disabled: expected 200, got %d", res.Code)
+	}
+}
+
+func TestProtectedPasteWithTTL(t *testing.T) {
+	// TTL expiry must still work on protected pastes.
+	_, handler := NewAppForTest(t, TestConfig{ProtectedPasteEnabled: true})
+
+	res := doRequest(t, handler, "POST", "/?protected=true&ttl=1", strings.NewReader("expires soon"))
+	id := extractID(t, res.Body.String())
+
+	res = doRequest(t, handler, "GET", "/"+id, nil)
+	if res.Code != 200 {
+		t.Fatalf("before expiry: expected 200, got %d", res.Code)
+	}
+
+	time.Sleep(2 * time.Second)
+
+	res = doRequest(t, handler, "GET", "/"+id, nil)
+	if res.Code != 404 {
+		t.Fatalf("after expiry: expected 404, got %d", res.Code)
+	}
+}
+
+func TestProtectedPasteWithBurn(t *testing.T) {
+	// Burn-on-read must still work on protected pastes — protection only blocks
+	// the explicit DELETE endpoint.
+	_, handler := NewAppForTest(t, TestConfig{ProtectedPasteEnabled: true})
+
+	res := doRequest(t, handler, "POST", "/?protected=true&burn=true", strings.NewReader("burn and protect"))
+	id := extractID(t, res.Body.String())
+
+	res = doRequest(t, handler, "GET", "/"+id, nil)
+	if res.Code != 200 {
+		t.Fatalf("first read: expected 200, got %d", res.Code)
+	}
+
+	res = doRequest(t, handler, "GET", "/"+id, nil)
+	if res.Code != 404 {
+		t.Fatalf("second read (burn): expected 404, got %d", res.Code)
+	}
+}
+
+func TestConfigIncludesProtectedPasteFlag(t *testing.T) {
+	_, handler := NewAppForTest(t, TestConfig{ProtectedPasteEnabled: true})
+
+	res := doRequest(t, handler, "GET", "/config", nil)
+	if res.Code != 200 {
+		t.Fatalf("expected 200, got %d", res.Code)
+	}
+	if !strings.Contains(res.Body.String(), `"protected_paste_enabled":true`) {
+		t.Fatalf("config missing protected_paste_enabled: %s", res.Body.String())
+	}
+}

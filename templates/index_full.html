@@ -96,8 +96,8 @@
       <div id="expiry-burn-controls-burn" class="w3-dropdown-hover w3-margin-top w3-center">
         <button id="burn-dropdown-btn" class="w3-button w3-round w3-center">Burn: No</button>
         <div class="w3-dropdown-content w3-bar-block w3-card-4" id="burn-dropdown">
-          <a class="w3-bar-item w3-button" href="true">Yes</a>
-          <a class="w3-bar-item w3-button" href="false">No</a>
+          <a class="w3-bar-item w3-button" href="#" data-value="true">Yes</a>
+          <a class="w3-bar-item w3-button" href="#" data-value="false">No</a>
         </div>
       </div>
 
@@ -278,6 +278,15 @@
       </div>
 
       <small id="password-strength-text"></small>
+
+      <!-- Protected dropdown -->
+      <div id="controls-protected" class="w3-dropdown-hover w3-margin-top w3-center">
+        <button id="protected-dropdown-btn" class="w3-button w3-round w3-center">Protected: No</button>
+        <div class="w3-dropdown-content w3-bar-block w3-card-4" id="protected-dropdown">
+          <a class="w3-bar-item w3-button" href="#" data-value="true">Yes</a>
+          <a class="w3-bar-item w3-button" href="#" data-value="false">No</a>
+        </div>
+      </div>
 
       <button id="send-btn-sidebar" class="w3-bar-item w3-button w3-margin-top w3-green w3-hover-light-green w3-round w3-center"><i class="fa-solid fa-upload"></i> Send</button>
 

@@ -97,7 +97,7 @@ The application automatically selects the first available backend:
 ## ⏳ TTL Settings
 
 * `PASTEBIN_DEFAULT_TTL` - Default expiration if none provided. Default: `0` (no expiration)
-* `PASTEBIN_MAX_TTL` -  Maximum allowed TTL. It is recommended to set this value for internet accessible sites. If set:
+* `PASTEBIN_MAX_TTL` -  Maximum allowed TTL. It is recommended to set this value for internet accessible sites. It is recommended to set this value if protected pastes are enabled. If set:
   * caps user-provided TTL
   * used when no TTL is provided
 * `PASTEBIN_DEFAULT_BURN` - If enabled all pastes without `burn=false` will be saved to be viewed only once. You can still set `burn=false` via UI or CLI. Default: `false`.
@@ -113,7 +113,7 @@ Supported Formats:
 
 ## 📏 Limits
 
-* `PASTEBIN_MAX_PARALLEL_UPLOADS` - Max amount of parallel POST requests. Default `20`. Be aware that each requests needs memory. E.g. if `PASTEBIN_MAX_PASTE_SIZE=5MB` and `PASTEBIN_MAX_PARALLEL_UPLOADS=20`, that needs around 5 *20* 3,3 (roughly amount of modifications) = 400 Mb of RAM and with `PASTEBIN_MAX_PASTE_SIZE=30MB` around 2 GB of RAM.
+* `PASTEBIN_MAX_PARALLEL_UPLOADS` - Max amount of parallel POST requests. Default `20`. Be aware that each requests needs memory. E.g. if `PASTEBIN_MAX_PASTE_SIZE=5MB` and `PASTEBIN_MAX_PARALLEL_UPLOADS=20`, that needs around 5 *20* 2,3 (roughly amount of modifications) = 230 Mb of RAM and with `PASTEBIN_MAX_PASTE_SIZE=30MB` around 1,5 GB of RAM.
 * `PASTEBIN_MAX_PASTE_SIZE` - Max upload size. Default: `5MB`
 
 Supported Formats:
@@ -127,7 +127,7 @@ Supported Formats:
 
 ## 🔐 Security
 
-* `PASTEBIN_SERVER_SIDE_ENCRYPTION_ENABLED`- Enable encryption before storage. Default `false` - disabled.
+* `PASTEBIN_SERVER_SIDE_ENCRYPTION_ENABLED`- Enable server side encryption before to store the paste. Recommended on shared environments. Default `false` - disabled.
 * `PASTEBIN_SERVER_SIDE_ENCRYPTION_KEY`- 32-byte base64 key (required if encryption enabled). You can generate Key with openssl, or directly with this container.
 
 ```bash
@@ -140,12 +140,13 @@ Or:
 docker run -e GENERATE_KEY=true gas85/ownpastebin:latest
 ```
 
-⚠️ If you ever rotate the key or loose it, **old pastes become permanently unreadable.** ⚠️
+⚠️ If you ever rotate the key or loose it, **old pastes become permanently unreadable.** There is no restore for it. ⚠️
 
 ## 🕒 Misc
 
-* `PASTEBIN_SLUG_LEN` - Uniq URL Length. Default to `20`. It is not recommended to go below this value to avoid possible collision and Link guessing attack.
-* `PASTEBIN_DATE_FORMAT` - Log timestamp format. Default: `%Y-%m-%d %H:%M:%S`
+* `PASTEBIN_SLUG_LEN` - Uniq URL Length. Default to `20`. It is not recommended to go below this value to avoid possible collision (handled by storage) and Link guessing attack.
+* `PASTEBIN_PROTECTED_PASTE_ENABLED` - enable support for protected pastes. They can be created with a flag `protected=true` and can be only removed by expiration time or burn option. It is recommended to set `PASTEBIN_MAX_TTL` this feature is enabled, otherwise it could result in pastes that live indefinitely. They can only be removed via direct database access. Default to `false`.
+* `PASTEBIN_DATE_FORMAT` - Text logs timestamp format. Disabled when logs format is set to `json`. Default: `%Y-%m-%d %H:%M:%S`
 * `TZ` - Timezone. Default `Europe/Zurich`
 
 ## 🧠 Storage Behavior
@@ -197,7 +198,7 @@ kubectl apply -f k8s.yml
 
 ## Build
 
-You can build it with following commands:
+You can build it from sources with following commands:
 
 ```bash
 go mod download
@@ -208,6 +209,12 @@ Or use docker
 
 ```bash
 docker build -t ownpastebin:latest .
+```
+
+You can perform local test automation with following command:
+
+```bash
+CGO_ENABLED=1 go test ./... -v
 ```
 
 ## 📦 Pastebin API
@@ -230,6 +237,7 @@ Create a new paste.
 | Name        | Type | Description                          |
 | ----------- | ---- | ------------------------------------ |
 | `ttl`       | int  | Time to live (seconds)               |
+| `protected` | bool | Protected paste, will not be deleted upon request, only expiration time and / or burn can remove such kind of pastes |
 | `burn`      | bool | Delete after first read              |
 | `encrypted` | bool | Marks paste as client-side encrypted. It is only being used to give UI a trigger to offer Decryption directly in Browser. Otherwise encrypted data will be shown. |
 
@@ -245,13 +253,19 @@ E.g. you can push all docker logs to the pastebin:
 
 ```bash
 # As per https://wiki.sitnikov.eu/doku.php?id=howto:docker#push_all_docker_logs_to_the_pastebin
-docker ps --format '{{.Names}}' | xargs -I {} sh -c 'docker logs --timestamps -tail 500 {} 2>&1 | sed "s/^/[{}] /"' | curl http://localhost.eu:8080 --data-binary @-
+docker ps --format '{{.Names}}' | xargs -I {} sh -c 'docker logs --timestamps -tail 500 {} 2>&1 | sed "s/^/[{}] /"' | curl http://localhost:8080 --data-binary @-
 ```
 
 #### Burn after read + TTL
 
 ```bash
 curl "http://localhost:8080?burn=true&ttl=60" --data-binary "@file.txt"
+```
+
+#### Burn after read + TTL + protect paste from deletion
+
+```bash
+curl "http://localhost:8080?burn=true&ttl=60&protected=true" --data-binary "@file.txt"
 ```
 
 #### Response
@@ -303,12 +317,20 @@ If `burn=true`:
 * First request → returns content
 * Second request → `404 Not Found`
 
+### Protected paste
+
+if `protected=true`:
+
+* DELETE Method is disabled for this paste and will return `403 Forbidden` with `paste is protected` message
+* Burn and expiration time works as before and will remove protected pastes too
+
 ### ⚠️ Limits & Errors
 
 ### Paste too large
 
 ```plain
 413 Paste too large
+403 Paste is protected
 ```
 
 ## 🧾 Logging
@@ -329,7 +351,7 @@ Example:
 * Binary-safe storage
 * No in-memory caching → RAM efficient
 * SQLite uses WAL mode for better concurrency
-* Expired pastes are cleaned on access (lazy cleanup)
+* Expired pastes are cleaned on access (lazy cleanup) and periodically during the day
 
 ## 📌 Summary
 

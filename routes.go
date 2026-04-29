@@ -31,26 +31,28 @@ type App struct {
 
 // TemplateData is passed to index.html for every render.
 type TemplateData struct {
-	IsEditable    bool
-	IsCreated     bool
-	IsBurned      bool
-	IsBurn        bool       // true = this paste is configured as burn-on-read
-	IsError       bool
-	IsEncrypted   bool
-	IsClone       bool
-	PastebinCode  string
-	PastebinID    string
-	PastebinCls   string
-	Version       string
-	ExpireAt      *time.Time // nil = never expires
-	CSSImports    []string   // plugin CSS — loaded before custom.css
-	TailCSSImports []string  // loaded last — custom.css always wins the cascade
-	JSImports     []string
-	JSInits       []string
-	ExpiryTimes   []ExpiryOption
-	URIPrefix     string
-	DefaultExpiry string
-	DefaultBurn   bool
+	IsEditable            bool
+	IsCreated             bool
+	IsBurned              bool
+	IsBurn                bool       // true = this paste is configured as burn-on-read
+	IsError               bool
+	IsEncrypted           bool
+	IsClone               bool
+	IsProtected           bool       // true = DELETE is blocked; hides/disables delete button in UI
+	ProtectedPasteEnabled bool       // true = add protected option to the UI
+	PastebinCode          string
+	PastebinID            string
+	PastebinCls           string
+	Version               string
+	ExpireAt              *time.Time // nil = never expires
+	CSSImports            []string   // plugin CSS — loaded before custom.css
+	TailCSSImports        []string   // loaded last — custom.css always wins the cascade
+	JSImports             []string
+	JSInits               []string
+	ExpiryTimes           []ExpiryOption
+	URIPrefix             string
+	DefaultExpiry         string
+	DefaultBurn           bool
 
 	// Flash / redirect params (mirroring Python ?level=&msg=&glyph=&url=)
 	Level    string
@@ -79,19 +81,20 @@ func (a *App) baseData(r *http.Request) TemplateData {
 	// New-paste page: no language known yet — exclude conditional plugins (Mermaid).
 	css, js, inits := a.plugins.BuildFor("")
 	return TemplateData{
-		Version:        os.Getenv("VERSION"),
-		URIPrefix:      a.cfg.PathPrefix,
-		CSSImports:     css,
-		TailCSSImports: a.plugins.TailCSSImports(),
-		JSImports:      js,
-		JSInits:        inits,
-		ExpiryTimes:    defaultExpiryTimes,
-		DefaultExpiry:  strconv.FormatInt(int64(a.cfg.DefaultTTL.Seconds()), 10),
-		DefaultBurn:    a.cfg.DefaultBurn,
-		Level:          r.URL.Query().Get("level"),
-		Msg:            r.URL.Query().Get("msg"),
-		Glyph:          r.URL.Query().Get("glyph"),
-		FlashURL:       r.URL.Query().Get("url"),
+		Version:               os.Getenv("VERSION"),
+		URIPrefix:             a.cfg.PathPrefix,
+		CSSImports:            css,
+		TailCSSImports:        a.plugins.TailCSSImports(),
+		JSImports:             js,
+		JSInits:               inits,
+		ExpiryTimes:           defaultExpiryTimes,
+		DefaultExpiry:         strconv.FormatInt(int64(a.cfg.DefaultTTL.Seconds()), 10),
+		DefaultBurn:           a.cfg.DefaultBurn,
+		ProtectedPasteEnabled: a.cfg.ProtectedPasteEnabled,
+		Level:                 r.URL.Query().Get("level"),
+		Msg:                   r.URL.Query().Get("msg"),
+		Glyph:                 r.URL.Query().Get("glyph"),
+		FlashURL:              r.URL.Query().Get("url"),
 	}
 }
 
@@ -228,11 +231,15 @@ func (a *App) handleCreatePaste(w http.ResponseWriter, r *http.Request) {
 		lang = "text"
 	}
 
+	// Only honour ?protected=true when the feature is enabled in config.
+	protected := a.cfg.ProtectedPasteEnabled && q.Get("protected") == "true"
+
 	paste := &PasteData{
 		Content:      content,
 		Burn:         burn,
 		Encrypted:    encryptedFlag,
 		E2EEncrypted: q.Get("encrypted") == "true",
+		Protected:    protected,
 		Lang:         lang,
 	}
 
@@ -266,7 +273,7 @@ func (a *App) handleCreatePaste(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Location", url)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	w.Write([]byte(`{"url":"` + url + `","id":"` + id + `","lang":"` + lang + `"}`))
+	w.Write([]byte(`{"url":"` + url + `","id":"` + id + `","lang":"` + lang + `","protected":` + strconv.FormatBool(protected) + `}`))
 }
 
 // GET /config
@@ -280,7 +287,8 @@ func (a *App) handleConfig(w http.ResponseWriter, r *http.Request) {
 		`"max_ttl":` + strconv.FormatInt(maxTTL, 10) + `,` +
 		`"default_ttl":` + strconv.FormatInt(int64(a.cfg.DefaultTTL.Seconds()), 10) + `,` +
 		`"max_paste_size":` + strconv.FormatInt(a.cfg.MaxPasteSize, 10) + `,` +
-		`"server_side_encryption":` + strconv.FormatBool(a.cfg.ServerSideEncryptionEnabled) +
+		`"server_side_encryption":` + strconv.FormatBool(a.cfg.ServerSideEncryptionEnabled) + `,` +
+		`"protected_paste_enabled":` + strconv.FormatBool(a.cfg.ProtectedPasteEnabled) +
 		`}`))
 }
 
@@ -357,6 +365,7 @@ func (a *App) handleView(w http.ResponseWriter, r *http.Request) {
 	d.IsBurned       = paste.Burn
 	d.IsBurn         = paste.Burn
 	d.IsEncrypted    = paste.E2EEncrypted
+	d.IsProtected    = paste.Protected
 	d.PastebinCode   = text
 	d.PastebinID     = id
 	d.PastebinCls    = "language-" + paste.Lang
@@ -366,7 +375,23 @@ func (a *App) handleView(w http.ResponseWriter, r *http.Request) {
 
 // DELETE /{id}
 func (a *App) handleDelete(w http.ResponseWriter, r *http.Request) {
-	if err := a.storage.Delete(chi.URLParam(r, "id")); err != nil {
+	id := chi.URLParam(r, "id")
+	// Guard: when the protected-paste feature is active, peek at metadata before
+	// deleting. Protected pastes return 403 — all other features (TTL, burn) are
+	// unaffected. The check is skipped entirely when the feature is disabled so
+	// there is zero overhead for deployments that never use it.
+	if a.cfg.ProtectedPasteEnabled {
+		meta, err := a.storage.PeekMeta(id)
+		if err != nil {
+			http.Error(w, "delete failed", http.StatusInternalServerError)
+			return
+		}
+		if meta != nil && meta.Protected {
+			http.Error(w, "paste is protected", http.StatusForbidden)
+			return
+		}
+	}
+	if err := a.storage.Delete(id); err != nil {
 		http.Error(w, "delete failed", http.StatusInternalServerError)
 		return
 	}
