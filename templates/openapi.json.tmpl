@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "Your own Pastebin API",
-    "description": "Simple, fast and standalone pastebin service.\n\nPlease refer to the original project under https://github.com/GAS85/ownPastebin\n\n**Server-side encryption:** {{.SSEEnabled}}\n\n**Max paste size:** {{.MaxSize}} bytes\n\n**Max TTL:** {{.MaxTTL}} seconds (0 = unlimited)",
+    "description": "Simple, fast and standalone pastebin service.\n\nPlease refer to the original project under [https://github.com/GAS85/ownPastebin](https://github.com/GAS85/ownPastebin)\n- [Server-side encryption](https://github.com/GAS85/ownPastebin#-security): {{.SSEEnabled}}\n- [Max paste size](https://github.com/GAS85/ownPastebin#-limits): {{.MaxSize}} bytes\n- [Max TTL](https://github.com/GAS85/ownPastebin#-ttl-settings): {{.MaxTTL}} seconds (0 = unlimited)\n- [ProtectedPasteEnabled](https://github.com/GAS85/ownPastebin#-misc): {{.ProtectedPasteEnabled}}",
     "version": "{{.Version}}"
   },
   "servers": [
@@ -37,7 +37,7 @@
           {
             "name": "encrypted",
             "in": "query",
-            "description": "Mark paste as client-side (E2E) encrypted. The server stores the ciphertext as-is.",
+            "description": "Mark paste as client-side (E2E) encrypted. The server stores the ciphertext as-is and offers decryption in browser.",
             "schema": { "type": "boolean", "default": false }
           },
           {
@@ -93,7 +93,7 @@
         ],
         "responses": {
           "200": { "description": "HTML page with paste content" },
-          "404": { "description": "Paste not found or expired" }
+          "404": { "description": "Paste not found or expired and was removed" }
         }
       },
       "delete": {
@@ -211,7 +211,7 @@
           "default_ttl":              { "type": "integer", "description": "Default TTL in seconds.", "example": 0 },
           "max_paste_size":           { "type": "integer", "description": "Maximum paste size in bytes.", "example": {{.MaxSize}} },
           "server_side_encryption":   { "type": "boolean", "description": "Whether server-side AES-256-GCM encryption is active.", "example": {{.SSEEnabled}} },
-          "protected_paste_enabled":  { "type": "boolean", "description": "Whether the ?protected=true creation flag is accepted.", "example": false }
+          "protected_paste_enabled":  { "type": "boolean", "description": "Whether the ?protected=true creation flag is accepted.", "example": {{.ProtectedPasteEnabled}} }
         }
       }
     }

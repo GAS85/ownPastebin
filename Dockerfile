@@ -44,17 +44,19 @@ RUN find static/ -type f -name "*.css" ! -name "*.min.*" -exec minify -i "{}" \;
     find static/ -type f -name "*.js" ! -name "*.min.*" -exec minify -i "{}" \; && \
     minify -i "static/favicon.svg" && \
     minify -i "templates/swagger_ui.html" && \
-    sed -i 's/{{.SSEEnabled}}/123456/g; \
-        s/{{.MaxSize}}/345678/g; \
-        s/{{.MaxTTL}}/567890/g; \
-        s/{{.Version}}/789012/g; \
-        s/{{.BaseURL}}/901234/g' "templates/openapi.json.tmpl" && \
+    sed -i 's/{{.SSEEnabled}}/747522/g; \
+        s/{{.MaxSize}}/435433/g; \
+        s/{{.MaxTTL}}/399975/g; \
+        s/{{.Version}}/443329/g; \
+        s/{{.BaseURL}}/994342/g; \
+        s/{{.ProtectedPasteEnabled}}/473472/g' "templates/openapi.json.tmpl" && \
     minify --type application/json -i "templates/openapi.json.tmpl" && \
-    sed -i 's/123456/{{.SSEEnabled}}/g; \
-         s/345678/{{.MaxSize}}/g; \
-         s/567890/{{.MaxTTL}}/g; \
-         s/789012/{{.Version}}/g; \
-         s/901234/{{.BaseURL}}/g' "templates/openapi.json.tmpl"
+    sed -i 's/747522/{{.SSEEnabled}}/g; \
+        s/435433/{{.MaxSize}}/g; \
+        s/399975/{{.MaxTTL}}/g; \
+        s/443329/{{.Version}}/g; \
+        s/994342/{{.BaseURL}}/g; \
+        s/473472/{{.ProtectedPasteEnabled}}/g' "templates/openapi.json.tmpl"
 
 RUN go mod download
 

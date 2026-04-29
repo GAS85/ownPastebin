@@ -30,6 +30,10 @@ type TestConfig struct {
 	MaxPasteSize int64
 	// MaxParallelUploads defaults to 20.
 	MaxParallelUploads int
+	// ProtectedPasteEnabled enables the protected-paste feature. When true,
+	// pastes created with ?protected=true cannot be deleted via the DELETE
+	// endpoint.
+	ProtectedPasteEnabled bool
 }
 
 // NewAppForTest builds a fully wired *App backed by a throwaway SQLite DB.
@@ -65,6 +69,7 @@ func NewAppForTest(t *testing.T, tc TestConfig) (*App, http.Handler) {
 		SlugLen:                     20,
 		MaxPasteSize:                maxSize,
 		ServerSideEncryptionEnabled: tc.EncryptionEnabled,
+		ProtectedPasteEnabled:       tc.ProtectedPasteEnabled,
 	}
 	if tc.EncryptionEnabled {
 		key := tc.EncryptionKey
