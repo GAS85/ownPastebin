@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -31,6 +32,7 @@ type PasteData struct {
 	Burn         bool
 	Encrypted    bool
 	E2EEncrypted bool
+	Protected    bool // DELETE is rejected with 403 when true (requires ProtectedPasteEnabled in config)
 	Lang         string
 	ExpireAt     *time.Time
 }
@@ -46,6 +48,7 @@ type StorageStats struct {
 	BurnOnRead   int64  // burn=true pastes
 	SSEncrypted  int64  // server-side encrypted
 	E2EEncrypted int64  // client-side encrypted
+	Protected    int64  // protected pastes (DELETE blocked)
 
 	// SQLite-only — zero for other backends.
 	DBFileBytes  int64
@@ -65,6 +68,7 @@ func logStats(st StorageStats) {
 		"burn_on_read", st.BurnOnRead,
 		"ss_encrypted", st.SSEncrypted,
 		"e2e_encrypted", st.E2EEncrypted,
+		"protected", st.Protected,
 	)
 	if st.Backend == "sqlite" {
 		slog.Info("sqlite file stats",
@@ -141,11 +145,21 @@ func newSQLiteStorage(path string, cfg *Settings) (*SQLiteStorage, error) {
 		encrypted     INTEGER NOT NULL DEFAULT 0,
 		e2e_encrypted INTEGER NOT NULL DEFAULT 0,
 		lang          TEXT    NOT NULL DEFAULT 'text',
-		expire_at     INTEGER
+		expire_at     INTEGER,
+		protected     INTEGER NOT NULL DEFAULT 0
 	)`)
 	if err != nil {
 		db.Close()
 		return nil, err
+	}
+
+	// Migration: add 'protected' column to existing databases that pre-date this field.
+	// SQLite does not support ADD COLUMN IF NOT EXISTS, so we swallow the
+	// "duplicate column name" error that fires when the column already exists.
+	_, err = db.Exec(`ALTER TABLE pastes ADD COLUMN protected INTEGER NOT NULL DEFAULT 0`)
+	if err != nil && !strings.Contains(err.Error(), "duplicate column name") {
+		db.Close()
+		return nil, fmt.Errorf("migration: add protected column: %w", err)
 	}
 
 	if err := ensureIncrementalVacuum(db); err != nil {
@@ -266,12 +280,13 @@ func (s *SQLiteStorage) Stats() StorageStats {
 			SUM(CASE WHEN expire_at IS NOT NULL THEN 1 ELSE 0 END)     AS expiring,
 			SUM(CASE WHEN burn = 1              THEN 1 ELSE 0 END)     AS burn,
 			SUM(CASE WHEN encrypted = 1         THEN 1 ELSE 0 END)     AS ss_enc,
-			SUM(CASE WHEN e2e_encrypted = 1     THEN 1 ELSE 0 END)     AS e2e_enc
+			SUM(CASE WHEN e2e_encrypted = 1     THEN 1 ELSE 0 END)     AS e2e_enc,
+			SUM(CASE WHEN protected = 1         THEN 1 ELSE 0 END)     AS prot
 		FROM pastes
 		WHERE expire_at IS NULL OR expire_at > ?`, now)
 
-	var perm, expiring, burn, ssEnc, e2eEnc sql.NullInt64
-	if err := row.Scan(&st.Total, &perm, &expiring, &burn, &ssEnc, &e2eEnc); err != nil {
+	var perm, expiring, burn, ssEnc, e2eEnc, prot sql.NullInt64
+	if err := row.Scan(&st.Total, &perm, &expiring, &burn, &ssEnc, &e2eEnc, &prot); err != nil {
 		slog.Warn("sqlite stats query failed", "err", err)
 	}
 	st.Permanent    = perm.Int64
@@ -279,6 +294,7 @@ func (s *SQLiteStorage) Stats() StorageStats {
 	st.BurnOnRead   = burn.Int64
 	st.SSEncrypted  = ssEnc.Int64
 	st.E2EEncrypted = e2eEnc.Int64
+	st.Protected    = prot.Int64
 
 	// File sizes from the OS — no DB connection needed.
 	if fi, err := os.Stat(s.dbPath); err == nil {
@@ -305,10 +321,10 @@ func (s *SQLiteStorage) Save(key string, d *PasteData, ttl time.Duration) error 
 	}
 	res, err := s.db.Exec(`
 		INSERT OR IGNORE INTO pastes
-		(id, content, burn, encrypted, e2e_encrypted, lang, expire_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		(id, content, burn, encrypted, e2e_encrypted, lang, expire_at, protected)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
 		key, d.Content, boolToInt(d.Burn), boolToInt(d.Encrypted),
-		boolToInt(d.E2EEncrypted), d.Lang, expireAt,
+		boolToInt(d.E2EEncrypted), d.Lang, expireAt, boolToInt(d.Protected),
 	)
 	if err != nil {
 		return err
@@ -321,13 +337,13 @@ func (s *SQLiteStorage) Save(key string, d *PasteData, ttl time.Duration) error 
 
 func (s *SQLiteStorage) PeekMeta(key string) (*PasteData, error) {
 	row := s.db.QueryRow(`
-		SELECT burn, encrypted, e2e_encrypted, lang, expire_at
+		SELECT burn, encrypted, e2e_encrypted, lang, expire_at, protected
 		FROM pastes WHERE id = ?`, key)
 
-	var burnInt, encInt, e2eInt int
+	var burnInt, encInt, e2eInt, protInt int
 	var lang string
 	var expireAt *int64
-	if err := row.Scan(&burnInt, &encInt, &e2eInt, &lang, &expireAt); err == sql.ErrNoRows {
+	if err := row.Scan(&burnInt, &encInt, &e2eInt, &lang, &expireAt, &protInt); err == sql.ErrNoRows {
 		return nil, nil
 	} else if err != nil {
 		return nil, err
@@ -342,6 +358,7 @@ func (s *SQLiteStorage) PeekMeta(key string) (*PasteData, error) {
 		Burn:         intToBool(burnInt),
 		Encrypted:    intToBool(encInt),
 		E2EEncrypted: intToBool(e2eInt),
+		Protected:    intToBool(protInt),
 		Lang:         lang,
 	}
 	if expireAt != nil {
@@ -353,14 +370,14 @@ func (s *SQLiteStorage) PeekMeta(key string) (*PasteData, error) {
 
 func (s *SQLiteStorage) Get(key string) (*PasteData, error) {
 	row := s.db.QueryRow(`
-		SELECT content, burn, encrypted, e2e_encrypted, lang, expire_at
+		SELECT content, burn, encrypted, e2e_encrypted, lang, expire_at, protected
 		FROM pastes WHERE id = ?`, key)
 
 	var content []byte
-	var burnInt, encInt, e2eInt int
+	var burnInt, encInt, e2eInt, protInt int
 	var lang string
 	var expireAt *int64
-	if err := row.Scan(&content, &burnInt, &encInt, &e2eInt, &lang, &expireAt); err == sql.ErrNoRows {
+	if err := row.Scan(&content, &burnInt, &encInt, &e2eInt, &lang, &expireAt, &protInt); err == sql.ErrNoRows {
 		return nil, nil
 	} else if err != nil {
 		return nil, err
@@ -374,6 +391,7 @@ func (s *SQLiteStorage) Get(key string) (*PasteData, error) {
 		Burn:         intToBool(burnInt),
 		Encrypted:    intToBool(encInt),
 		E2EEncrypted: intToBool(e2eInt),
+		Protected:    intToBool(protInt),
 		Lang:         lang,
 	}
 	if expireAt != nil {
@@ -395,13 +413,13 @@ func (s *SQLiteStorage) GetAndDelete(key string) (*PasteData, error) {
 		DELETE FROM pastes
 		WHERE id = ?
 		  AND (expire_at IS NULL OR expire_at > ?)
-		RETURNING content, burn, encrypted, e2e_encrypted, lang, expire_at`, key, time.Now().Unix())
+		RETURNING content, burn, encrypted, e2e_encrypted, lang, expire_at, protected`, key, time.Now().Unix())
 
 	var content []byte
-	var burnInt, encInt, e2eInt int
+	var burnInt, encInt, e2eInt, protInt int
 	var lang string
 	var expireAt *int64
-	if err := row.Scan(&content, &burnInt, &encInt, &e2eInt, &lang, &expireAt); err == sql.ErrNoRows {
+	if err := row.Scan(&content, &burnInt, &encInt, &e2eInt, &lang, &expireAt, &protInt); err == sql.ErrNoRows {
 		return nil, nil
 	} else if err != nil {
 		return nil, err
@@ -411,6 +429,7 @@ func (s *SQLiteStorage) GetAndDelete(key string) (*PasteData, error) {
 		Burn:         intToBool(burnInt),
 		Encrypted:    intToBool(encInt),
 		E2EEncrypted: intToBool(e2eInt),
+		Protected:    intToBool(protInt),
 		Lang:         lang,
 	}
 	if expireAt != nil {
@@ -602,10 +621,18 @@ func newPostgresStorage(dsn string) (*PostgresStorage, error) {
 		encrypted     BOOLEAN NOT NULL DEFAULT FALSE,
 		e2e_encrypted BOOLEAN NOT NULL DEFAULT FALSE,
 		lang          TEXT    NOT NULL DEFAULT 'text',
-		expire_at     TIMESTAMPTZ
+		expire_at     TIMESTAMPTZ,
+		protected     BOOLEAN NOT NULL DEFAULT FALSE
 	)`)
 	if err != nil {
 		return nil, err
+	}
+
+	// Migration: add 'protected' column to existing databases.
+	// ADD COLUMN IF NOT EXISTS is idempotent on PostgreSQL ≥ 9.6.
+	_, err = db.Exec(`ALTER TABLE pastes ADD COLUMN IF NOT EXISTS protected BOOLEAN NOT NULL DEFAULT FALSE`)
+	if err != nil {
+		return nil, fmt.Errorf("migration: add protected column: %w", err)
 	}
 
 	s := &PostgresStorage{
@@ -654,12 +681,13 @@ func (s *PostgresStorage) Stats() StorageStats {
 			COUNT(*) FILTER (WHERE expire_at IS NOT NULL)                    AS expiring,
 			COUNT(*) FILTER (WHERE burn = TRUE)                              AS burn,
 			COUNT(*) FILTER (WHERE encrypted = TRUE)                         AS ss_enc,
-			COUNT(*) FILTER (WHERE e2e_encrypted = TRUE)                     AS e2e_enc
+			COUNT(*) FILTER (WHERE e2e_encrypted = TRUE)                     AS e2e_enc,
+			COUNT(*) FILTER (WHERE protected = TRUE)                         AS prot
 		FROM pastes
 		WHERE expire_at IS NULL OR expire_at > NOW()`)
 
 	if err := row.Scan(&st.Total, &st.Permanent, &st.Expiring,
-		&st.BurnOnRead, &st.SSEncrypted, &st.E2EEncrypted); err != nil {
+		&st.BurnOnRead, &st.SSEncrypted, &st.E2EEncrypted, &st.Protected); err != nil {
 		slog.Warn("postgres stats query failed", "err", err)
 	}
 	return st
@@ -673,10 +701,10 @@ func (s *PostgresStorage) Save(key string, d *PasteData, ttl time.Duration) erro
 		expireAt = &t
 	}
 	res, err := s.db.Exec(`
-		INSERT INTO pastes (id, content, burn, encrypted, e2e_encrypted, lang, expire_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		INSERT INTO pastes (id, content, burn, encrypted, e2e_encrypted, lang, expire_at, protected)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 		ON CONFLICT (id) DO NOTHING`,
-		key, d.Content, d.Burn, d.Encrypted, d.E2EEncrypted, d.Lang, expireAt,
+		key, d.Content, d.Burn, d.Encrypted, d.E2EEncrypted, d.Lang, expireAt, d.Protected,
 	)
 	if err != nil {
 		return err
@@ -689,14 +717,14 @@ func (s *PostgresStorage) Save(key string, d *PasteData, ttl time.Duration) erro
 
 func (s *PostgresStorage) PeekMeta(key string) (*PasteData, error) {
 	row := s.db.QueryRow(`
-		SELECT burn, encrypted, e2e_encrypted, lang, expire_at
+		SELECT burn, encrypted, e2e_encrypted, lang, expire_at, protected
 		FROM pastes
 		WHERE id = $1 AND (expire_at IS NULL OR expire_at > NOW())`, key)
 
-	var burn, encrypted, e2eEncrypted bool
+	var burn, encrypted, e2eEncrypted, protected bool
 	var lang string
 	var expireAt *time.Time
-	if err := row.Scan(&burn, &encrypted, &e2eEncrypted, &lang, &expireAt); err == sql.ErrNoRows {
+	if err := row.Scan(&burn, &encrypted, &e2eEncrypted, &lang, &expireAt, &protected); err == sql.ErrNoRows {
 		return nil, nil
 	} else if err != nil {
 		return nil, err
@@ -706,6 +734,7 @@ func (s *PostgresStorage) PeekMeta(key string) (*PasteData, error) {
 		Burn:         burn,
 		Encrypted:    encrypted,
 		E2EEncrypted: e2eEncrypted,
+		Protected:    protected,
 		Lang:         lang,
 		ExpireAt:     expireAt,
 	}, nil
@@ -713,15 +742,15 @@ func (s *PostgresStorage) PeekMeta(key string) (*PasteData, error) {
 
 func (s *PostgresStorage) Get(key string) (*PasteData, error) {
 	row := s.db.QueryRow(`
-		SELECT content, burn, encrypted, e2e_encrypted, lang, expire_at
+		SELECT content, burn, encrypted, e2e_encrypted, lang, expire_at, protected
 		FROM pastes
 		WHERE id = $1 AND (expire_at IS NULL OR expire_at > NOW())`, key)
 
 	var content []byte
-	var burn, encrypted, e2eEncrypted bool
+	var burn, encrypted, e2eEncrypted, protected bool
 	var lang string
 	var expireAt *time.Time
-	if err := row.Scan(&content, &burn, &encrypted, &e2eEncrypted, &lang, &expireAt); err == sql.ErrNoRows {
+	if err := row.Scan(&content, &burn, &encrypted, &e2eEncrypted, &lang, &expireAt, &protected); err == sql.ErrNoRows {
 		return nil, nil
 	} else if err != nil {
 		return nil, err
@@ -731,6 +760,7 @@ func (s *PostgresStorage) Get(key string) (*PasteData, error) {
 		Burn:         burn,
 		Encrypted:    encrypted,
 		E2EEncrypted: e2eEncrypted,
+		Protected:    protected,
 		Lang:         lang,
 		ExpireAt:     expireAt,
 	}, nil
@@ -746,13 +776,13 @@ func (s *PostgresStorage) GetAndDelete(key string) (*PasteData, error) {
 	row := s.db.QueryRow(`
 		DELETE FROM pastes
 		WHERE id = $1 AND (expire_at IS NULL OR expire_at > NOW())
-		RETURNING content, burn, encrypted, e2e_encrypted, lang, expire_at`, key)
+		RETURNING content, burn, encrypted, e2e_encrypted, lang, expire_at, protected`, key)
 
 	var content []byte
-	var burn, encrypted, e2eEncrypted bool
+	var burn, encrypted, e2eEncrypted, protected bool
 	var lang string
 	var expireAt *time.Time
-	if err := row.Scan(&content, &burn, &encrypted, &e2eEncrypted, &lang, &expireAt); err == sql.ErrNoRows {
+	if err := row.Scan(&content, &burn, &encrypted, &e2eEncrypted, &lang, &expireAt, &protected); err == sql.ErrNoRows {
 		return nil, nil
 	} else if err != nil {
 		return nil, err
@@ -762,6 +792,7 @@ func (s *PostgresStorage) GetAndDelete(key string) (*PasteData, error) {
 		Burn:         burn,
 		Encrypted:    encrypted,
 		E2EEncrypted: e2eEncrypted,
+		Protected:    protected,
 		Lang:         lang,
 		ExpireAt:     expireAt,
 	}, nil
@@ -838,7 +869,7 @@ func (s *RedisStorage) Stats() StorageStats {
 				hmgetCmds := make([]*redis.SliceCmd, len(keys))
 				ttlCmds := make([]*redis.DurationCmd, len(keys))
 				for i, key := range keys {
-					hmgetCmds[i] = pipe.HMGet(ctx, key, "burn", "enc", "e2e")
+					hmgetCmds[i] = pipe.HMGet(ctx, key, "burn", "enc", "e2e", "prot")
 					ttlCmds[i] = pipe.TTL(ctx, key)
 				}
 				if _, err := pipe.Exec(ctx); err != nil && err != redis.Nil {
@@ -852,7 +883,7 @@ func (s *RedisStorage) Stats() StorageStats {
 					// OR the hash has no "burn" field (partial write from a failed
 					// Save after the first HSETNX pipeline but before the second).
 					// Either way, skip — partial entries are not valid pastes.
-					if len(vals) < 3 || vals[0] == nil {
+					if len(vals) < 4 || vals[0] == nil {
 						continue
 					}
 					st.Total++
@@ -864,6 +895,9 @@ func (s *RedisStorage) Stats() StorageStats {
 					}
 					if intToBool(valToInt(vals[2])) {
 						st.E2EEncrypted++
+					}
+					if intToBool(valToInt(vals[3])) {
+						st.Protected++
 					}
 					if ttlCmds[i].Val() > 0 {
 						st.Expiring++
@@ -909,6 +943,7 @@ func (s *RedisStorage) Save(key string, d *PasteData, ttl time.Duration) error {
 		"burn": boolToInt(d.Burn),
 		"enc":  boolToInt(d.Encrypted),
 		"e2e":  boolToInt(d.E2EEncrypted),
+		"prot": boolToInt(d.Protected),
 		"lang": d.Lang,
 	})
 	if ttl > 0 {
@@ -922,8 +957,8 @@ func (s *RedisStorage) Save(key string, d *PasteData, ttl time.Duration) error {
 func (s *RedisStorage) PeekMeta(key string) (*PasteData, error) {
 	ctx := context.Background()
 	rkey := redisKey(key)
-	// Single round trip: fetch burn, enc, e2e, lang together.
-	vals, err := s.client.HMGet(ctx, rkey, "burn", "enc", "e2e", "lang").Result()
+	// Single round trip: fetch burn, enc, e2e, prot, lang together.
+	vals, err := s.client.HMGet(ctx, rkey, "burn", "enc", "e2e", "prot", "lang").Result()
 	if err != nil {
 		return nil, err
 	}
@@ -932,7 +967,8 @@ func (s *RedisStorage) PeekMeta(key string) (*PasteData, error) {
 	}
 	p := &PasteData{
 		Burn: intToBool(valToInt(vals[0])), Encrypted: intToBool(valToInt(vals[1])),
-		E2EEncrypted: intToBool(valToInt(vals[2])), Lang: valToString(vals[3]),
+		E2EEncrypted: intToBool(valToInt(vals[2])), Protected: intToBool(valToInt(vals[3])),
+		Lang: valToString(vals[4]),
 	}
 	if ttl := s.client.TTL(ctx, rkey).Val(); ttl > 0 {
 		t := time.Now().Add(ttl)
@@ -947,7 +983,7 @@ func (s *RedisStorage) Get(key string) (*PasteData, error) {
 	ctx := context.Background()
 	rkey := redisKey(key)
 	// Fetch all fields in one round trip.
-	vals, err := s.client.HMGet(ctx, rkey, "content", "burn", "enc", "e2e", "lang").Result()
+	vals, err := s.client.HMGet(ctx, rkey, "content", "burn", "enc", "e2e", "prot", "lang").Result()
 	if err != nil {
 		return nil, err
 	}
@@ -961,7 +997,7 @@ func (s *RedisStorage) Get(key string) (*PasteData, error) {
 	p := &PasteData{
 		Content: content, Burn: intToBool(valToInt(vals[1])),
 		Encrypted: intToBool(valToInt(vals[2])), E2EEncrypted: intToBool(valToInt(vals[3])),
-		Lang: valToString(vals[4]),
+		Protected: intToBool(valToInt(vals[4])), Lang: valToString(vals[5]),
 	}
 	if ttl := s.client.TTL(ctx, rkey).Val(); ttl > 0 {
 		t := time.Now().Add(ttl)
@@ -983,6 +1019,7 @@ func (s *RedisStorage) GetAndDelete(key string) (*PasteData, error) {
 	burnCmd    := pipe.HGet(ctx, rkey, "burn")
 	encCmd     := pipe.HGet(ctx, rkey, "enc")
 	e2eCmd     := pipe.HGet(ctx, rkey, "e2e")
+	protCmd    := pipe.HGet(ctx, rkey, "prot")
 	langCmd    := pipe.HGet(ctx, rkey, "lang")
 	ttlCmd     := pipe.TTL(ctx, rkey)
 	pipe.Del(ctx, rkey)
@@ -1002,6 +1039,7 @@ func (s *RedisStorage) GetAndDelete(key string) (*PasteData, error) {
 	burn, _ := burnCmd.Int()
 	enc, _  := encCmd.Int()
 	e2e, _  := e2eCmd.Int()
+	prot, _ := protCmd.Int()
 	lang, _ := langCmd.Result()
 	ttl     := ttlCmd.Val()
 
@@ -1010,6 +1048,7 @@ func (s *RedisStorage) GetAndDelete(key string) (*PasteData, error) {
 		Burn:         intToBool(burn),
 		Encrypted:    intToBool(enc),
 		E2EEncrypted: intToBool(e2e),
+		Protected:    intToBool(prot),
 		Lang:         lang,
 	}
 

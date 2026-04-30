@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "Your own Pastebin API",
-    "description": "Simple, fast and standalone pastebin service.\n\nPlease refer to the original project under https://github.com/GAS85/ownPastebin\n\n**Server-side encryption:** {{.SSEEnabled}}\n\n**Max paste size:** {{.MaxSize}} bytes\n\n**Max TTL:** {{.MaxTTL}} seconds (0 = unlimited)",
+    "description": "Simple, fast and standalone pastebin service.\n\nPlease refer to the original project under [https://github.com/GAS85/ownPastebin](https://github.com/GAS85/ownPastebin)\n- [Server-side encryption](https://github.com/GAS85/ownPastebin#-security): {{.SSEEnabled}}\n- [Max paste size](https://github.com/GAS85/ownPastebin#-limits): {{.MaxSize}} bytes\n- [Max TTL](https://github.com/GAS85/ownPastebin#-ttl-settings): {{.MaxTTL}} seconds (0 = unlimited)\n- [ProtectedPasteEnabled](https://github.com/GAS85/ownPastebin#-misc): {{.ProtectedPasteEnabled}}",
     "version": "{{.Version}}"
   },
   "servers": [
@@ -37,7 +37,13 @@
           {
             "name": "encrypted",
             "in": "query",
-            "description": "Mark paste as client-side (E2E) encrypted. The server stores the ciphertext as-is.",
+            "description": "Mark paste as client-side (E2E) encrypted. The server stores the ciphertext as-is and offers decryption in browser.",
+            "schema": { "type": "boolean", "default": false }
+          },
+          {
+            "name": "protected",
+            "in": "query",
+            "description": "Prevent deletion via the DELETE endpoint (returns 403). Only accepted when the server has PASTEBIN_PROTECTED_PASTE_ENABLED=true; ignored otherwise.",
             "schema": { "type": "boolean", "default": false }
           }
         ],
@@ -87,7 +93,7 @@
         ],
         "responses": {
           "200": { "description": "HTML page with paste content" },
-          "404": { "description": "Paste not found or expired" }
+          "404": { "description": "Paste not found or expired and was removed" }
         }
       },
       "delete": {
@@ -106,6 +112,7 @@
               }
             }
           },
+          "403": { "description": "Paste is protected — deletion is not permitted" },
           "500": { "description": "Storage error" }
         }
       }
@@ -185,9 +192,10 @@
       "CreateResponse": {
         "type": "object",
         "properties": {
-          "url":  { "type": "string", "format": "uri", "example": "{{.BaseURL}}/V1StGXR8_Z5jdHi6B-myT" },
-          "id":   { "type": "string", "example": "V1StGXR8_Z5jdHi6B-myT" },
-          "lang": { "type": "string", "example": "python" }
+          "url":       { "type": "string", "format": "uri", "example": "{{.BaseURL}}/V1StGXR8_Z5jdHi6B-myT" },
+          "id":        { "type": "string", "example": "V1StGXR8_Z5jdHi6B-myT" },
+          "lang":      { "type": "string", "example": "python" },
+          "protected": { "type": "boolean", "description": "Whether the paste is protected from deletion.", "example": false }
         }
       },
       "DeleteResponse": {
@@ -199,10 +207,11 @@
       "ConfigResponse": {
         "type": "object",
         "properties": {
-          "max_ttl":               { "type": "integer", "description": "Maximum TTL in seconds. 0 = unlimited.", "example": 0 },
-          "default_ttl":           { "type": "integer", "description": "Default TTL in seconds.", "example": 0 },
-          "max_paste_size":        { "type": "integer", "description": "Maximum paste size in bytes.", "example": {{.MaxSize}} },
-          "server_side_encryption":{ "type": "boolean", "description": "Whether server-side AES-256-GCM encryption is active.", "example": {{.SSEEnabled}} }
+          "max_ttl":                  { "type": "integer", "description": "Maximum TTL in seconds. 0 = unlimited.", "example": 0 },
+          "default_ttl":              { "type": "integer", "description": "Default TTL in seconds.", "example": 0 },
+          "max_paste_size":           { "type": "integer", "description": "Maximum paste size in bytes.", "example": {{.MaxSize}} },
+          "server_side_encryption":   { "type": "boolean", "description": "Whether server-side AES-256-GCM encryption is active.", "example": {{.SSEEnabled}} },
+          "protected_paste_enabled":  { "type": "boolean", "description": "Whether the ?protected=true creation flag is accepted.", "example": {{.ProtectedPasteEnabled}} }
         }
       }
     }

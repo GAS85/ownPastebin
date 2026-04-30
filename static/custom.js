@@ -348,12 +348,14 @@ document.addEventListener("DOMContentLoaded", function () {
   var state = {
     expiry: default_expiry,
     burn: default_burn,
+    protected: "false",
   };
 
   // ── Apply default labels ─────────────────────────────
   (function () {
     var expiryBtn = document.getElementById("expiry-dropdown-btn");
     var burnBtn = document.getElementById("burn-dropdown-btn");
+    var protectedBtn = document.getElementById("protected-dropdown-btn");
 
     if (expiryBtn) {
       var expiryMap = {
@@ -372,6 +374,10 @@ document.addEventListener("DOMContentLoaded", function () {
 
     if (burnBtn) {
       burnBtn.textContent = "Burn: " + (state.burn === "true" ? "Yes" : "No");
+    }
+
+    if (protectedBtn) {
+      protectedBtn.textContent = "Protected: " + (state.protected === "true" ? "Yes" : "No");
     }
   })();
 
@@ -493,15 +499,33 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   });
 
-  // ── Burn dropdowns ─────────────────────────────────────────────────────────
+  // ── Protected dropdowns ─────────────────────────────────────────────────────────
+  ["protected-dropdown"].forEach(function (ddId) {
+    var dd = document.getElementById(ddId);
+    if (!dd) return;
+    dd.addEventListener("click", function (e) {
+      var a = e.target.closest ? e.target.closest("a[data-value]") : e.target;
+      if (!a || a.tagName !== "A") return;
+      e.preventDefault();
+      state.protected = a.getAttribute("data-value");
+      var label = a.textContent.trim();
+      ["protected-dropdown-btn"].forEach(function (bId) {
+        var b = document.getElementById(bId);
+        if (b) b.textContent = "Protected: " + label;
+      });
+      return false;
+    });
+  });
+
+  // ──  Burn dropdowns ─────────────────────────────────────────────────────────
   ["burn-dropdown"].forEach(function (ddId) {
     var dd = document.getElementById(ddId);
     if (!dd) return;
     dd.addEventListener("click", function (e) {
-      var a = e.target.closest ? e.target.closest("a[href]") : e.target;
+      var a = e.target.closest ? e.target.closest("a[data-value]") : e.target;
       if (!a || a.tagName !== "A") return;
       e.preventDefault();
-      state.burn = a.getAttribute("href");
+      state.burn = a.getAttribute("data-value");
       var label = a.textContent.trim();
       ["burn-dropdown-btn"].forEach(function (bId) {
         var b = document.getElementById(bId);
@@ -535,9 +559,24 @@ document.addEventListener("DOMContentLoaded", function () {
 
       fetch(window.location.pathname, { method: "DELETE" })
         .then(function (r) {
+          if (!r.ok) {
+            var msg =
+              r.status === 403
+                ? "This paste is protected and cannot be deleted."
+                : "Failed to delete the paste (HTTP " + r.status + ").";
+            deleteInFlight = false;
+            deleteConfirmBtn.disabled = false;
+            var uri = flashBase();
+            uri = replaceUrlParam(uri, "level", "danger");
+            uri = replaceUrlParam(uri, "glyph", "fas fa-circle-xmark");
+            uri = replaceUrlParam(uri, "msg", msg);
+            window.location.href = encodeURI(uri);
+            return null;
+          }
           return r.json();
         })
-        .then(function () {
+        .then(function (result) {
+          if (!result) return; // error path already redirected
           var uri = flashBase();
           uri = replaceUrlParam(uri, "level", "info");
           uri = replaceUrlParam(uri, "glyph", "fas fa-info-circle");
@@ -630,6 +669,7 @@ document.addEventListener("DOMContentLoaded", function () {
     if (langSel) uri = replaceUrlParam(uri, "lang", langSel.value);
     uri = replaceUrlParam(uri, "ttl", state.expiry);
     uri = replaceUrlParam(uri, "burn", state.burn);
+    uri = replaceUrlParam(uri, "protected", state.protected);
 
     var data = textarea ? textarea.value : "";
     var pass = passSel ? passSel.value : "";

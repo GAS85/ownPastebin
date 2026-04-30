@@ -4,35 +4,54 @@ set -e
 # ── Defaults ──────────────────────────────────────────────────────────────────
 export PASTEBIN_BASE_URL="${PASTEBIN_BASE_URL:-http://localhost:8080}"
 export PASTEBIN_SQLITE_PATH="${PASTEBIN_SQLITE_PATH:-/app/data/pastes.db}"
-export PASTEBIN_DEFAULT_TTL="${PASTEBIN_DEFAULT_TTL:-0}"
 export PASTEBIN_SLUG_LEN="${PASTEBIN_SLUG_LEN:-20}"
 export PASTEBIN_MAX_PARALLEL_UPLOADS="${PASTEBIN_MAX_PARALLEL_UPLOADS:-20}"
 export PASTEBIN_MAX_PASTE_SIZE="${PASTEBIN_MAX_PASTE_SIZE:-5MB}"
 export PASTEBIN_SERVER_SIDE_ENCRYPTION_ENABLED="${PASTEBIN_SERVER_SIDE_ENCRYPTION_ENABLED:-false}"
 export PASTEBIN_HOST="${PASTEBIN_HOST:-0.0.0.0}"
 export PASTEBIN_PORT="${PASTEBIN_PORT:-8080}"
-export PASTEBIN_SHELL_DATE_FORMAT="${PASTEBIN_SHELL_DATE_FORMAT:-%Y-%m-%d %H:%M:%S}"
+export PASTEBIN_LOG_FORMAT="${PASTEBIN_LOG_FORMAT:-text}"
 export PASTEBIN_LOG_LEVEL="${PASTEBIN_LOG_LEVEL:-INFO}"
+export PASTEBIN_DATE_FORMAT="${PASTEBIN_DATE_FORMAT:-%Y-%m-%d %H:%M:%S}"
 
-ts() { date +"$PASTEBIN_SHELL_DATE_FORMAT"; }
-log() { echo "$(ts) - $1 - $(basename "$0") - $2"; }
+if [ ${PASTEBIN_LOG_FORMAT} = "json" ]; then
+    # strict RFC 3339
+    ts() { date -Ins | sed 's/,/./'; }
+else
+    # Keep date format for the shell
+    export PASTEBIN_SHELL_DATE_FORMAT="${PASTEBIN_DATE_FORMAT}"
+    # Convert strftime format to Go time layout for the Go binary
+    # This converts common formats:
+    # %Y -> 2006, %m -> 01, %d -> 02, %H -> 15, %M -> 04, %S -> 05, %Z -> MST, %z -> -0700
+    #export PASTEBIN_DATE_FORMAT="$(date -D "%Y-%m-%dT%H:%M:%S %z" -d "2006-01-02T15:04:05 0700" +"$PASTEBIN_DATE_FORMAT")"
+    export PASTEBIN_DATE_FORMAT="$(echo "$PASTEBIN_SHELL_DATE_FORMAT" | sed 's/%Y/2006/g; s/%m/01/g; s/%d/02/g; s/%H/15/g; s/%M/04/g; s/%S/05/g; s/%Z/MST/g; s/%z/-0700/g')"
+    ts() { date +"$PASTEBIN_SHELL_DATE_FORMAT"; }
+fi
+
+log() {
+    if [ ${PASTEBIN_LOG_FORMAT} = "json" ]; then
+        echo "{\"component\":\"$(basename "$0")\",\"level\":\"$1\",\"msg\":\"$(echo $2 | sed 's/[[:space:]]\+/ /g; s/\\t//g')\",\"time\":\"$(ts)\"}"
+    else
+        echo -e "$(ts) - $1 - $(basename "$0") - $(echo "$2" | grep -v '^$')"
+    fi
+}
 
 # ── Key generator ─────────────────────────────────────────────────────────────
-if [ "$GENERATE_KEY" = "true" ]; then
+if [ "${GENERATE_KEY}" = "true" ]; then
     KEY=$(openssl rand -base64 32)
     log INFO "Generated AES-256 key: $KEY"
-    log INFO "Set PASTEBIN_SERVER_SIDE_ENCRYPTION_KEY=$KEY"
+    log INFO "Set variable PASTEBIN_SERVER_SIDE_ENCRYPTION_KEY=$KEY"
     exit 0
 fi
 
 # ── TLS validation ────────────────────────────────────────────────────────────
 if [ -n "${PASTEBIN_TLS_KEY+x}" ]; then
-    [ -f "$PASTEBIN_TLS_KEY" ] || {
+    [ -f "${PASTEBIN_TLS_KEY}" ] || {
         log ERROR "PASTEBIN_TLS_KEY file not found: $PASTEBIN_TLS_KEY"
         exit 1
     }
     if [ -n "${PASTEBIN_TLS_CERT+x}" ]; then
-        [ -f "$PASTEBIN_TLS_CERT" ] || {
+        [ -f "${PASTEBIN_TLS_CERT}" ] || {
             log ERROR "PASTEBIN_TLS_CERT file not found: $PASTEBIN_TLS_CERT"
             exit 1
         }
@@ -70,8 +89,8 @@ else
         esac
         # Check range and power of 2
         if [ "${PASTEBIN_SQLITE_PAGE_SIZE}" -ge 512 ] &&
-           [ "${PASTEBIN_SQLITE_PAGE_SIZE}" -le 65536 ] &&
-           [ $((PASTEBIN_SQLITE_PAGE_SIZE & (PASTEBIN_SQLITE_PAGE_SIZE - 1))) -eq 0 ]; then
+            [ "${PASTEBIN_SQLITE_PAGE_SIZE}" -le 65536 ] &&
+            [ $((PASTEBIN_SQLITE_PAGE_SIZE & (PASTEBIN_SQLITE_PAGE_SIZE - 1))) -eq 0 ]; then
             # Valid value
             :
         else
@@ -88,47 +107,51 @@ if [ "$PASTEBIN_SERVER_SIDE_ENCRYPTION_ENABLED" = "true" ] && [ -z "$PASTEBIN_SE
     exit 1
 fi
 
+# ── Protected pastes sanity check ──────────────────────────────────────────────
+if [ "$PASTEBIN_PROTECTED_PASTE_ENABLED" = "true" ] && [ -z "$PASTEBIN_MAX_TTL" ]; then
+    log WARNING "You have enabled support for protected pastes, but you haven’t set a maximum TTL (PASTEBIN_MAX_TTL). This could result in pastes that live indefinitely. They can only be removed via direct database access."
+fi
+
 # ── Startup summary ───────────────────────────────────────────────────────────
-log INFO "Welcome to own Pastebin $VERSION"
-log INFO "Storage:                $DB_INFO"
-if [ -n "${DB_SIZE}" ]; then
-    log INFO "Storage size:           ${DB_SIZE}"
-fi
-if [ -n "${PASTEBIN_SQLITE_PAGE_SIZE}" ]; then
-    log INFO "Custom SQLite Page size:${PASTEBIN_SQLITE_PAGE_SIZE}"
-fi
-log INFO "Listen:                 ${PASTEBIN_HOST}:${PASTEBIN_PORT}"
-log INFO "Base URL:               $PASTEBIN_BASE_URL"
-log INFO "Server side Encryption: $PASTEBIN_SERVER_SIDE_ENCRYPTION_ENABLED"
-log INFO "Max TTL:                ${PASTEBIN_MAX_TTL:-unlimited}"
-log INFO "Default TTL:            $PASTEBIN_DEFAULT_TTL"
-log INFO "Burn by default         ${PASTEBIN_DEFAULT_BURN:-false}"
-log INFO "Max paste:              $PASTEBIN_MAX_PASTE_SIZE"
-log INFO "Max Parallel Uploads:   $PASTEBIN_MAX_PARALLEL_UPLOADS"
-log INFO "Uniq URL Length:        $PASTEBIN_SLUG_LEN"
-log INFO "TLS key:                ${PASTEBIN_TLS_KEY:-not set}"
-log INFO "TLS cert:               ${PASTEBIN_TLS_CERT:-not set}"
-log INFO "Trusted proxy:          ${PASTEBIN_TRUSTED_PROXY:-not set (XFF ignored)}"
-log INFO "Timezone:               ${TZ:-not set}"
-log INFO "Log level:              $PASTEBIN_LOG_LEVEL"
-log INFO "Date format:            ${PASTEBIN_DATE_FORMAT:-not set}"
-log INFO "Shell Date format:      $PASTEBIN_SHELL_DATE_FORMAT"
+
+log INFO "Welcome to own Pastebin ${VERSION}, build ${VCS_REF}.
+\t\tStorage:                 ${DB_INFO},
+$([ -n "${DB_SIZE}" ] && echo "\t\tStorage size:            ${DB_SIZE},";)
+$([ -n "${PASTEBIN_SQLITE_PAGE_SIZE}" ] && echo "\t\tCustom SQLite Page size: ${PASTEBIN_SQLITE_PAGE_SIZE},";)
+\t\tListen:                  ${PASTEBIN_HOST}:${PASTEBIN_PORT},
+\t\tBase URL:                ${PASTEBIN_BASE_URL},
+\t\tServer side Encryption:  ${PASTEBIN_SERVER_SIDE_ENCRYPTION_ENABLED},
+\t\tMax TTL:                 ${PASTEBIN_MAX_TTL:-unlimited},
+$([ -n "${PASTEBIN_DEFAULT_TTL}" ] && echo "\t\tDefault TTL:             ${PASTEBIN_DEFAULT_TTL},";)
+$([ -n "${PASTEBIN_DEFAULT_BURN}" ] && echo "\t\tBurn by default:         ${PASTEBIN_DEFAULT_BURN},";)
+$([ -n "${PASTEBIN_PROTECTED_PASTE_ENABLED}" ] && echo "\t\tEnable Protected Pastes: ${PASTEBIN_PROTECTED_PASTE_ENABLED},";)
+\t\tMax paste:               ${PASTEBIN_MAX_PASTE_SIZE},
+\t\tMax Parallel Uploads:    ${PASTEBIN_MAX_PARALLEL_UPLOADS},
+\t\tUniq URL Length:         ${PASTEBIN_SLUG_LEN},
+$([ -n "${PASTEBIN_TLS_KEY}" ] && echo "\t\tTLS key:                 ${PASTEBIN_TLS_KEY},";)
+$([ -n "${PASTEBIN_TLS_CERT}" ] && echo "\t\tTLS cert:                ${PASTEBIN_TLS_CERT},";)
+\t\tTrusted proxy:           ${PASTEBIN_TRUSTED_PROXY:-not set (XFF ignored)},
+$([ -n "${TZ}" ] && echo "\t\tTimezone:                ${TZ},";)
+\t\tLog level:               ${PASTEBIN_LOG_LEVEL},
+\t\tDate format:             ${PASTEBIN_SHELL_DATE_FORMAT}"
 
 # ── File Logging  ─────────────────────────────────────────────────────────────
 if [ -n "${PASTEBIN_FILE_LOG+x}" ]; then
     touch "$PASTEBIN_FILE_LOG" 2>/dev/null || {
-        log ERROR "Cannot create log file under $PASTEBIN_FILE_LOG as UID $(id -u). Check permissions or disable file logging. Exiting."
+        log ERROR "Cannot create log file under ${PASTEBIN_FILE_LOG} as UID $(id -u). Check permissions or disable file logging. Exiting."
         exit 1
     }
     if [ -w "$PASTEBIN_FILE_LOG" ]; then
-        log INFO "Logging to file:        $PASTEBIN_FILE_LOG"
+        log INFO "Logging to file: ${PASTEBIN_FILE_LOG}"
         exec >>"$PASTEBIN_FILE_LOG" 2>&1
         # After this point everything will be logged to the file.
     else
-        log ERROR "Log file not writable: $PASTEBIN_FILE_LOG"
+        log ERROR "Log file not writable: ${PASTEBIN_FILE_LOG}"
         exit 1
     fi
 fi
 
 # ── Start the app  ────────────────────────────────────────────────────────────
 exec /app/pastebin
+
+log INFO "Shutdown."

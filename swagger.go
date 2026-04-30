@@ -19,6 +19,7 @@ type openAPIData struct {
 	Version    string
 	BaseURL    string
 	SlugLen    int
+	ProtectedPasteEnabled string
 }
 
 // openAPISpec renders the OpenAPI 3.0 JSON spec from the embedded template,
@@ -47,6 +48,7 @@ func (a *App) openAPISpec() (string, error) {
 		Version:    a.cfg.Version,
 		BaseURL:    a.cfg.BaseURL,
 		SlugLen:    a.cfg.SlugLen,
+		ProtectedPasteEnabled: strconv.FormatBool(a.cfg.ProtectedPasteEnabled),
 	}
 
 	var buf bytes.Buffer

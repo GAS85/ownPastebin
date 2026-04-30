@@ -2,6 +2,26 @@
 
 All notable changes to this project are documented in this file.
 
+## v2.3.0
+
+### Added
+
+- K8s example to deploy.
+- JSON Logs support via `PASTEBIN_LOG_FORMAT`.
+- `PASTEBIN_PROTECTED_PASTE_ENABLED` to create protected pastes.
+- Ensure DB new schema migration.
+
+### Changed
+
+- `.dockerignore` update.
+- Commit hash saved inside of the container as variable.
+- `PASTEBIN_DATE_FORMAT` refactoring in `entrypoint.sh`.
+- `README.md` update with k8s and examples, protected pastes.
+- Move some Info messages to Debug.
+- `Dockerfile` minor formatting.
+- UI Update: Disable delete button when paste was protected + react on a 403 error with explanation.
+- Test update to cover protected pastes and API documentation.
+
 ## v2.2.1
 
 ### Added

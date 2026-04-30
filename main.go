@@ -155,7 +155,7 @@ func main() {
 		uploadRate = 1
 	}
 	lim := newIPRateLimiter(uploadRate, uploadBurst, 5*time.Minute)
-	slog.Info("rate limiter configured",
+	slog.Debug("rate limiter configured",
 		"rate_per_sec", uploadRate,
 		"burst", uploadBurst,
 		"derived_from", cfg.MaxParallelUploads,
@@ -222,13 +222,13 @@ func main() {
 	tlsCert := os.Getenv("PASTEBIN_TLS_CERT")
 
 	if tlsKey != "" && tlsCert != "" {
-		slog.Info("server starting with TLS", "addr", addr, "cert", tlsCert, "key", tlsKey)
+		slog.Debug("server starting with TLS", "addr", addr, "cert", tlsCert, "key", tlsKey)
 		if err := http.ListenAndServeTLS(addr, tlsCert, tlsKey, finalHandler); err != nil {
 			slog.Error("server stopped", "err", err)
 			os.Exit(1)
 		}
 	} else {
-		slog.Info("server starting", "addr", addr)
+		slog.Debug("server starting", "addr", addr)
 		if err := http.ListenAndServe(addr, finalHandler); err != nil {
 			slog.Error("server stopped", "err", err)
 			os.Exit(1)

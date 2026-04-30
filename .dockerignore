@@ -1,9 +1,13 @@
-.git
-.github
-data
+.git/
+.github/
+data/
+.gitignore
+.dockerignore
 README.md
+CHANGELOG.md
 Dockerfile
 docker-compose.yml
+k8s.yml
 templates/index_full.html
 *_test.go
 testutil.go

@@ -37,6 +37,8 @@ services:
       #- PASTEBIN_DATE_FORMAT="2006-01-02 15:04:05"
       # Date format for the shell
       #- PASTEBIN_SHELL_DATE_FORMAT="%Y-%m-%d %H:%M:%S"
+      #- PASTEBIN_LOG_FORMAT=json
+      #- PASTEBIN_PROTECTED_PASTE_ENABLED=true
     restart: always
 #    depends_on:
 #      - redis
