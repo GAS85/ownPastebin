@@ -53,7 +53,7 @@
         <button id="expiry-dropdown-btn" class="w3-button w3-round w3-center">Expires: 1 day</button>
         <div class="w3-dropdown-content w3-bar-block w3-card-4" id="expiry-dropdown">
           {{range .ExpiryTimes}}
-          <a id="expire-{{ lower (replace .Label " " "") }}" class="w3-bar-item w3-button" href="{{.Value}}">{{.Label}}</a>
+          <a id="expiry-{{ lower (replace .Label " " "") }}" class="w3-bar-item w3-button" href="{{.Value}}">{{.Label}}</a>
           {{end}}
         </div>
       </div>
