@@ -32,5 +32,38 @@
   "delete-req": "Delete this paste?",
   "delete-warning": "This paste will be permanently deleted. The link cannot be reused.",
   "delete-close-btn": "Cancel",
-  "delete-confirm-btn": "Delete"
+  "delete-confirm-btn": "Delete",
+  
+  "label-burn": "Burn",
+  "label-protected": "Protected",
+
+  "expiry-never": "Never",
+  "expiry-5min": "5 min",
+  "expiry-10min": "10 min",
+  "expiry-1hour": "1 hour",
+  "expiry-1day": "1 day",
+  "expiry-1week": "1 week",
+  "expiry-1month": "1 month",
+  "expiry-1year": "1 year",
+
+  "yes": "Yes",
+  "no": "No",
+
+  "msg-delete-success": "The paste has been successfully removed.",
+  "msg-delete-failed": "Failed to delete the paste.",
+  "msg-delete-failed-http": "Failed to delete the paste (HTTP {status}).",
+  "msg-delete-protected": "This paste is protected and cannot be deleted.",
+  "msg-create-success": "The paste has been successfully created:",
+  "msg-create-failed-http": "Failed to create paste (HTTP {status}).",
+  "msg-network-error": "Network error - could not reach the server.",
+  "msg-empty-paste": "Empty paste - nothing to save.",
+  "msg-too-large": "Paste is too large. Please reduce the content size and try again.",
+  "msg-rate-limit": "Too many requests. Please wait a moment and try again.",
+  "msg-server-busy": "Server is busy. Please try again in a few seconds.",
+  "msg-copy-success": "Copied!",
+  "pwd-weak": "😢 Weak",
+  "pwd-medium": "😒 Medium",
+  "pwd-strong": "😀 Strong",
+  "pwd-beast": "🤖 Beast!",
+  "label-expires": "Expires"
 }

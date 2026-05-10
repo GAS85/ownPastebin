@@ -61,7 +61,7 @@ if [ -n "${PASTEBIN_TLS_KEY+x}" ]; then
     fi
 fi
 
-# ── Storage selection (informational — Go binary selects at runtime) ──────────
+# ── Storage selection (informational - Go binary selects at runtime) ──────────
 if [ -n "${PASTEBIN_REDIS_URL+x}" ]; then
     DB_INFO="Redis ($PASTEBIN_REDIS_URL)"
 elif [ -n "${PASTEBIN_POSTGRES_URL+x}" ]; then

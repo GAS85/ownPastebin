@@ -2,6 +2,18 @@
 
 All notable changes to this project are documented in this file.
 
+## v2.4.0
+
+### Added
+
+- i18n support.
+- Automatic translation to CH, DE, FR, IT, RU.
+
+### Changed
+
+- Minify all json files in static folder.
+- Add html ID tags.
+
 ## v2.3.0
 
 ### Added

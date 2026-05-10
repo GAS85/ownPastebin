@@ -42,6 +42,7 @@ RUN export InternalHashes=$(grep -oE 'on[a-zA-Z]+="[^"]+"' ./templates/index.htm
 # Minify css, js, html, json and svg except "min" files
 RUN find static/ -type f -name "*.css" ! -name "*.min.*" -exec minify -i "{}" \; && \
     find static/ -type f -name "*.js" ! -name "*.min.*" -exec minify -i "{}" \; && \
+    find static/ -type f -name "*.json" ! -name "*.min.*" -exec minify -i "{}" \; && \
     minify -i "static/favicon.svg" && \
     minify -i "templates/swagger_ui.html" && \
     sed -i 's/{{.SSEEnabled}}/747522/g; \

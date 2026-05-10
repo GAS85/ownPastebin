@@ -68,8 +68,8 @@ The application automatically selects the first available backend:
   ```
 
 * `PASTEBIN_SQLITE_PAGE_SIZE` - You can set SQLite Page size for a new table. Valid values are power of 2 from `512` to `65536`. You can calculate it roughly on following basis:
-  * `4096` is default — good for typical text pastes (< 100 KB).
-  * `8192` or `16384`  — better when pastes are regularly several MB, because each paste fits in fewer pages, reducing I/O and B-tree depth.
+  * `4096` is default - good for typical text pastes (< 100 KB).
+  * `8192` or `16384`  - better when pastes are regularly several MB, because each paste fits in fewer pages, reducing I/O and B-tree depth.
 
 ## 🌐 Application Settings
 

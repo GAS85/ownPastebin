@@ -36,7 +36,7 @@
 
     <a href="#" class="w3-button w3-round w3-large w3-margin w3-display-topleft fa fa-x" onclick="toggleMobileMenu()"></a>
 
-    <!-- Desktop nav items — hidden on small/medium screens -->
+    <!-- Desktop nav items - hidden on small/medium screens -->
     <div id="desktopNav">
 
       <img src="{{.URIPrefix}}/static/favicon.svg" alt="Pastebin Logo" class="w3-margin-top w3-hide-small" style="max-width:50px;margin-right: auto;margin-left: auto; display: block;">
@@ -53,7 +53,7 @@
       {{end}}
 
       {{if .IsEditable}}
-      <!-- Expiry dropdown — CSS hover, no JS needed for open/close -->
+      <!-- Expiry dropdown - CSS hover, no JS needed for open/close -->
       <div id="expiry-burn-controls-expire" class="w3-dropdown-hover w3-margin-top">
         <button id="expiry-dropdown-btn" class="w3-button w3-round w3-center">Expires: 1 day</button>
         <div class="w3-dropdown-content w3-bar-block w3-card-4" id="expiry-dropdown">
