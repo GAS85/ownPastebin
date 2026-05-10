@@ -185,6 +185,103 @@ const default_expiry = getMeta("default-expiry") || "86400";
 const default_burn = getMeta("default-burn") || "false";
 const uri_prefix = getMeta("uri-prefix") || "";
 
+
+// ── i18n ─────────────────────────────────────────────────────────────────────
+
+const defaultLang = "en";
+
+const dropdownBtn = document.getElementById("i18n-dropdown-btn");
+const languageLinks = document.querySelectorAll("#i18n-dropdown a");
+
+/**
+ * Flag mapping
+ */
+const flags = {
+  en: "🇺🇸",
+  de: "🇩🇪",
+  fr: "🇫🇷",
+  it: "🇮🇹",
+  ru: "🇷🇺",
+};
+
+/**
+ * Load language JSON
+ * Example: en.json, de.json
+ */
+async function loadLanguage(lang) {
+  try {
+    const response = await fetch(`${uri_prefix}/static/${lang}.json`);
+
+    if (!response.ok) {
+      throw new Error(`Could not load ${uri_prefix}/static/${lang}.json`);
+    }
+
+    const translations = await response.json();
+
+    applyTranslations(translations);
+
+    // Save selected language
+    localStorage.setItem("language", lang);
+
+    // Update button flag
+    dropdownBtn.textContent = flags[lang] || "🌐";
+
+    // Optional: set <html lang="">
+    document.documentElement.lang = lang;
+
+  } catch (err) {
+    console.error(err);
+
+    // fallback to default language
+    if (lang !== defaultLang) {
+      loadLanguage(defaultLang);
+    }
+  }
+}
+
+/**
+ * Translate using element IDs
+ */
+function applyTranslations(translations) {
+
+  Object.keys(translations).forEach(id => {
+
+    const element = document.getElementById(id);
+
+    if (element) {
+      element.textContent = translations[id];
+    }
+
+  });
+}
+
+/**
+ * Initialize
+ */
+function initI18n() {
+  const savedLang =
+    localStorage.getItem("language") || defaultLang;
+
+  loadLanguage(savedLang);
+}
+
+/**
+ * Handle dropdown clicks
+ */
+languageLinks.forEach(link => {
+  link.addEventListener("click", (e) => {
+    e.preventDefault();
+
+    const lang = link.dataset.value;
+
+    loadLanguage(lang);
+  });
+});
+
+// Start
+initI18n();
+
+
 // ── Render plugin init as JSON ──────────────────────────────────────────────────
 
 function init_plugins() {
@@ -533,6 +630,23 @@ document.addEventListener("DOMContentLoaded", function () {
       });
     });
   });
+
+  // ──  i18n dropdowns ─────────────────────────────────────────────────────────
+  // ["i18n-dropdown"].forEach(function (ddId) {
+  //   var dd = document.getElementById(ddId);
+  //   if (!dd) return;
+  //   dd.addEventListener("click", function (e) {
+  //     var a = e.target.closest ? e.target.closest("a[data-value]") : e.target;
+  //     if (!a || a.tagName !== "A") return;
+  //     e.preventDefault();
+  //     state.burn = a.getAttribute("data-value");
+  //     var label = a.textContent.trim();
+  //     ["i18n-dropdown-btn"].forEach(function (bId) {
+  //       var b = document.getElementById(bId);
+  //       if (b) b.textContent = "Language: " + label;
+  //     });
+  //   });
+  // });
 
   // ── Remove button → show deletion modal ───────────────────────────────────
   ["remove-btn"].forEach(function (id) {
