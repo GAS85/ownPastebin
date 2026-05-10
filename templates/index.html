@@ -243,7 +243,8 @@
 
       <!-- Send + Password (new state) -->
       {{if .IsEditable}}
-      <input class="w3-bar-item w3-input w3-margin-top w3-round" id="pastebin-password" type="password" placeholder="Password (optional)" oninput="updateStrength()">
+      <input class="w3-bar-item w3-input w3-margin-top w3-round" id="pastebin-password" type="password" data-i18n-placeholder="e2e-encrypt-password" placeholder="Password (optional)"
+             oninput="updateStrength()">
 
       <div class="w3-light-grey w3-round w3-margin-top" style="height:8px;">
         <div id="password-strength-bar"
@@ -276,9 +277,10 @@
            class="w3-button w3-hover-text-black w3-round w3-right"><i class="fab fa-docker"></i></a>
         <a href="https://github.com/GAS85/ownPastebin"
            class="w3-button w3-hover-text-black w3-round"><i class="fab fa-github"></i></a>
-        <a onclick="re_theme()" title="Change Theme" class="w3-button w3-hover-text-black w3-round"><i class="fa fa-adjust"></i></a>
+        <a onclick="re_theme()" data-i18n-title="change-theme" title="Change Theme" class="w3-button w3-hover-text-black w3-round"><i class="fa fa-adjust"></i></a>
       </div>
-      <a href="https://github.com/GAS85/ownPastebin/releases/tag/{{.Version}}" class="w3-bar-item w3-button w3-margin-top w3-center w3-round w3-small"><span id="slogan-sidebar">Your own</span> Pastebin {{.Version}}</a>
+      <a href="https://github.com/GAS85/ownPastebin/releases/tag/{{.Version}}" class="w3-bar-item w3-button w3-margin-top w3-center w3-round w3-small"><span id="slogan-sidebar">Your own</span>
+        Pastebin {{.Version}}</a>
       <a id="api-docs-sidebar" href="{{.URIPrefix}}/swagger-ui" class="w3-bar-item w3-button w3-margin-top w3-round w3-center w3-small">API Documentation</a>
 
     </div>
@@ -308,7 +310,8 @@
     {{end}}
     {{if .IsCreated}}
     {{if not .IsBurned}}
-    <a class="w3-button w3-round w3-margin w3-border" href="{{.URIPrefix}}/download/{{.PastebinID}}"><i class="fa-solid fa-download"><span id="download-btn-top" class="w3-hide-small"> Download</span></a>
+    <a class="w3-button w3-round w3-margin w3-border" href="{{.URIPrefix}}/download/{{.PastebinID}}"><i class="fa-solid fa-download"><span id="download-btn-top" class="w3-hide-small">
+          Download</span></a>
     {{end}}
     {{if .IsBurned}}
     <a class="w3-button w3-round w3-margin w3-border w3-hover-pale-red" href="{{.URIPrefix}}/"><i class="fa-solid fa-x"></i><span id="close-btn-top" class="w3-hide-small"> Close</span></a>
@@ -331,7 +334,8 @@
 
     <!-- Flash / redirect message -->
     {{if .Msg}}
-    <div class="w3-panel {{if eq .Level " success"}}w3-pale-green{{else if eq .Level "danger" }}w3-pale-red{{else}}w3-khaki{{end}} w3-round w3-display-container w3-card-4 w3-margin-top" role="alert" id="flash-msg">
+    <div class="w3-panel {{if eq .Level " success"}}w3-pale-green{{else if eq .Level "danger" }}w3-pale-red{{else}}w3-khaki{{end}} w3-round w3-display-container w3-card-4 w3-margin-top" role="alert"
+         id="flash-msg">
       <span onclick="this.parentElement.style.display='none'" class="w3-button w3-display-topright w3-round fa fa-x"></span>
       <p>
         {{if .Glyph}}<i class="{{.Glyph}}"></i> {{end}}
@@ -384,9 +388,10 @@
          class="w3-button w3-hover-text-black w3-round"><i class="fab fa-docker"></i></a>
       <a href="https://github.com/GAS85/ownPastebin"
          class="w3-button w3-hover-text-black w3-round"><i class="fab fa-github"></i></a>
-      <a onclick="re_theme()" title="Change Theme" class="w3-button w3-hover-text-black w3-round"><i class="fa fa-adjust"></i></a>
+      <a onclick="re_theme()" data-i18n-title="change-theme" title="Change Theme" class="w3-button w3-hover-text-black w3-round"><i class="fa fa-adjust"></i></a>
     </div>
-    <a class="w3-hide-medium w3-button w3-hover-text-black w3-round" href="https://github.com/GAS85/ownPastebin/releases/tag/{{.Version}}"><span id="slogan-footer">Your own</span> Pastebin {{.Version}}</a>
+    <a class="w3-hide-medium w3-button w3-hover-text-black w3-round" href="https://github.com/GAS85/ownPastebin/releases/tag/{{.Version}}"><span id="slogan-footer">Your own</span> Pastebin
+      {{.Version}}</a>
     <a id="api-docs-footer" href="{{.URIPrefix}}/swagger-ui" class="w3-hide-medium w3-button w3-hover-text-black w3-round">API Documentation</a>
   </footer>
 
@@ -395,7 +400,7 @@
   <div id="password-modal" class="w3-modal" role="dialog" aria-modal="true" aria-labelledby="password-modal-title">
     <div class="w3-modal-content w3-animate-top w3-card-4">
       <header class="w3-container w3-blue-grey">
-        <button onclick="document.getElementById('password-modal').style.display='none'" class="w3-button w3-display-topright fa fa-x" aria-label="Close"></button>
+        <button onclick="document.getElementById('password-modal').style.display='none'" class="w3-button w3-display-topright fa fa-x" data-i18n-aria-label="close" aria-label="Close"></button>
         <h4 id="password-modal-title"><i class="fas fa-key"></i> <span id="password-req-header">Password Protected</span></h4>
       </header>
       <div class="w3-container w3-padding">
@@ -419,7 +424,7 @@
         </div>
         <label for="modal-password"><strong id="password">Password</strong></label>
         <input class="w3-input w3-round w3-margin-bottom" type="password"
-               id="modal-password" placeholder="Enter password"
+               id="modal-password" data-i18n-placeholder="e2e-decrypt-password" placeholder="Enter password"
                autocomplete="current-password">
       </div>
       <footer class="w3-container w3-blue-grey w3-padding">

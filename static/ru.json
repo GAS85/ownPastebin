@@ -6,6 +6,8 @@
   "copy-btn-name": "Копировать",
   "raw-btn-name": "Исходный код",
   "download-btn-name": "Скачать",
+  "e2e-encrypt-password": "Пароль (необязательно)",
+  "e2e-decrypt-password": "Введите пароль",
   "protected-true": "Да",
   "protected-false": "Нет",
   "send-btn-sidebar-name": "Отправить",
@@ -33,8 +35,10 @@
   "delete-warning": "Этот паст будет удалён навсегда. Ссылка не может быть использована повторно.",
   "delete-close-btn": "Отмена",
   "delete-confirm-btn": "Удалить",
+
   "label-burn": "Самоуничтожение",
   "label-protected": "Защищено",
+
   "expiry-never": "Никогда",
   "expiry-5min": "5 мин",
   "expiry-10min": "10 мин",
@@ -43,8 +47,12 @@
   "expiry-1week": "1 неделя",
   "expiry-1month": "1 месяц",
   "expiry-1year": "1 год",
+
   "yes": "Да",
   "no": "Нет",
+  "close": "Закрыть",
+  "change-theme": "Сменить тему",
+
   "msg-delete-success": "Паст успешно удалён.",
   "msg-delete-failed": "Не удалось удалить паст.",
   "msg-delete-failed-http": "Не удалось удалить паст (HTTP {status}).",

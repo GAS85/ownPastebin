@@ -305,6 +305,33 @@ function applyTranslations(translations) {
     }
   });
 
+  // placeholder=""
+  document.querySelectorAll("[data-i18n-placeholder]").forEach(el => {
+    const key = el.dataset.i18nPlaceholder;
+
+    if (translations[key]) {
+      el.placeholder = translations[key];
+    }
+  });
+
+  // title=""
+  document.querySelectorAll("[data-i18n-title]").forEach(el => {
+    const key = el.dataset.i18nTitle;
+
+    if (translations[key]) {
+      el.title = translations[key];
+    }
+  });
+
+  // aria-label=""
+  document.querySelectorAll("[data-i18n-aria-label]").forEach(el => {
+    const key = el.dataset.i18nAriaLabel;
+
+    if (translations[key]) {
+      el.setAttribute("aria-label", translations[key]);
+    }
+  });
+
   // Translate data-i18n
   // document.querySelectorAll("[data-i18n]").forEach(el => {
   //   const key = el.dataset.i18n;

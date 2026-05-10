@@ -6,6 +6,8 @@
     "copy-btn-name": "Kopiere",
     "raw-btn-name": "Rohdaten",
     "download-btn-name": "Abelade",
+    "e2e-encrypt-password": "Kennwort (optional)",
+    "e2e-decrypt-password": "Kennwort eingeben",
     "protected-true": "Ja",
     "protected-false": "Nei",
     "send-btn-sidebar-name": "Sände",
@@ -48,6 +50,8 @@
   
     "yes": "Ja",
     "no": "Nei",
+    "close": "Schliessen",
+    "change-theme": "Theme ändern",
   
     "msg-delete-success": "Die Paste isch erfolgreich glöscht worde.",
     "msg-delete-failed": "D'Paste het nöd chöne glöscht werde.",

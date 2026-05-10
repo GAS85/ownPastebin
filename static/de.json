@@ -6,6 +6,8 @@
   "copy-btn-name": "Kopieren",
   "raw-btn-name": "Rohdaten",
   "download-btn-name": "Herunterladen",
+  "e2e-encrypt-password": "Kennwort (optional)",
+  "e2e-decrypt-password": "Kennwort eingeben",
   "protected-true": "Ja",
   "protected-false": "Nein",
   "send-btn-sidebar-name": "Senden",
@@ -33,8 +35,10 @@
   "delete-warning": "Dieses Paste wird dauerhaft gelöscht. Der Link kann nicht wiederverwendet werden.",
   "delete-close-btn": "Abbrechen",
   "delete-confirm-btn": "Löschen",
+
   "label-burn": "Selbstzerstörung",
   "label-protected": "Geschützt",
+
   "expiry-never": "Nie",
   "expiry-5min": "5 Min",
   "expiry-10min": "10 Min",
@@ -43,8 +47,12 @@
   "expiry-1week": "1 Woche",
   "expiry-1month": "1 Monat",
   "expiry-1year": "1 Jahr",
+
   "yes": "Ja",
   "no": "Nein",
+  "close": "Schliessen",
+  "change-theme": "Theme ändern",
+
   "msg-delete-success": "Das Paste wurde erfolgreich entfernt.",
   "msg-delete-failed": "Löschen des Pastes fehlgeschlagen.",
   "msg-delete-failed-http": "Löschen des Pastes fehlgeschlagen (HTTP {status}).",

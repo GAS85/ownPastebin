@@ -6,6 +6,8 @@
   "copy-btn-name": "Copy",
   "raw-btn-name": "Raw",
   "download-btn-name": "Download",
+  "e2e-encrypt-password": "Password (optional)",
+  "e2e-decrypt-password": "Enter password",
   "protected-true": "Yes",
   "protected-false": "No",
   "send-btn-sidebar-name": "Send",
@@ -48,6 +50,8 @@
 
   "yes": "Yes",
   "no": "No",
+  "close": "Close",
+  "change-theme": "Change Theme",
 
   "msg-delete-success": "The paste has been successfully removed.",
   "msg-delete-failed": "Failed to delete the paste.",

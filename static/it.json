@@ -6,6 +6,8 @@
   "copy-btn-name": "Copia",
   "raw-btn-name": "Grezzo",
   "download-btn-name": "Scarica",
+  "e2e-encrypt-password": "Password (opzionale)",
+  "e2e-decrypt-password": "Inserisci la password",
   "protected-true": "Sì",
   "protected-false": "No",
   "send-btn-sidebar-name": "Invia",
@@ -33,8 +35,10 @@
   "delete-warning": "Questo paste verrà eliminato definitivamente. Il link non potrà essere riutilizzato.",
   "delete-close-btn": "Annulla",
   "delete-confirm-btn": "Elimina",
+
   "label-burn": "Autodistruzione",
   "label-protected": "Protetto",
+
   "expiry-never": "Mai",
   "expiry-5min": "5 min",
   "expiry-10min": "10 min",
@@ -43,8 +47,12 @@
   "expiry-1week": "1 settimana",
   "expiry-1month": "1 mese",
   "expiry-1year": "1 anno",
+
   "yes": "Sì",
   "no": "No",
+  "close": "Chiudi",
+  "change-theme": "Cambia tema",
+
   "msg-delete-success": "Il paste è stato rimosso con successo.",
   "msg-delete-failed": "Eliminazione del paste non riuscita.",
   "msg-delete-failed-http": "Eliminazione del paste non riuscita (HTTP {status}).",

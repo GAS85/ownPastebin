@@ -6,6 +6,8 @@
   "copy-btn-name": "Copier",
   "raw-btn-name": "Brut",
   "download-btn-name": "Télécharger",
+  "e2e-encrypt-password": "Mot de passe (optionnel)",
+  "e2e-decrypt-password": "Entrer le mot de passe",
   "protected-true": "Oui",
   "protected-false": "Non",
   "send-btn-sidebar-name": "Envoyer",
@@ -33,8 +35,10 @@
   "delete-warning": "Ce paste sera définitivement supprimé. Le lien ne pourra pas être réutilisé.",
   "delete-close-btn": "Annuler",
   "delete-confirm-btn": "Supprimer",
+
   "label-burn": "Auto-destruction",
   "label-protected": "Protégé",
+
   "expiry-never": "Jamais",
   "expiry-5min": "5 min",
   "expiry-10min": "10 min",
@@ -43,8 +47,12 @@
   "expiry-1week": "1 semaine",
   "expiry-1month": "1 mois",
   "expiry-1year": "1 an",
+
   "yes": "Oui",
   "no": "Non",
+  "close": "Fermer",
+  "change-theme": "Changer le thème",
+
   "msg-delete-success": "Le paste a été supprimé avec succès.",
   "msg-delete-failed": "Échec de la suppression du paste.",
   "msg-delete-failed-http": "Échec de la suppression du paste (HTTP {status}).",
