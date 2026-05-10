@@ -13,6 +13,7 @@ All notable changes to this project are documented in this file.
 
 - Minify all json files in static folder.
 - Add html ID tags.
+- Python example update.
 
 ## v2.3.0
 

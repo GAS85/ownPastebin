@@ -193,12 +193,44 @@ const defaultLang = "en";
 
 const flags = {
   ch: "🇨🇭",
-  en: "🇺🇸",
+  en: "🇬🇧",
   de: "🇩🇪",
   fr: "🇫🇷",
   it: "🇮🇹",
   ru: "🇷🇺",
 };
+
+/**
+ * Detect browser preferred language.
+ *
+ * Examples:
+ *   "de-CH" -> "de"
+ *   "fr-FR" -> "fr"
+ */
+function getBrowserLanguage() {
+  const langs =
+    navigator.languages && navigator.languages.length
+      ? navigator.languages
+      : [navigator.language || defaultLang];
+
+  for (const lang of langs) {
+    const normalized = lang.toLowerCase();
+
+    // Special case: Swiss German
+    if (normalized === "de-ch") {
+      return "ch";
+    }
+
+    const short = normalized.split("-")[0];
+
+    // Only allow supported languages
+    if (flags[short]) {
+      return short;
+    }
+  }
+
+  return defaultLang;
+}
 
 // Active translations
 let currentTranslations = {};
@@ -288,9 +320,15 @@ function applyTranslations(translations) {
  * Initialize i18n
  */
 function initI18n() {
-  const savedLang =
-    localStorage.getItem("language") || defaultLang;
-  loadLanguage(savedLang);
+  const savedLang = localStorage.getItem("language");
+
+  // Priority:
+  // 1. User choice from localStorage
+  // 2. Browser preferred language
+  // 3. Default fallback
+  const lang = savedLang || getBrowserLanguage() || defaultLang;
+
+  loadLanguage(lang);
 
   // If the dropdown doesn't exist, skip setting up handlers (e.g. on paste view).
   const dropdown = document.getElementById("i18n-dropdown");

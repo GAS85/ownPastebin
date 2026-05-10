@@ -2,10 +2,7 @@
 <html lang="en">
 
 <head>
-  <meta http-equiv="Content-Security-Policy" content="style-src 'self' 'unsafe-inline' https://www.w3schools.com https://cdnjs.cloudflare.com;
-    img-src 'self' data: blob:;
-    font-src 'self' https://cdnjs.cloudflare.com;
-  ">
+  <meta http-equiv="Content-Security-Policy" content="style-src 'self' 'unsafe-inline' https://www.w3schools.com https://cdnjs.cloudflare.com; img-src 'self' data: blob:; font-src 'self' https://cdnjs.cloudflare.com;">
 
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -305,8 +302,7 @@
            class="w3-button w3-hover-text-black w3-round"><i class="fab fa-github"></i></a>
         <a onclick="re_theme()" title="Change Theme" class="w3-button w3-hover-text-black w3-round"><i class="fa fa-adjust"></i></a>
       </div>
-      <a href="https://github.com/GAS85/ownPastebin/releases/tag/v1.2.0" class="w3-bar-item w3-button w3-margin-top w3-center w3-round w3-small"><span id="slogan-sidebar">Your own</span> Pastebin
-        v1.2.0</a>
+      <a href="https://github.com/GAS85/ownPastebin/releases/tag/v1.2.0" class="w3-bar-item w3-button w3-margin-top w3-center w3-round w3-small"><span id="slogan-sidebar">Your own</span> Pastebin v1.2.0</a>
       <a id="api-docs-sidebar" href="/swagger-ui" class="w3-bar-item w3-button w3-margin-top w3-round w3-center w3-small">API Documentation</a>
 
     </div>
@@ -319,10 +315,10 @@
     <div>
       <a href="#" class="w3-button w3-round w3-margin" onclick="toggleMobileMenu()"><i class="fa-solid fa-bars"></i></a>
       <div id="i18n" class="w3-dropdown-hover w3-margin" style="align-self:initial">
-        <button id="i18n-dropdown-btn" class="w3-button w3-circle">🇺🇸</button>
+        <button id="i18n-dropdown-btn" class="w3-button w3-round">🇺🇸</button>
         <div class="w3-dropdown-content w3-bar-block w3-card-4" id="i18n-dropdown">
           <a class="w3-bar-item w3-button" href="#" data-value="de"><span class="w3-hide-small">German</span><span class="w3-hide-medium w3-hide-large">🇩🇪</span></a>
-          <a class="w3-bar-item w3-button" href="#" data-value="en"><span class="w3-hide-small">English</span><span class="w3-hide-medium w3-hide-large">🇺🇸</span></a>
+          <a class="w3-bar-item w3-button" href="#" data-value="en"><span class="w3-hide-small">English</span><span class="w3-hide-medium w3-hide-large">🇬🇧</span></a>
           <a class="w3-bar-item w3-button" href="#" data-value="fr"><span class="w3-hide-small">France</span><span class="w3-hide-medium w3-hide-large">🇫🇷</span></a>
           <a class="w3-bar-item w3-button" href="#" data-value="it"><span class="w3-hide-small">Italy</span><span class="w3-hide-medium w3-hide-large">🇮🇹</span></a>
           <a class="w3-bar-item w3-button" href="#" data-value="ru"><span class="w3-hide-small">Russian</span><span class="w3-hide-medium w3-hide-large">🇷🇺</span></a>
@@ -390,7 +386,7 @@
   </footer>
 
   <!-- ── Password Modal (only rendered for E2E-encrypted pastes) ── -->
-  <div id="password-modal" class="w3-modal" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="password-modal-title">
+  <div id="password-modal" class="w3-modal" role="dialog" aria-modal="true" aria-labelledby="password-modal-title">
     <div class="w3-modal-content w3-animate-top w3-card-4">
       <header class="w3-container w3-blue-grey">
         <button onclick="document.getElementById('password-modal').style.display='none'" class="w3-button w3-display-topright fa fa-x" aria-label="Close"></button>

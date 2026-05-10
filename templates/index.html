@@ -3,12 +3,7 @@
 
 <head>
   <!-- Hash calculate: echo -n "toggleMobileMenu()" | openssl dgst -sha256 -binary | openssl base64 -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self';
-    script-src 'self' 'unsafe-hashes' SHA-HASHES;
-    style-src 'self' 'unsafe-inline';
-    img-src 'self' data: blob:;
-    font-src 'self';
-  ">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-hashes' SHA-HASHES; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self';">
 
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -41,7 +36,7 @@
 
       <img src="{{.URIPrefix}}/static/favicon.svg" alt="Pastebin Logo" class="w3-margin-top w3-hide-small" style="max-width:50px;margin-right: auto;margin-left: auto; display: block;">
 
-      <a href="{{.URIPrefix}}/" class="w3-bar-item w3-button w3-round w3-margin-top w3-center"><i class="fa-regular fa-file"></i> New</a>
+      <a id="create-new" href="{{.URIPrefix}}/" class="w3-bar-item w3-button w3-round w3-margin-top w3-center"><i class="fa-regular fa-file"></i> New</a>
 
       <!-- Remove btn: shown on view state -->
       {{if .IsCreated}}
@@ -283,8 +278,7 @@
            class="w3-button w3-hover-text-black w3-round"><i class="fab fa-github"></i></a>
         <a onclick="re_theme()" title="Change Theme" class="w3-button w3-hover-text-black w3-round"><i class="fa fa-adjust"></i></a>
       </div>
-      <a href="https://github.com/GAS85/ownPastebin/releases/tag/{{.Version}}" class="w3-bar-item w3-button w3-margin-top w3-center w3-round w3-small"><span id="slogan-sidebar">Your own</span>
-        Pastebin {{.Version}}</a>
+      <a href="https://github.com/GAS85/ownPastebin/releases/tag/{{.Version}}" class="w3-bar-item w3-button w3-margin-top w3-center w3-round w3-small"><span id="slogan-sidebar">Your own</span> Pastebin {{.Version}}</a>
       <a id="api-docs-sidebar" href="{{.URIPrefix}}/swagger-ui" class="w3-bar-item w3-button w3-margin-top w3-round w3-center w3-small">API Documentation</a>
 
     </div>
@@ -297,10 +291,10 @@
     <div>
       <a href="#" class="w3-button w3-round w3-margin" onclick="toggleMobileMenu()"><i class="fa-solid fa-bars"></i></a>
       <div id="i18n" class="w3-dropdown-hover w3-margin" style="align-self:initial">
-        <button id="i18n-dropdown-btn" class="w3-button w3-circle">🇺🇸</button>
+        <button id="i18n-dropdown-btn" class="w3-button w3-round">🇬🇧</button>
         <div class="w3-dropdown-content w3-bar-block w3-card-4" id="i18n-dropdown">
           <a class="w3-bar-item w3-button" href="#" data-value="de"><span class="w3-hide-small">German</span><span class="w3-hide-medium w3-hide-large">🇩🇪</span></a>
-          <a class="w3-bar-item w3-button" href="#" data-value="en"><span class="w3-hide-small">English</span><span class="w3-hide-medium w3-hide-large">🇺🇸</span></a>
+          <a class="w3-bar-item w3-button" href="#" data-value="en"><span class="w3-hide-small">English</span><span class="w3-hide-medium w3-hide-large">🇬🇧</span></a>
           <a class="w3-bar-item w3-button" href="#" data-value="fr"><span class="w3-hide-small">France</span><span class="w3-hide-medium w3-hide-large">🇫🇷</span></a>
           <a class="w3-bar-item w3-button" href="#" data-value="it"><span class="w3-hide-small">Italy</span><span class="w3-hide-medium w3-hide-large">🇮🇹</span></a>
           <a class="w3-bar-item w3-button" href="#" data-value="ru"><span class="w3-hide-small">Russian</span><span class="w3-hide-medium w3-hide-large">🇷🇺</span></a>
@@ -314,8 +308,7 @@
     {{end}}
     {{if .IsCreated}}
     {{if not .IsBurned}}
-    <a class="w3-button w3-round w3-margin w3-border" href="{{.URIPrefix}}/download/{{.PastebinID}}"><i class="fa-solid fa-download"><span id="download-btn-top" class="w3-hide-small">
-          Download</span></a>
+    <a class="w3-button w3-round w3-margin w3-border" href="{{.URIPrefix}}/download/{{.PastebinID}}"><i class="fa-solid fa-download"><span id="download-btn-top" class="w3-hide-small"> Download</span></a>
     {{end}}
     {{if .IsBurned}}
     <a class="w3-button w3-round w3-margin w3-border w3-hover-pale-red" href="{{.URIPrefix}}/"><i class="fa-solid fa-x"></i><span id="close-btn-top" class="w3-hide-small"> Close</span></a>
@@ -338,8 +331,7 @@
 
     <!-- Flash / redirect message -->
     {{if .Msg}}
-    <div class="w3-panel {{if eq .Level " success"}}w3-pale-green{{else if eq .Level "danger" }}w3-pale-red{{else}}w3-khaki{{end}} w3-round w3-display-container w3-card-4 w3-margin-top" role="alert"
-         id="flash-msg">
+    <div class="w3-panel {{if eq .Level " success"}}w3-pale-green{{else if eq .Level "danger" }}w3-pale-red{{else}}w3-khaki{{end}} w3-round w3-display-container w3-card-4 w3-margin-top" role="alert" id="flash-msg">
       <span onclick="this.parentElement.style.display='none'" class="w3-button w3-display-topright w3-round fa fa-x"></span>
       <p>
         {{if .Glyph}}<i class="{{.Glyph}}"></i> {{end}}
@@ -394,14 +386,13 @@
          class="w3-button w3-hover-text-black w3-round"><i class="fab fa-github"></i></a>
       <a onclick="re_theme()" title="Change Theme" class="w3-button w3-hover-text-black w3-round"><i class="fa fa-adjust"></i></a>
     </div>
-    <a class="w3-hide-medium w3-button w3-hover-text-black w3-round" href="https://github.com/GAS85/ownPastebin/releases/tag/{{.Version}}"><span id="slogan-footer">Your own</span> Pastebin
-      {{.Version}}</a>
+    <a class="w3-hide-medium w3-button w3-hover-text-black w3-round" href="https://github.com/GAS85/ownPastebin/releases/tag/{{.Version}}"><span id="slogan-footer">Your own</span> Pastebin {{.Version}}</a>
     <a id="api-docs-footer" href="{{.URIPrefix}}/swagger-ui" class="w3-hide-medium w3-button w3-hover-text-black w3-round">API Documentation</a>
   </footer>
 
   <!-- ── Password Modal (only rendered for E2E-encrypted pastes) ── -->
   {{if .IsEncrypted}}
-  <div id="password-modal" class="w3-modal" style="display:block;" role="dialog" aria-modal="true" aria-labelledby="password-modal-title">
+  <div id="password-modal" class="w3-modal" role="dialog" aria-modal="true" aria-labelledby="password-modal-title">
     <div class="w3-modal-content w3-animate-top w3-card-4">
       <header class="w3-container w3-blue-grey">
         <button onclick="document.getElementById('password-modal').style.display='none'" class="w3-button w3-display-topright fa fa-x" aria-label="Close"></button>
