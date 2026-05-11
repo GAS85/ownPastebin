@@ -8,6 +8,7 @@ All notable changes to this project are documented in this file.
 
 - i18n support.
 - Automatic AI translations to CN, CH, DE, FR, IT, RU, UA.
+- `PASTEBIN_EXPIRY_TIMES` now you can define custom expiration list.
 
 ### Changed
 

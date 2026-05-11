@@ -123,6 +123,7 @@ $([ -n "${PASTEBIN_SQLITE_PAGE_SIZE}" ] && echo "\t\tCustom SQLite Page size: ${
 \t\tServer side Encryption:  ${PASTEBIN_SERVER_SIDE_ENCRYPTION_ENABLED},
 \t\tMax TTL:                 ${PASTEBIN_MAX_TTL:-unlimited},
 $([ -n "${PASTEBIN_DEFAULT_TTL}" ] && echo "\t\tDefault TTL:             ${PASTEBIN_DEFAULT_TTL},";)
+$([ -n "${PASTEBIN_EXPIRY_TIMES}" ] && echo "\t\tCustom expiration list:  ${PASTEBIN_EXPIRY_TIMES/\"/},";)
 $([ -n "${PASTEBIN_DEFAULT_BURN}" ] && echo "\t\tBurn by default:         ${PASTEBIN_DEFAULT_BURN},";)
 $([ -n "${PASTEBIN_PROTECTED_PASTE_ENABLED}" ] && echo "\t\tEnable Protected Pastes: ${PASTEBIN_PROTECTED_PASTE_ENABLED},";)
 \t\tMax paste:               ${PASTEBIN_MAX_PASTE_SIZE},

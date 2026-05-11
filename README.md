@@ -146,6 +146,12 @@ docker run -e GENERATE_KEY=true gas85/ownpastebin:latest
 
 * `PASTEBIN_SLUG_LEN` - Uniq URL Length. Default to `20`. It is not recommended to go below this value to avoid possible collision (handled by storage) and Link guessing attack.
 * `PASTEBIN_PROTECTED_PASTE_ENABLED` - enable support for protected pastes. They can be created with a flag `protected=true` and can be only removed by expiration time or burn option. It is recommended to set `PASTEBIN_MAX_TTL` this feature is enabled, otherwise it could result in pastes that live indefinitely. They can only be removed via direct database access. Default to `false`.
+* `PASTEBIN_EXPIRY_TIMES` - You can set your own expiration timers list as `<Name>:<Value in seconds>,`. Where `<Name>` could be `Never` for never expired pastes, or `X <label>`, where `X` expiration time shown in UI and `<label>` could be one of `Min/Hour/Day/Week/Month/Year`. E.g. `"Never:0,5 Min:300,1 Hour:3600,1 Day:86400,1 Week:604800"` will produce following dropdown:
+  * Never
+  * 5 Min
+  * 1 Hour
+  * 1 Day
+  * 1 Week
 * `PASTEBIN_DATE_FORMAT` - Text logs timestamp format. Disabled when logs format is set to `json`. Default: `%Y-%m-%d %H:%M:%S`
 * `TZ` - Timezone. Default `Europe/Zurich`
 

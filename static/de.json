@@ -63,7 +63,7 @@
   "msg-delete-failed": "Die Paste konnte nicht gelöscht werden.",
   "msg-delete-failed-http": "Die Paste konnte nicht gelöscht werden (HTTP {status}).",
   "msg-delete-protected": "Die Paste ist geschützt und kann nicht gelöscht werden.",
-  "msg-create-success": "Die Paste wurde erfolgreich erstellt: {url}",
+  "msg-create-success": "Die Paste wurde erfolgreich erstellt:",
   "msg-create-failed-http": "Erstellung der Paste fehlgeschlagen (HTTP {status}).",
   "msg-network-error": "Netzwerkfehler – der Server ist nicht erreichbar.",
   "msg-empty-paste": "Leere Paste – es gibt nichts zu speichern.",

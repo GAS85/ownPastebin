@@ -218,7 +218,6 @@ const default_expiry = getMeta("default-expiry") || "86400";
 const default_burn = getMeta("default-burn") || "false";
 const uri_prefix = getMeta("uri-prefix") || "";
 
-
 // ── i18n ─────────────────────────────────────────────────────────────────────
 
 const defaultLang = "en";
@@ -276,11 +275,9 @@ let currentTranslations = {};
  *   t("msg-copy-success")
  */
 function t(key, vars = {}, fallback = "") {
+  let text = currentTranslations[key] || fallback || key;
 
-  let text =
-    currentTranslations[key] || fallback || key;
-
-  Object.keys(vars).forEach(k => {
+  Object.keys(vars).forEach((k) => {
     text = text.replaceAll(`{${k}}`, vars[k]);
   });
 
@@ -312,7 +309,6 @@ async function loadLanguage(lang) {
 
     // Set <html lang="">
     document.documentElement.lang = lang;
-
   } catch (err) {
     console.error(err);
 
@@ -332,7 +328,7 @@ async function loadLanguage(lang) {
  */
 function applyTranslations(translations) {
   // Translate by ID
-  Object.keys(translations).forEach(key => {
+  Object.keys(translations).forEach((key) => {
     const byId = document.getElementById(key);
     if (byId) {
       byId.textContent = translations[key];
@@ -340,7 +336,7 @@ function applyTranslations(translations) {
   });
 
   // placeholder=""
-  document.querySelectorAll("[data-i18n-placeholder]").forEach(el => {
+  document.querySelectorAll("[data-i18n-placeholder]").forEach((el) => {
     const key = el.dataset.i18nPlaceholder;
 
     if (translations[key]) {
@@ -349,7 +345,7 @@ function applyTranslations(translations) {
   });
 
   // title=""
-  document.querySelectorAll("[data-i18n-title]").forEach(el => {
+  document.querySelectorAll("[data-i18n-title]").forEach((el) => {
     const key = el.dataset.i18nTitle;
 
     if (translations[key]) {
@@ -358,7 +354,7 @@ function applyTranslations(translations) {
   });
 
   // aria-label=""
-  document.querySelectorAll("[data-i18n-aria-label]").forEach(el => {
+  document.querySelectorAll("[data-i18n-aria-label]").forEach((el) => {
     const key = el.dataset.i18nAriaLabel;
 
     if (translations[key]) {
@@ -367,7 +363,7 @@ function applyTranslations(translations) {
   });
 
   // Translate data-i18n
-  document.querySelectorAll("[data-i18n]").forEach(el => {
+  document.querySelectorAll("[data-i18n]").forEach((el) => {
     const key = el.dataset.i18n;
     if (translations[key]) {
       el.textContent = translations[key];
@@ -396,16 +392,14 @@ function initI18n() {
   if (!dropdown) return;
 
   // Dropdown click handlers
-  document.querySelectorAll("#i18n-dropdown a")
-    .forEach(link => {
-      link.addEventListener("click", (e) => {
-        e.preventDefault();
-        const lang = link.dataset.value;
-        loadLanguage(lang);
-      });
+  document.querySelectorAll("#i18n-dropdown a").forEach((link) => {
+    link.addEventListener("click", (e) => {
+      e.preventDefault();
+      const lang = link.dataset.value;
+      loadLanguage(lang);
     });
+  });
 }
-
 
 // ── Render plugin init as JSON ──────────────────────────────────────────────────
 
@@ -523,7 +517,7 @@ function loadMermaidThenRender(block) {
     _renderMermaid(block);
     return;
   }
-  var prefix = (typeof uri_prefix !== "undefined" ? uri_prefix : "");
+  var prefix = typeof uri_prefix !== "undefined" ? uri_prefix : "";
   var s = document.createElement("script");
   s.src = prefix + "/static/mermaid.min.js";
   s.onload = function () {
@@ -563,34 +557,29 @@ function initMermaid() {
   }
 }
 
-  // ── Apply default labels ─────────────────────────────
-  function updateDropdownLabels() {
-    var expiryBtn = document.getElementById("expiry-dropdown-btn");
-    var burnBtn = document.getElementById("burn-dropdown-btn");
-    var protectedBtn = document.getElementById("protected-dropdown-btn");
+// ── Apply default labels ─────────────────────────────
+function updateDropdownLabels() {
+  var expiryBtn = document.getElementById("expiry-dropdown-btn");
+  var burnBtn = document.getElementById("burn-dropdown-btn");
+  var protectedBtn = document.getElementById("protected-dropdown-btn");
 
-    if (expiryBtn) {
-      expiryBtn.textContent = t("label-expires") + ": " + formatExpiry(state.expiry);
-    };
-
-    if (burnBtn) {
-
-      burnBtn.textContent =
-        t("label-burn") + ": " +
-        (state.burn === "true"
-          ? t("yes")
-          : t("no"));
-    }
-
-    if (protectedBtn) {
-
-      protectedBtn.textContent =
-        t("label-protected") + ": " +
-        (state.protected === "true"
-          ? t("yes")
-          : t("no"));
-    }
+  if (expiryBtn) {
+    expiryBtn.textContent =
+      t("label-expires") + ": " + formatExpiry(state.expiry);
   }
+
+  if (burnBtn) {
+    burnBtn.textContent =
+      t("label-burn") + ": " + (state.burn === "true" ? t("yes") : t("no"));
+  }
+
+  if (protectedBtn) {
+    protectedBtn.textContent =
+      t("label-protected") +
+      ": " +
+      (state.protected === "true" ? t("yes") : t("no"));
+  }
+}
 
 // ── State ────────────────────────────────────────────────────────────────────
 // var state = { expiry: "86400", burn: "false" };
@@ -773,7 +762,7 @@ document.addEventListener("DOMContentLoaded", function () {
   // Guard flag prevents double-fire if the button is clicked more than once
   // before the fetch resolves (network lag, double-click, etc.)
   var deleteInFlight = false;
-  var deleteConfirmBtn = document.getElementById("deletion-confirm-btn");
+  var deleteConfirmBtn = document.getElementById("delete-confirm-btn");
   if (deleteConfirmBtn) {
     deleteConfirmBtn.addEventListener("click", function (e) {
       e.preventDefault();
@@ -804,11 +793,7 @@ document.addEventListener("DOMContentLoaded", function () {
           var uri = flashBase();
           uri = replaceUrlParam(uri, "level", "info");
           uri = replaceUrlParam(uri, "glyph", "fas fa-info-circle");
-          uri = replaceUrlParam(
-            uri,
-            "msg",
-            t("msg-delete-success"),
-          );
+          uri = replaceUrlParam(uri, "msg", t("msg-delete-success"));
           window.location.href = encodeURI(uri);
         })
         .catch(function () {
@@ -955,11 +940,7 @@ document.addEventListener("DOMContentLoaded", function () {
           var redirect = flashBase();
           redirect = replaceUrlParam(redirect, "level", "success");
           redirect = replaceUrlParam(redirect, "glyph", "fas fa-check");
-          redirect = replaceUrlParam(
-            redirect,
-            "msg",
-            t("msg-create-success"),
-          );
+          redirect = replaceUrlParam(redirect, "msg", t("msg-create-success"));
           redirect = replaceUrlParam(redirect, "url", result.url);
           window.location.href = encodeURI(redirect);
         })
@@ -969,11 +950,7 @@ document.addEventListener("DOMContentLoaded", function () {
           var redirect = flashBase();
           redirect = replaceUrlParam(redirect, "level", "danger");
           redirect = replaceUrlParam(redirect, "glyph", "fas fa-circle-xmark");
-          redirect = replaceUrlParam(
-            redirect,
-            "msg",
-            t("msg-network-error"),
-          );
+          redirect = replaceUrlParam(redirect, "msg", t("msg-network-error"));
           window.location.href = encodeURI(redirect);
         });
     }

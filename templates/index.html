@@ -53,11 +53,12 @@
         <button id="expiry-dropdown-btn" class="w3-button w3-round w3-center">Expires: 1 day</button>
         <div class="w3-dropdown-content w3-bar-block w3-card-4" id="expiry-dropdown">
           {{ range .ExpiryTimes }}
-            {{ if gt (len (split .Label " ")) 1 }}
-              <a class="w3-bar-item w3-button" href="{{ .Value }}">{{ index (split .Label " ") 0 }} <span data-i18n="expiry-{{ lower (index (split .Label " ") 1) }}">{{ index (split .Label " ") 1 }}</span></a>
-            {{ else }}
-              <a id="expiry-{{ lower (.Label) }}" class="w3-bar-item w3-button" href="{{ .Value }}">{{ .Label }}</a>
-            {{ end }}
+          {{ if gt (len (split .Label " ")) 1 }}
+          <a class="w3-bar-item w3-button" href="{{ .Value }}">{{ index (split .Label " ") 0 }} <span data-i18n="expiry-{{ lower (index (split .Label " ") 1) }}">{{ index (split .Label " ") 1
+              }}</span></a>
+          {{ else }}
+          <a id="expiry-{{ lower (.Label) }}" class="w3-bar-item w3-button" href="{{ .Value }}">{{ .Label }}</a>
+          {{ end }}
           {{ end }}
         </div>
       </div>
@@ -399,7 +400,7 @@
 
   <!-- ── Password Modal (only rendered for E2E-encrypted pastes) ── -->
   {{if .IsEncrypted}}
-  <div id="password-modal" class="w3-modal" role="dialog" aria-modal="true" aria-labelledby="password-modal-title">
+  <div id="password-modal" class="w3-modal" style="display:block;" role="dialog" aria-modal="true" aria-labelledby="password-modal-title">
     <div class="w3-modal-content w3-animate-top w3-card-4">
       <header class="w3-container w3-blue-grey">
         <button onclick="document.getElementById('password-modal').style.display='none'" class="w3-button w3-display-topright fa fa-x" data-i18n-aria-label="close" aria-label="Close"></button>
@@ -455,9 +456,9 @@
       <footer class="w3-container w3-padding w3-blue-grey">
         <button type="button" id="delete-close-btn" class="w3-button w3-grey w3-round"
                 onclick="document.getElementById('deletion-modal').style.display='none'">Cancel</button>
-        <button type="button" id="delete-confirm-btn"
+        <button type="button"
                 class="w3-button w3-red w3-hover-orange w3-round w3-right"
-                id="deletion-confirm-btn">Delete</button>
+                id="delete-confirm-btn">Delete</button>
       </footer>
     </div>
   </div>
