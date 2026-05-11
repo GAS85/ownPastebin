@@ -40,13 +40,6 @@
   "label-protected": "Geschützt",
 
   "expiry-never": "Nie",
-  "expiry-5min": "5 Minuten",
-  "expiry-10min": "10 Minuten",
-  "expiry-1hour": "1 Stunde",
-  "expiry-1day": "1 Tag",
-  "expiry-1week": "1 Woche",
-  "expiry-1month": "1 Monat",
-  "expiry-1year": "1 Jahr",
   "expiry-min": "Minuten",
   "expiry-hour": "Stunde",
   "expiry-day": "Tag",

@@ -40,13 +40,6 @@
   "label-protected": "Защищено",
 
   "expiry-never": "Никогда",
-  "expiry-5min": "5 мин",
-  "expiry-10min": "10 мин",
-  "expiry-1hour": "1 час",
-  "expiry-1day": "1 день",
-  "expiry-1week": "1 неделя",
-  "expiry-1month": "1 месяц",
-  "expiry-1year": "1 год",
   "expiry-min": "мин",
   "expiry-hour": "час",
   "expiry-day": "день",

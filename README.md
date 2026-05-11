@@ -34,6 +34,7 @@ A minimal, RAM-friendly paste service with support for raw uploads, TTL, burn-af
 * 🔐 Optional end-to-end encryption with AES-GCM
 * 📦 Binary-safe uploads/downloads
 * 🧠 Designed to be memory efficient
+* 🌐 i18n support - different languages as json files
 
 ## ⚙️ Configuration
 

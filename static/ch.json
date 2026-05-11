@@ -40,13 +40,6 @@
   "label-protected": "Gschützt",
 
   "expiry-never": "Niemer",
-  "expiry-5min": "5 Min",
-  "expiry-10min": "10 Min",
-  "expiry-1hour": "1 Stund",
-  "expiry-1day": "1 Tag",
-  "expiry-1week": "1 Wuche",
-  "expiry-1month": "1 Monet",
-  "expiry-1year": "1 Jahr",
   "expiry-min": "Min",
   "expiry-hour": "Stund",
   "expiry-day": "Tag",
