@@ -47,6 +47,12 @@
     "expiry-1week": "1 周",
     "expiry-1month": "1 个月",
     "expiry-1year": "1 年",
+    "expiry-min": "分钟",
+    "expiry-hour": "小时",
+    "expiry-day": "天",
+    "expiry-week": "周",
+    "expiry-month": "个月",
+    "expiry-year": "年",
 
     "yes": "是",
     "no": "否",

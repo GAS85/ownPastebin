@@ -65,6 +65,38 @@ function flashBase() {
     : "/";
 }
 
+/** Set expiration button description */
+function formatExpiry(seconds) {
+  /** Convert to number first */
+  seconds = Number(seconds);
+
+  if (seconds === 0) {
+    return t("expiry-never");
+  }
+
+  if (seconds < 3600) {
+    return Math.floor(seconds / 60) + " " + t("expiry-min");
+  }
+
+  if (seconds < 86400) {
+    return Math.floor(seconds / 3600) + " " + t("expiry-hour");
+  }
+
+  if (seconds < 604800) {
+    return Math.floor(seconds / 86400) + " " + t("expiry-day");
+  }
+
+  if (seconds < 2592000) {
+    return Math.floor(seconds / 604800) + " " + t("expiry-week");
+  }
+
+  if (seconds < 31536000) {
+    return Math.floor(seconds / 2592000) + " " + t("expiry-month");
+  }
+
+  return Math.floor(seconds / 31536000) + " " + t("expiry-year");
+}
+
 // ── Uint8Array → Base64 ───────────────────────────────────────────────────────
 //
 // String.fromCharCode.apply(null, largeArray) throws a RangeError (call stack
@@ -335,12 +367,12 @@ function applyTranslations(translations) {
   });
 
   // Translate data-i18n
-  // document.querySelectorAll("[data-i18n]").forEach(el => {
-  //   const key = el.dataset.i18n;
-  //   if (translations[key]) {
-  //     el.textContent = translations[key];
-  //   }
-  // });
+  document.querySelectorAll("[data-i18n]").forEach(el => {
+    const key = el.dataset.i18n;
+    if (translations[key]) {
+      el.textContent = translations[key];
+    }
+  });
 
   updateDropdownLabels();
 }
@@ -538,22 +570,8 @@ function initMermaid() {
     var protectedBtn = document.getElementById("protected-dropdown-btn");
 
     if (expiryBtn) {
-
-    var expiryMap = {
-      0: t("expiry-never"),
-      300: t("expiry-5min"),
-      600: t("expiry-10min"),
-      3600: t("expiry-1hour"),
-      86400: t("expiry-1day"),
-      604800: t("expiry-1week"),
-      2592000: t("expiry-1month"),
-      31536000: t("expiry-1year"),
+      expiryBtn.textContent = t("label-expires") + ": " + formatExpiry(state.expiry);
     };
-
-    expiryBtn.textContent =
-      t("label-expires") + ": " +
-      (expiryMap[state.expiry] || state.expiry);
-    }
 
     if (burnBtn) {
 

@@ -52,9 +52,13 @@
       <div id="expiry-burn-controls-expire" class="w3-dropdown-hover w3-margin-top">
         <button id="expiry-dropdown-btn" class="w3-button w3-round w3-center">Expires: 1 day</button>
         <div class="w3-dropdown-content w3-bar-block w3-card-4" id="expiry-dropdown">
-          {{range .ExpiryTimes}}
-          <a id="expiry-{{ lower (replace .Label " " "") }}" class="w3-bar-item w3-button" href="{{.Value}}">{{.Label}}</a>
-          {{end}}
+          {{ range .ExpiryTimes }}
+            {{ if gt (len (split .Label " ")) 1 }}
+              <a class="w3-bar-item w3-button" href="{{ .Value }}">{{ index (split .Label " ") 0 }} <span data-i18n="expiry-{{ lower (index (split .Label " ") 1) }}">{{ index (split .Label " ") 1 }}</span></a>
+            {{ else }}
+              <a id="expiry-{{ lower (.Label) }}" class="w3-bar-item w3-button" href="{{ .Value }}">{{ .Label }}</a>
+            {{ end }}
+          {{ end }}
         </div>
       </div>
 

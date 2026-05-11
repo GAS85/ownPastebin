@@ -47,6 +47,13 @@
     "expiry-1week": "1 Wuche",
     "expiry-1month": "1 Monet",
     "expiry-1year": "1 Jahr",
+    "expiry-min": "Min",
+    "expiry-hour": "Stund",
+    "expiry-day": "Tag",
+    "expiry-week": "Wuche",
+    "expiry-month": "Monet",
+    "expiry-year": "Jahr",
+
     "yes": "Jo",
     "no": "Nei",
     "close": "Schliess",

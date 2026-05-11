@@ -47,6 +47,12 @@
     "expiry-1week": "1 тиждень",
     "expiry-1month": "1 місяць",
     "expiry-1year": "1 рік",
+    "expiry-min": "хвилин",
+    "expiry-hour": "година",
+    "expiry-day": "день",
+    "expiry-week": "тиждень",
+    "expiry-month": "місяць",
+    "expiry-year": "рік",
 
     "yes": "Так",
     "no": "Ні",
@@ -69,5 +75,5 @@
     "pwd-medium": "😐 Середній",
     "pwd-strong": "😀 Сильний",
     "pwd-beast": "🤖 Надійний!",
-    "label-expires": "Термін дії закінчується"
+    "label-expires": "Закінчується"
 }

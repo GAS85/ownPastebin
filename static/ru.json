@@ -47,6 +47,12 @@
   "expiry-1week": "1 неделя",
   "expiry-1month": "1 месяц",
   "expiry-1year": "1 год",
+  "expiry-min": "мин",
+  "expiry-hour": "час",
+  "expiry-day": "день",
+  "expiry-week": "неделя",
+  "expiry-month": "месяц",
+  "expiry-year": "год",
 
   "yes": "Да",
   "no": "Нет",

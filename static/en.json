@@ -35,7 +35,7 @@
   "delete-warning": "This paste will be permanently deleted. The link cannot be reused.",
   "delete-close-btn": "Cancel",
   "delete-confirm-btn": "Delete",
-  
+
   "label-burn": "Burn",
   "label-protected": "Protected",
 
@@ -47,6 +47,12 @@
   "expiry-1week": "1 week",
   "expiry-1month": "1 month",
   "expiry-1year": "1 year",
+  "expiry-min": "min",
+  "expiry-hour": "hour",
+  "expiry-day": "day",
+  "expiry-week": "week",
+  "expiry-month": "month",
+  "expiry-year": "year",
 
   "yes": "Yes",
   "no": "No",

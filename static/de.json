@@ -47,6 +47,12 @@
   "expiry-1week": "1 Woche",
   "expiry-1month": "1 Monat",
   "expiry-1year": "1 Jahr",
+  "expiry-min": "Minuten",
+  "expiry-hour": "Stunde",
+  "expiry-day": "Tag",
+  "expiry-week": "Woche",
+  "expiry-month": "Monat",
+  "expiry-year": "Jahr",
 
   "yes": "Ja",
   "no": "Nein",
