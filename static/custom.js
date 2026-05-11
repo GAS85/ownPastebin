@@ -193,11 +193,13 @@ const defaultLang = "en";
 
 const flags = {
   ch: "🇨🇭",
+  cn: "🇨🇳",
   en: "🇬🇧",
   de: "🇩🇪",
   fr: "🇫🇷",
   it: "🇮🇹",
   ru: "🇷🇺",
+  ua: "🇺🇦",
 };
 
 /**

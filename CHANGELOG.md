@@ -7,7 +7,7 @@ All notable changes to this project are documented in this file.
 ### Added
 
 - i18n support.
-- Automatic translation to CH, DE, FR, IT, RU.
+- Automatic AI translations to CN, CH, DE, FR, IT, RU, UA.
 
 ### Changed
 
