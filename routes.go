@@ -61,22 +61,6 @@ type TemplateData struct {
 	FlashURL string
 }
 
-type ExpiryOption struct {
-	Label string
-	Value string
-}
-
-var defaultExpiryTimes = []ExpiryOption{
-	{"Never", "0"},
-	{"5 min", "300"},
-	{"10 min", "600"},
-	{"1 hour", "3600"},
-	{"1 day", "86400"},
-	{"1 week", "604800"},
-	{"1 month", "2592000"},
-	{"1 year", "31536000"},
-}
-
 func (a *App) baseData(r *http.Request) TemplateData {
 	// New-paste page: no language known yet — exclude conditional plugins (Mermaid).
 	css, js, inits := a.plugins.BuildFor("")
@@ -87,7 +71,7 @@ func (a *App) baseData(r *http.Request) TemplateData {
 		TailCSSImports:        a.plugins.TailCSSImports(),
 		JSImports:             js,
 		JSInits:               inits,
-		ExpiryTimes:           defaultExpiryTimes,
+		ExpiryTimes:           a.cfg.expiryTimes(), // configured list, or built-in defaults
 		DefaultExpiry:         strconv.FormatInt(int64(a.cfg.DefaultTTL.Seconds()), 10),
 		DefaultBurn:           a.cfg.DefaultBurn,
 		ProtectedPasteEnabled: a.cfg.ProtectedPasteEnabled,
@@ -358,18 +342,18 @@ func (a *App) handleView(w http.ResponseWriter, r *http.Request) {
 	css, js, inits := a.plugins.BuildFor(paste.Lang)
 
 	d := a.baseData(r)
-	d.CSSImports     = css
-	d.JSImports      = js
-	d.JSInits        = inits
-	d.IsCreated      = true
-	d.IsBurned       = paste.Burn
-	d.IsBurn         = paste.Burn
-	d.IsEncrypted    = paste.E2EEncrypted
-	d.IsProtected    = paste.Protected
-	d.PastebinCode   = text
-	d.PastebinID     = id
-	d.PastebinCls    = "language-" + paste.Lang
-	d.ExpireAt       = paste.ExpireAt
+	d.CSSImports   = css
+	d.JSImports    = js
+	d.JSInits      = inits
+	d.IsCreated    = true
+	d.IsBurned     = paste.Burn
+	d.IsBurn       = paste.Burn
+	d.IsEncrypted  = paste.E2EEncrypted
+	d.IsProtected  = paste.Protected
+	d.PastebinCode = text
+	d.PastebinID   = id
+	d.PastebinCls  = "language-" + paste.Lang
+	d.ExpireAt     = paste.ExpireAt
 	a.render(w, d, http.StatusOK)
 }
 

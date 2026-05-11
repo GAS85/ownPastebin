@@ -2,6 +2,21 @@
 
 All notable changes to this project are documented in this file.
 
+## v2.4.0
+
+### Added
+
+- i18n support.
+- Automatic AI translations to CN, CH, DE, FR, IT, RU, UA.
+- `PASTEBIN_EXPIRY_TIMES` now you can define custom expiration list.
+- Add check of downloaded 3rd party artifacts prior to build
+
+### Changed
+
+- Minify all json files in static folder.
+- Add html ID tags.
+- Python example update.
+
 ## v2.3.0
 
 ### Added

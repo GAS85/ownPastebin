@@ -1,13 +1,13 @@
 /**
- * custom.js — vanilla JS, Web Crypto API (SubtleCrypto).
+ * custom.js - vanilla JS, Web Crypto API (SubtleCrypto).
  *
  * Encryption scheme: AES-256-GCM with PBKDF2-SHA-256 key derivation.
  *
  * Wire format (stored as Base64, prefixed "v2:"):
  *   v2:<base64( salt[16] + iv[12] + ciphertext + gcmTag[16] )>
  *
- *   - Salt:       16 random bytes  — for PBKDF2
- *   - IV:         12 random bytes  — for AES-GCM nonce
+ *   - Salt:       16 random bytes  - for PBKDF2
+ *   - IV:         12 random bytes  - for AES-GCM nonce
  *   - PBKDF2:     SHA-256, 200 000 iterations, 256-bit key
  *   - Cipher:     AES-256-GCM (authenticated, no separate HMAC needed)
  *   - GCM tag:    appended by SubtleCrypto automatically (last 16 bytes)
@@ -58,11 +58,43 @@ function replaceUrlParam(url, param, value) {
   return url + (url.indexOf("?") > 0 ? "&" : "?") + param + "=" + value;
 }
 
-/** Base URL for flash redirects — always the prefix root. */
+/** Base URL for flash redirects - always the prefix root. */
 function flashBase() {
   return typeof uri_prefix !== "undefined" && uri_prefix !== ""
     ? uri_prefix + "/"
     : "/";
+}
+
+/** Set expiration button description */
+function formatExpiry(seconds) {
+  /** Convert to number first */
+  seconds = Number(seconds);
+
+  if (seconds === 0) {
+    return t("expiry-never");
+  }
+
+  if (seconds < 3600) {
+    return Math.floor(seconds / 60) + " " + t("expiry-min");
+  }
+
+  if (seconds < 86400) {
+    return Math.floor(seconds / 3600) + " " + t("expiry-hour");
+  }
+
+  if (seconds < 604800) {
+    return Math.floor(seconds / 86400) + " " + t("expiry-day");
+  }
+
+  if (seconds < 2592000) {
+    return Math.floor(seconds / 604800) + " " + t("expiry-week");
+  }
+
+  if (seconds < 31536000) {
+    return Math.floor(seconds / 2592000) + " " + t("expiry-month");
+  }
+
+  return Math.floor(seconds / 31536000) + " " + t("expiry-year");
 }
 
 // ── Uint8Array → Base64 ───────────────────────────────────────────────────────
@@ -171,6 +203,7 @@ async function aesDecrypt(cipherText, password) {
     );
     return new TextDecoder().decode(plainBuf);
   } catch (e) {
+    console.error("AES decrypt failed:", e);
     return null;
   }
 }
@@ -184,6 +217,189 @@ function getMeta(name) {
 const default_expiry = getMeta("default-expiry") || "86400";
 const default_burn = getMeta("default-burn") || "false";
 const uri_prefix = getMeta("uri-prefix") || "";
+
+// ── i18n ─────────────────────────────────────────────────────────────────────
+
+const defaultLang = "en";
+
+const flags = {
+  ch: "🇨🇭",
+  cn: "🇨🇳",
+  en: "🇬🇧",
+  de: "🇩🇪",
+  fr: "🇫🇷",
+  it: "🇮🇹",
+  ru: "🇷🇺",
+  ua: "🇺🇦",
+};
+
+/**
+ * Detect browser preferred language.
+ *
+ * Examples:
+ *   "de-CH" -> "de"
+ *   "fr-FR" -> "fr"
+ */
+function getBrowserLanguage() {
+  const langs =
+    navigator.languages && navigator.languages.length
+      ? navigator.languages
+      : [navigator.language || defaultLang];
+
+  for (const lang of langs) {
+    const normalized = lang.toLowerCase();
+
+    // Special case: Swiss German
+    if (normalized === "de-ch") {
+      return "ch";
+    }
+
+    const short = normalized.split("-")[0];
+
+    // Only allow supported languages
+    if (flags[short]) {
+      return short;
+    }
+  }
+
+  return defaultLang;
+}
+
+// Active translations
+let currentTranslations = {};
+
+/**
+ * Translation helper
+ *
+ * Usage:
+ *   t("msg-copy-success")
+ */
+function t(key, vars = {}, fallback = "") {
+  let text = currentTranslations[key] || fallback || key;
+
+  Object.keys(vars).forEach((k) => {
+    text = text.replaceAll(`{${k}}`, vars[k]);
+  });
+
+  return text;
+}
+
+/**
+ * Load language JSON
+ */
+async function loadLanguage(lang) {
+  try {
+    const response = await fetch(`${uri_prefix}/static/${lang}.json`);
+
+    if (!response.ok) {
+      throw new Error(`Could not load ${lang}.json`);
+    }
+
+    const translations = await response.json();
+    currentTranslations = translations;
+    applyTranslations(translations);
+    localStorage.setItem("language", lang);
+
+    // Update dropdown flag
+    const dropdownBtn = document.getElementById("i18n-dropdown-btn");
+
+    if (dropdownBtn) {
+      dropdownBtn.textContent = flags[lang] || "🌐";
+    }
+
+    // Set <html lang="">
+    document.documentElement.lang = lang;
+  } catch (err) {
+    console.error(err);
+
+    // Fallback to English
+    if (lang !== defaultLang) {
+      loadLanguage(defaultLang);
+    }
+  }
+}
+
+/**
+ * Apply translations
+ *
+ * Supports:
+ *   id="..."
+ *   data-i18n="..."
+ */
+function applyTranslations(translations) {
+  // Translate by ID
+  Object.keys(translations).forEach((key) => {
+    const byId = document.getElementById(key);
+    if (byId) {
+      byId.textContent = translations[key];
+    }
+  });
+
+  // placeholder=""
+  document.querySelectorAll("[data-i18n-placeholder]").forEach((el) => {
+    const key = el.dataset.i18nPlaceholder;
+
+    if (translations[key]) {
+      el.placeholder = translations[key];
+    }
+  });
+
+  // title=""
+  document.querySelectorAll("[data-i18n-title]").forEach((el) => {
+    const key = el.dataset.i18nTitle;
+
+    if (translations[key]) {
+      el.title = translations[key];
+    }
+  });
+
+  // aria-label=""
+  document.querySelectorAll("[data-i18n-aria-label]").forEach((el) => {
+    const key = el.dataset.i18nAriaLabel;
+
+    if (translations[key]) {
+      el.setAttribute("aria-label", translations[key]);
+    }
+  });
+
+  // Translate data-i18n
+  document.querySelectorAll("[data-i18n]").forEach((el) => {
+    const key = el.dataset.i18n;
+    if (translations[key]) {
+      el.textContent = translations[key];
+    }
+  });
+
+  updateDropdownLabels();
+}
+
+/**
+ * Initialize i18n
+ */
+function initI18n() {
+  const savedLang = localStorage.getItem("language");
+
+  // Priority:
+  // 1. User choice from localStorage
+  // 2. Browser preferred language
+  // 3. Default fallback
+  const lang = savedLang || getBrowserLanguage() || defaultLang;
+
+  loadLanguage(lang);
+
+  // If the dropdown doesn't exist, skip setting up handlers (e.g. on paste view).
+  const dropdown = document.getElementById("i18n-dropdown");
+  if (!dropdown) return;
+
+  // Dropdown click handlers
+  document.querySelectorAll("#i18n-dropdown a").forEach((link) => {
+    link.addEventListener("click", (e) => {
+      e.preventDefault();
+      const lang = link.dataset.value;
+      loadLanguage(lang);
+    });
+  });
+}
 
 // ── Render plugin init as JSON ──────────────────────────────────────────────────
 
@@ -275,16 +491,16 @@ function updateStrength() {
     text.textContent = "";
   } else if (score <= 2) {
     bar.className = "w3-container w3-red w3-round";
-    text.textContent = "😢 Weak";
+    text.textContent = t("pwd-weak");
   } else if (score <= 4) {
     bar.className = "w3-container w3-khaki w3-round";
-    text.textContent = "😒 Medium";
+    text.textContent = t("pwd-medium");
   } else if (score <= 6) {
     bar.className = "w3-container w3-light-green w3-round";
-    text.textContent = "😀 Strong";
+    text.textContent = t("pwd-strong");
   } else {
     bar.className = "w3-container w3-green w3-round";
-    text.textContent = "🤖 Beast!";
+    text.textContent = t("pwd-beast");
   }
 }
 
@@ -301,7 +517,7 @@ function loadMermaidThenRender(block) {
     _renderMermaid(block);
     return;
   }
-  var prefix = (typeof uri_prefix !== "undefined" ? uri_prefix : "");
+  var prefix = typeof uri_prefix !== "undefined" ? uri_prefix : "";
   var s = document.createElement("script");
   s.src = prefix + "/static/mermaid.min.js";
   s.onload = function () {
@@ -341,57 +557,54 @@ function initMermaid() {
   }
 }
 
+// ── Apply default labels ─────────────────────────────
+function updateDropdownLabels() {
+  var expiryBtn = document.getElementById("expiry-dropdown-btn");
+  var burnBtn = document.getElementById("burn-dropdown-btn");
+  var protectedBtn = document.getElementById("protected-dropdown-btn");
+
+  if (expiryBtn) {
+    expiryBtn.textContent =
+      t("label-expires") + ": " + formatExpiry(state.expiry);
+  }
+
+  if (burnBtn) {
+    burnBtn.textContent =
+      t("label-burn") + ": " + (state.burn === "true" ? t("yes") : t("no"));
+  }
+
+  if (protectedBtn) {
+    protectedBtn.textContent =
+      t("label-protected") +
+      ": " +
+      (state.protected === "true" ? t("yes") : t("no"));
+  }
+}
+
+// ── State ────────────────────────────────────────────────────────────────────
+// var state = { expiry: "86400", burn: "false" };
+var state = {
+  expiry: default_expiry,
+  burn: default_burn,
+  protected: "false",
+};
+
 // ── DOM ready ─────────────────────────────────────────────────────────────────
 
 document.addEventListener("DOMContentLoaded", function () {
-  // var state = { expiry: "86400", burn: "false" };
-  var state = {
-    expiry: default_expiry,
-    burn: default_burn,
-    protected: "false",
-  };
-
-  // ── Apply default labels ─────────────────────────────
-  (function () {
-    var expiryBtn = document.getElementById("expiry-dropdown-btn");
-    var burnBtn = document.getElementById("burn-dropdown-btn");
-    var protectedBtn = document.getElementById("protected-dropdown-btn");
-
-    if (expiryBtn) {
-      var expiryMap = {
-        0: "Never",
-        300: "5 min",
-        600: "10 min",
-        3600: "1 hour",
-        86400: "1 day",
-        604800: "1 week",
-        2592000: "1 month",
-        31536000: "1 year",
-      };
-      expiryBtn.textContent =
-        "Expires: " + (expiryMap[state.expiry] || state.expiry);
-    }
-
-    if (burnBtn) {
-      burnBtn.textContent = "Burn: " + (state.burn === "true" ? "Yes" : "No");
-    }
-
-    if (protectedBtn) {
-      protectedBtn.textContent = "Protected: " + (state.protected === "true" ? "Yes" : "No");
-    }
-  })();
+  initI18n();
 
   // ── Line numbers + line highlight setup ──────────────────────────────────
   //
   // We let Prism's own plugins (line-numbers, line-highlight, linkable-line-
   // numbers) do all the work. Our responsibilities are:
   //
-  //   1. Ensure <pre id="pastebin-pre"> — Go template may omit the id.
+  //   1. Ensure <pre id="pastebin-pre"> - Go template may omit the id.
   //   2. Translate GitLab-style hashes (#L3, #L3-5, #L1-3,7) to Prism's
   //      native form (#pastebin-pre.3-5) with history.replaceState so Prism's
   //      own applyHash() always receives the format it expects.
   //   3. Compensate for the sticky topnav after Prism scrolls a line into
-  //      view — Prism calls scrollIntoView() which ignores sticky headers.
+  //      view - Prism calls scrollIntoView() which ignores sticky headers.
   //
   // We do NOT call highlightElement on hash changes. That would re-run the
   // full highlighter, strip the temporary .line-highlight divs Prism just
@@ -416,7 +629,7 @@ document.addEventListener("DOMContentLoaded", function () {
     if (!hash) return false;
     var h = hash.slice(1); // strip leading #
 
-    // Already Prism form — nothing to do.
+    // Already Prism form - nothing to do.
     if (h.indexOf(PRE_ID + ".") === 0) return false;
 
     // GitLab form: L5 / L3-5 / L1,4 / L1-3,7,9-11
@@ -494,7 +707,7 @@ document.addEventListener("DOMContentLoaded", function () {
       var label = a.textContent.trim();
       ["expiry-dropdown-btn"].forEach(function (bId) {
         var b = document.getElementById(bId);
-        if (b) b.textContent = "Expires: " + label;
+        if (b) b.textContent = t("label-expires") + ": " + label;
       });
     });
   });
@@ -511,7 +724,7 @@ document.addEventListener("DOMContentLoaded", function () {
       var label = a.textContent.trim();
       ["protected-dropdown-btn"].forEach(function (bId) {
         var b = document.getElementById(bId);
-        if (b) b.textContent = "Protected: " + label;
+        if (b) b.textContent = t("label-protected") + ": " + label;
       });
       return false;
     });
@@ -529,7 +742,7 @@ document.addEventListener("DOMContentLoaded", function () {
       var label = a.textContent.trim();
       ["burn-dropdown-btn"].forEach(function (bId) {
         var b = document.getElementById(bId);
-        if (b) b.textContent = "Burn: " + label;
+        if (b) b.textContent = t("label-burn") + ": " + label;
       });
     });
   });
@@ -549,7 +762,7 @@ document.addEventListener("DOMContentLoaded", function () {
   // Guard flag prevents double-fire if the button is clicked more than once
   // before the fetch resolves (network lag, double-click, etc.)
   var deleteInFlight = false;
-  var deleteConfirmBtn = document.getElementById("deletion-confirm-btn");
+  var deleteConfirmBtn = document.getElementById("delete-confirm-btn");
   if (deleteConfirmBtn) {
     deleteConfirmBtn.addEventListener("click", function (e) {
       e.preventDefault();
@@ -562,8 +775,8 @@ document.addEventListener("DOMContentLoaded", function () {
           if (!r.ok) {
             var msg =
               r.status === 403
-                ? "This paste is protected and cannot be deleted."
-                : "Failed to delete the paste (HTTP " + r.status + ").";
+                ? t("msg-delete-protected")
+                : t("msg-delete-failed-http", { status: r.status });
             deleteInFlight = false;
             deleteConfirmBtn.disabled = false;
             var uri = flashBase();
@@ -580,11 +793,7 @@ document.addEventListener("DOMContentLoaded", function () {
           var uri = flashBase();
           uri = replaceUrlParam(uri, "level", "info");
           uri = replaceUrlParam(uri, "glyph", "fas fa-info-circle");
-          uri = replaceUrlParam(
-            uri,
-            "msg",
-            "The paste has been successfully removed.",
-          );
+          uri = replaceUrlParam(uri, "msg", t("msg-delete-success"));
           window.location.href = encodeURI(uri);
         })
         .catch(function () {
@@ -593,7 +802,7 @@ document.addEventListener("DOMContentLoaded", function () {
           var uri = flashBase();
           uri = replaceUrlParam(uri, "level", "danger");
           uri = replaceUrlParam(uri, "glyph", "fas fa-circle-xmark");
-          uri = replaceUrlParam(uri, "msg", "Failed to delete the paste.");
+          uri = replaceUrlParam(uri, "msg", t("msg-delete-failed"));
           window.location.href = encodeURI(uri);
         });
     });
@@ -632,7 +841,7 @@ document.addEventListener("DOMContentLoaded", function () {
         }
       }
       var original = btn.textContent;
-      btn.textContent = "Copied!";
+      btn.textContent = t("msg-copy-success");
       btn.disabled = true;
       setTimeout(function () {
         btn.textContent = original;
@@ -680,15 +889,15 @@ document.addEventListener("DOMContentLoaded", function () {
     function errorMsgForStatus(status) {
       switch (status) {
         case 400:
-          return "Empty paste — nothing to save.";
+          return t("msg-empty-paste");
         case 413:
-          return "Paste is too large. Please reduce the content size and try again.";
+          return t("msg-too-large");
         case 429:
-          return "Too many requests. Please wait a moment and try again.";
+          return t("msg-rate-limit");
         case 503:
-          return "Server is busy. Please try again in a few seconds.";
+          return t("msg-server-busy");
         default:
-          return "Failed to create paste (HTTP " + status + ").";
+          return t("msg-create-failed-http", { status });
       }
     }
 
@@ -731,25 +940,17 @@ document.addEventListener("DOMContentLoaded", function () {
           var redirect = flashBase();
           redirect = replaceUrlParam(redirect, "level", "success");
           redirect = replaceUrlParam(redirect, "glyph", "fas fa-check");
-          redirect = replaceUrlParam(
-            redirect,
-            "msg",
-            "The paste has been successfully created:",
-          );
+          redirect = replaceUrlParam(redirect, "msg", t("msg-create-success"));
           redirect = replaceUrlParam(redirect, "url", result.url);
           window.location.href = encodeURI(redirect);
         })
         .catch(function () {
-          // Network error (no response at all — e.g. offline, DNS failure).
+          // Network error (no response at all - e.g. offline, DNS failure).
           resetSendBtn();
           var redirect = flashBase();
           redirect = replaceUrlParam(redirect, "level", "danger");
           redirect = replaceUrlParam(redirect, "glyph", "fas fa-circle-xmark");
-          redirect = replaceUrlParam(
-            redirect,
-            "msg",
-            "Network error — could not reach the server.",
-          );
+          redirect = replaceUrlParam(redirect, "msg", t("msg-network-error"));
           window.location.href = encodeURI(redirect);
         });
     }
@@ -826,6 +1027,6 @@ document.addEventListener("DOMContentLoaded", function () {
   // Translate #L… to Prism's #pastebin-pre.… form. init_plugins() (called by
   // the Go template's plugin-inits script, which runs after custom.js loads)
   // will then call Prism.highlightElement which triggers Prism's own applyHash
-  // via its 'complete' hook — so no manual highlightElement call needed here.
+  // via its 'complete' hook - so no manual highlightElement call needed here.
   normalizeLineHash();
 });

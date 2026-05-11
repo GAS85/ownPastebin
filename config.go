@@ -8,6 +8,25 @@ import (
 	"time"
 )
 
+// ExpiryOption is a label/value pair shown in the expiry dropdown.
+// It lives here (rather than routes.go) because Settings owns the configured list.
+type ExpiryOption struct {
+	Label string
+	Value string
+}
+
+// defaultExpiryTimes is the built-in list used when PASTEBIN_EXPIRY_TIMES is unset.
+var defaultExpiryTimes = []ExpiryOption{
+	{"Never", "0"},
+	{"5 min", "300"},
+	{"10 min", "600"},
+	{"1 hour", "3600"},
+	{"1 day", "86400"},
+	{"1 week", "604800"},
+	{"1 month", "2592000"},
+	{"1 year", "31536000"},
+}
+
 type Settings struct {
 	// Storage
 	RedisURL    string
@@ -25,6 +44,10 @@ type Settings struct {
 	MaxParallelUploads int
 	SQLitePageSize     int // 0 = SQLite default (4096); only effective on new databases
 	Version            string
+
+	// ExpiryTimes is the list of expiry options shown in the UI dropdown.
+	// Populated from PASTEBIN_EXPIRY_TIMES; falls back to defaultExpiryTimes when empty.
+	ExpiryTimes []ExpiryOption
 
 	// Security
 	ServerSideEncryptionEnabled bool
@@ -79,7 +102,81 @@ func loadSettings() *Settings {
 		s.TrustedProxy = parseCIDR(raw)
 	}
 
+	// PASTEBIN_EXPIRY_TIMES — optional, comma-separated "Label:seconds" pairs.
+	// Example: "Never:0,5 min:300,1 hour:3600,1 day:86400"
+	// Falls back to defaultExpiryTimes when unset or empty.
+	s.ExpiryTimes = parseExpiryTimes(os.Getenv("PASTEBIN_EXPIRY_TIMES"))
+
 	return s
+}
+
+// parseExpiryTimes parses a comma-separated list of "Label:seconds" pairs into
+// []ExpiryOption.  Each entry must contain exactly one colon; the seconds value
+// must be a non-negative integer.  Malformed entries are silently skipped so
+// that a single typo does not disable the entire dropdown.
+//
+// Returns nil (causing the caller to fall back to defaultExpiryTimes) when raw
+// is empty or every entry is malformed.
+//
+// Examples of valid input:
+//
+//	"Never:0,5 min:300,1 hour:3600,1 day:86400,1 week:604800"
+//	"10 minutes:600,1 day:86400"
+func parseExpiryTimes(raw string) []ExpiryOption {
+	raw = strings.TrimSpace(raw)
+	// Strip surrounding quote characters that container runtimes (Docker,
+	// Kubernetes) sometimes pass literally when the env value is written as
+	// PASTEBIN_EXPIRY_TIMES="…" or PASTEBIN_EXPIRY_TIMES='…' in a config file.
+	raw = strings.Trim(raw, `"'`)
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return nil
+	}
+
+	var out []ExpiryOption
+	for _, entry := range strings.Split(raw, ",") {
+		// Trim whitespace and any stray quote characters that may surround
+		// individual entries after splitting (e.g. the very first or last token
+		// when the value arrived as "Never:0,...,6 year:31536000").
+		entry = strings.Trim(strings.TrimSpace(entry), `"'`)
+		entry = strings.TrimSpace(entry)
+		if entry == "" {
+			continue
+		}
+
+		// Split on the first colon only so labels may never contain one,
+		// keeping the format unambiguous.
+		idx := strings.Index(entry, ":")
+		if idx <= 0 || idx == len(entry)-1 {
+			os.Stderr.WriteString("PASTEBIN_EXPIRY_TIMES: skipping malformed entry \"" + entry + "\" (expected \"Label:seconds\")\n")
+			continue
+		}
+
+		label := strings.TrimSpace(entry[:idx])
+		valueStr := strings.TrimSpace(entry[idx+1:])
+
+		n, err := strconv.ParseInt(valueStr, 10, 64)
+		if err != nil || n < 0 {
+			os.Stderr.WriteString("PASTEBIN_EXPIRY_TIMES: skipping entry \"" + entry + "\": seconds must be a non-negative integer\n")
+			continue
+		}
+
+		out = append(out, ExpiryOption{Label: label, Value: valueStr})
+	}
+
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+// expiryTimes returns the configured expiry options, falling back to the
+// built-in defaults when none were provided via PASTEBIN_EXPIRY_TIMES.
+func (s *Settings) expiryTimes() []ExpiryOption {
+	if len(s.ExpiryTimes) > 0 {
+		return s.ExpiryTimes
+	}
+	return defaultExpiryTimes
 }
 
 // parseCIDR parses a CIDR string ("10.0.0.0/8") or a bare IP ("127.0.0.1")
