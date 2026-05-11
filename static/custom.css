@@ -118,7 +118,7 @@ body.light-mode .w3-input {
 /* shadow broken */
 pre[class*="language-"]::after,
 pre[class*="language-"]::before {
-  bottom: 4.1em !important;
+  bottom: 2.2em !important;
 }
 
 /* Sidebar base state */

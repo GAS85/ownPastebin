@@ -47,11 +47,10 @@ RUN find static/ -type f -name "*.css" ! -name "*.min.*" -exec minify -i "{}" \;
     sed -i ':a;N;$!ba;s/\n//g; \
         s#{{.JSInits | toJSON}}#["JSINITS_toJSON"]#' "templates/index.html" && \
     minify --html-keep-quotes -i "templates/index.html" && \
-    sed -i 's/.level/.Level/g; \
+    sed -i "s/.level/.Level/g; \
         s/.Level/.Level /g; \
         s/  / /g; \
-        s#\["JSINITS_toJSON"\]#{{.JSInits | toJSON}}#' "templates/index.html" && \
-    cat "templates/index.html" && \
+        s#\["JSINITS_toJSON"\]#{{.JSInits | toJSON}}#" "templates/index.html" && \
     minify -i "templates/swagger_ui.html" && \
     sed -i 's/{{.SSEEnabled}}/747522/g; \
         s/{{.MaxSize}}/435433/g; \
