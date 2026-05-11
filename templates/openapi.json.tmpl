@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "Your own Pastebin API",
-    "description": "Simple, fast and standalone pastebin service.\n\nPlease refer to the original project under [https://github.com/GAS85/ownPastebin](https://github.com/GAS85/ownPastebin)\n- [Server-side encryption](https://github.com/GAS85/ownPastebin#-security): {{.SSEEnabled}}\n- [Max paste size](https://github.com/GAS85/ownPastebin#-limits): {{.MaxSize}} bytes\n- [Max TTL](https://github.com/GAS85/ownPastebin#-ttl-settings): {{.MaxTTL}} seconds (0 = unlimited)\n- [ProtectedPasteEnabled](https://github.com/GAS85/ownPastebin#-misc): {{.ProtectedPasteEnabled}}",
+    "description": "Simple, fast and standalone pastebin service.\n\nPlease refer to the original project under [https://github.com/GAS85/ownPastebin](https://github.com/GAS85/ownPastebin)\n- [Server-side encryption](https://github.com/GAS85/ownPastebin#-security): {{.SSEEnabled}}\n- [Max paste size](https://github.com/GAS85/ownPastebin#-limits): {{.MaxSize}} bytes\n- [Max TTL](https://github.com/GAS85/ownPastebin#-ttl-settings): {{.MaxTTL}} seconds (0 = unlimited)\n- [Protected Pastes Enabled](https://github.com/GAS85/ownPastebin#-misc): {{.ProtectedPasteEnabled}}",
     "version": "{{.Version}}"
   },
   "servers": [
@@ -12,7 +12,7 @@
     "/": {
       "post": {
         "summary": "Create a paste",
-        "description": "Upload raw content (text or binary). Content-Type is not enforced — send raw bytes.",
+        "description": "Upload raw content (text or binary). Content-Type is not enforced - send raw bytes.",
         "operationId": "createPaste",
         "tags": ["Paste"],
         "parameters": [
@@ -112,7 +112,7 @@
               }
             }
           },
-          "403": { "description": "Paste is protected — deletion is not permitted" },
+          "403": { "description": "Paste is protected - deletion is not permitted" },
           "500": { "description": "Storage error" }
         }
       }

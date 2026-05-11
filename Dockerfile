@@ -21,6 +21,9 @@ ADD https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/webfonts/fa-brands
 # JS
 ADD https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.11/clipboard.min.js ./static
 ADD https://cdnjs.cloudflare.com/ajax/libs/mermaid/11.12.0/mermaid.min.js ./static
+# Check downloaded files
+RUN sha256sum -c ./static/sha256.sum && rm ./static/sha256.sum
+
 # Replace relative links to static
 RUN sed -i 's|../webfonts/||g' ./static/all.min.css
 
@@ -39,9 +42,10 @@ RUN export InternalHashes=$(grep -oE 'on[a-zA-Z]+="[^"]+"' ./templates/index.htm
     done) && \
     sed -i "s|SHA-HASHES|$InternalHashes|g" ./templates/index.html
 
-# Minify css, js, html, json and svg except "min" files
+# Minify css, js, html, json and svg except "min" files and Jinja template
 RUN find static/ -type f -name "*.css" ! -name "*.min.*" -exec minify -i "{}" \; && \
     find static/ -type f -name "*.js" ! -name "*.min.*" -exec minify -i "{}" \; && \
+    find static/ -type f -name "*.json" ! -name "*.min.*" -exec minify -i "{}" \; && \
     minify -i "static/favicon.svg" && \
     minify -i "templates/swagger_ui.html" && \
     sed -i 's/{{.SSEEnabled}}/747522/g; \

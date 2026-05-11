@@ -15,7 +15,7 @@ main {
   flex: 1 1 auto; /* grow to fill remaining vertical space */
   display: flex;
   flex-direction: column;
-  /* no padding-bottom here — textarea itself handles internal spacing */
+  /* no padding-bottom here - textarea itself handles internal spacing */
 }
 
 /* ── The w3-section div wrapping the textarea must also stretch ── */
@@ -118,7 +118,8 @@ body.light-mode .w3-input {
 /* shadow broken */
 pre[class*="language-"]::after,
 pre[class*="language-"]::before {
-  bottom: 4.1em !important;
+  bottom: 3.9em !important;
+  height: 8%;
 }
 
 /* Sidebar base state */

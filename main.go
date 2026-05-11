@@ -109,6 +109,11 @@ func main() {
 
 	// ── Templates ─────────────────────────────────────────────────────────────
 	funcMap := template.FuncMap{
+		// {{ lower (replace .Label " " "") }}
+		"lower":   strings.ToLower,
+		"replace": strings.ReplaceAll,
+		// {{ $parts := split " " .Label }}, {{ index $parts 0 }}
+		"split":   strings.Split,
 		// {{not .Bool}} — used for {{if not .IsBurned}} etc.
 		"not": func(b bool) bool { return !b },
 		// {{safeJS .}} — marks a string as safe for inline <script> injection

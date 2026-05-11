@@ -2,10 +2,8 @@
 <html lang="en">
 
 <head>
-  <meta http-equiv="Content-Security-Policy" content="style-src 'self' 'unsafe-inline' https://www.w3schools.com https://cdnjs.cloudflare.com;
-    img-src 'self' data: blob:;
-    font-src 'self' https://cdnjs.cloudflare.com;
-  ">
+  <meta http-equiv="Content-Security-Policy"
+        content="style-src 'self' 'unsafe-inline' https://www.w3schools.com https://cdnjs.cloudflare.com; img-src 'self' data: blob:; font-src 'self' https://cdnjs.cloudflare.com;">
 
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -67,28 +65,28 @@
 
     <a href="#" class="w3-button w3-round w3-large w3-margin w3-display-topleft fa fa-x" onclick="toggleMobileMenu()"></a>
 
-    <!-- Desktop nav items — hidden on small/medium screens -->
+    <!-- Desktop nav items - hidden on small/medium screens -->
     <div id="desktopNav">
 
       <img src="/static/favicon.svg" alt="Pastebin Logo" class="w3-margin-top w3-hide-small" style="max-width:50px;margin-right: auto;margin-left: auto; display: block;">
 
-      <a href="/" class="w3-bar-item w3-button w3-round w3-margin-top w3-center"><i class="fa-regular fa-file"></i> New</a>
+      <a id="create-new" href="/" class="w3-bar-item w3-button w3-round w3-margin-top w3-center"><i class="fa-regular fa-file"></i> New</a>
 
       <!-- Remove btn: shown on view state -->
       <a id="remove-btn" href="#" class="w3-bar-item w3-button w3-round w3-margin-top w3-center"><i class="fas fa-trash"></i> Delete</a>
 
-      <!-- Expiry dropdown — CSS hover, no JS needed for open/close -->
+      <!-- Expiry dropdown - CSS hover, no JS needed for open/close -->
       <div id="expiry-burn-controls-expire" class="w3-dropdown-hover w3-margin-top">
         <button id="expiry-dropdown-btn" class="w3-button w3-round w3-center">Expires: 1 day</button>
         <div class="w3-dropdown-content w3-bar-block w3-card-4" id="expiry-dropdown">
-          <a class="w3-bar-item w3-button" href="0">Never</a>
-          <a class="w3-bar-item w3-button" href="300">5 min</a>
-          <a class="w3-bar-item w3-button" href="600">10 min</a>
-          <a class="w3-bar-item w3-button" href="3600">1 hour</a>
-          <a class="w3-bar-item w3-button" href="86400">1 day</a>
-          <a class="w3-bar-item w3-button" href="604800">1 week</a>
-          <a class="w3-bar-item w3-button" href="2592000">1 month</a>
-          <a class="w3-bar-item w3-button" href="31536000">1 year</a>
+          <a id="expiry-never" class="w3-bar-item w3-button" href="0">Never</a>
+          <a class="w3-bar-item w3-button" href="300">5 <span data-i18n="expiry-min">min</span></a>
+          <a class="w3-bar-item w3-button" href="600">10 <span data-i18n="expiry-min">min</span></a>
+          <a class="w3-bar-item w3-button" href="3600">1 <span data-i18n="expiry-hour">hour</span></a>
+          <a class="w3-bar-item w3-button" href="86400">1 <span data-i18n="expiry-day">day</span></a>
+          <a class="w3-bar-item w3-button" href="604800">1 <span data-i18n="expiry-week">week</span></a>
+          <a class="w3-bar-item w3-button" href="2592000">1 <span data-i18n="expiry-month">month</span></a>
+          <a class="w3-bar-item w3-button" href="31536000">1 <span data-i18n="expiry-year">year</span></a>
         </div>
       </div>
 
@@ -96,16 +94,19 @@
       <div id="expiry-burn-controls-burn" class="w3-dropdown-hover w3-margin-top w3-center">
         <button id="burn-dropdown-btn" class="w3-button w3-round w3-center">Burn: No</button>
         <div class="w3-dropdown-content w3-bar-block w3-card-4" id="burn-dropdown">
-          <a class="w3-bar-item w3-button" href="#" data-value="true">Yes</a>
-          <a class="w3-bar-item w3-button" href="#" data-value="false">No</a>
+          <a id="burn-true" class="w3-bar-item w3-button" href="#" data-value="true">Yes</a>
+          <a id="burn-false" class="w3-bar-item w3-button" href="#" data-value="false">No</a>
         </div>
       </div>
 
       <!-- Copy/Raw/Download (view state) -->
       <div id="view-controls" style="display:none;">
-        <a id="copy-btn" class="w3-bar-item w3-button w3-round w3-margin-top w3-border w3-border-light-green w3-hover-light-green w3-center" href="#"><i class="fa-regular fa-copy"></i> Copy</a>
-        <a class="w3-bar-item w3-button w3-round w3-margin-top w3-border w3-border-light-green w3-hover-light-green w3-center" href="#"><i class="fa-regular fa-file-lines"></i> Raw</a>
-        <a class="w3-bar-item w3-button w3-round w3-margin-top w3-border w3-border-light-green w3-hover-light-green w3-center" href="#"><i class="fa-solid fa-download"></i> Download</a>
+        <a id="copy-btn" class="w3-bar-item w3-button w3-round w3-margin-top w3-border w3-border-light-green w3-hover-light-green w3-center" href="#"><i class="fa-regular fa-copy"></i> <span
+                id="copy-btn-name">Copy</span></a>
+        <a class="w3-bar-item w3-button w3-round w3-margin-top w3-border w3-border-light-green w3-hover-light-green w3-center" href="#"><i class="fa-regular fa-file-lines"></i> <span
+                id="raw-btn-name">Raw</span></a>
+        <a class="w3-bar-item w3-button w3-round w3-margin-top w3-border w3-border-light-green w3-hover-light-green w3-center" href="#"><i class="fa-solid fa-download"></i> <span
+                id="download-btn-name">Download</span></a>
       </div>
 
       <!-- Language selector -->
@@ -268,7 +269,8 @@
       </select>
 
       <!-- Send + Password (new state) -->
-      <input class="w3-bar-item w3-input w3-margin-top w3-round" id="pastebin-password" type="password" placeholder="Password (optional)" oninput="updateStrength()">
+      <input class="w3-bar-item w3-input w3-margin-top w3-round" id="pastebin-password" type="password" data-i18n-placeholder="e2e-encrypt-password" placeholder="Password (optional)"
+             oninput="updateStrength()">
 
       <div class="w3-light-grey w3-round w3-margin-top" style="height:8px;">
         <div id="password-strength-bar"
@@ -283,12 +285,13 @@
       <div id="controls-protected" class="w3-dropdown-hover w3-margin-top w3-center">
         <button id="protected-dropdown-btn" class="w3-button w3-round w3-center">Protected: No</button>
         <div class="w3-dropdown-content w3-bar-block w3-card-4" id="protected-dropdown">
-          <a class="w3-bar-item w3-button" href="#" data-value="true">Yes</a>
-          <a class="w3-bar-item w3-button" href="#" data-value="false">No</a>
+          <a id="protected-true" class="w3-bar-item w3-button" href="#" data-value="true">Yes</a>
+          <a id="protected-false" class="w3-bar-item w3-button" href="#" data-value="false">No</a>
         </div>
       </div>
 
-      <button id="send-btn-sidebar" class="w3-bar-item w3-button w3-margin-top w3-green w3-hover-light-green w3-round w3-center"><i class="fa-solid fa-upload"></i> Send</button>
+      <button id="send-btn-sidebar" class="w3-bar-item w3-button w3-margin-top w3-green w3-hover-light-green w3-round w3-center"><i class="fa-solid fa-upload"></i> <span
+              id="send-btn-sidebar-name">Send</span></button>
 
     </div>
 
@@ -299,11 +302,11 @@
            class="w3-button w3-hover-text-black w3-round w3-right"><i class="fab fa-docker"></i></a>
         <a href="https://github.com/GAS85/ownPastebin"
            class="w3-button w3-hover-text-black w3-round"><i class="fab fa-github"></i></a>
-        <a onclick="re_theme()" title="Change Theme" class="w3-button w3-hover-text-black w3-round"><i class="fa fa-adjust"></i></a>
+        <a onclick="re_theme()" data-i18n-title="change-theme" title="Change Theme" class="w3-button w3-hover-text-black w3-round"><i class="fa fa-adjust"></i></a>
       </div>
-      <a href="https://github.com/GAS85/ownPastebin/releases/tag/v1.2.0" class="w3-bar-item w3-button w3-margin-top w3-center w3-round w3-small">Your own Pastebin
+      <a href="https://github.com/GAS85/ownPastebin/releases/tag/v1.2.0" class="w3-bar-item w3-button w3-margin-top w3-center w3-round w3-small"><span id="slogan-sidebar">Your own</span> Pastebin
         v1.2.0</a>
-      <a href="/swagger-ui" class="w3-bar-item w3-button w3-margin-top w3-round w3-center w3-small">API Documentation</a>
+      <a id="api-docs-sidebar" href="/swagger-ui" class="w3-bar-item w3-button w3-margin-top w3-round w3-center w3-small">API Documentation</a>
 
     </div>
   </div>
@@ -312,16 +315,28 @@
 
   <div class="w3-flex w3-asphalt" id="topnav" style="flex-direction:row;justify-content:space-between">
 
-    <!-- <div class="w3-flex" style="flex-direction:row;justify-content:space-between;flex-basis: 50%"> -->
-    <a href="#" class="w3-button w3-round w3-margin" onclick="toggleMobileMenu()"><i class="fa-solid fa-bars"></i></a>
-
+    <div class="w3-margin-bottom">
+      <a href="#" class="w3-button w3-round w3-margin-left" onclick="toggleMobileMenu()"><i class="fa-solid fa-bars"></i></a>
+      <div id="i18n" class="w3-dropdown-hover w3-margin-top" style="align-self:initial">
+        <button id="i18n-dropdown-btn" class="w3-button w3-round">🇬🇧</button>
+        <div class="w3-dropdown-content w3-bar-block w3-card-4" id="i18n-dropdown">
+          <a class="w3-bar-item w3-button" href="#" data-value="cn"><span class="w3-hide-small">China</span><span class="w3-hide-medium w3-hide-large">🇨🇳</span></a>
+          <a class="w3-bar-item w3-button" href="#" data-value="de"><span class="w3-hide-small">German</span><span class="w3-hide-medium w3-hide-large">🇩🇪</span></a>
+          <a class="w3-bar-item w3-button" href="#" data-value="en"><span class="w3-hide-small">English</span><span class="w3-hide-medium w3-hide-large">🇬🇧</span></a>
+          <a class="w3-bar-item w3-button" href="#" data-value="fr"><span class="w3-hide-small">France</span><span class="w3-hide-medium w3-hide-large">🇫🇷</span></a>
+          <a class="w3-bar-item w3-button" href="#" data-value="it"><span class="w3-hide-small">Italy</span><span class="w3-hide-medium w3-hide-large">🇮🇹</span></a>
+          <a class="w3-bar-item w3-button" href="#" data-value="ru"><span class="w3-hide-small">Russian</span><span class="w3-hide-medium w3-hide-large">🇷🇺</span></a>
+          <a class="w3-bar-item w3-button" href="#" data-value="ch"><span class="w3-hide-small">Swiss</span><span class="w3-hide-medium w3-hide-large">🇨🇭</span></a>
+          <a class="w3-bar-item w3-button" href="#" data-value="ua"><span class="w3-hide-small">Ukraine</span><span class="w3-hide-medium w3-hide-large">🇺🇦</span></a>
+        </div>
+      </div>
+    </div>
     <a href="/" class="w3-button w3-round w3-margin-top w3-display-topmiddle">Pastebin</a>
-    <!-- </div> -->
-    <a id="send-btn-top" class="w3-button w3-round w3-margin w3-green w3-hover-light-green"><i class="fa-solid fa-upload"></i><span class="w3-hide-small"> Send</span></a>
+    <a id="send-btn-top" class="w3-button w3-round w3-margin w3-green w3-hover-light-green"><i class="fa-solid fa-upload"></i><span id="send-btn-top-name" class="w3-hide-small"> Send</span></a>
 
-    <a class="w3-button w3-round w3-margin w3-border" href="#"><i class="fa-solid fa-download"></i><span class="w3-hide-small"> Download</span></a>
+    <a class="w3-button w3-round w3-margin w3-border" href="#"><i class="fa-solid fa-download"></i><span id="download-btn-top" class="w3-hide-small"> Download</span></a>
 
-    <a class="w3-button w3-round w3-margin w3-border w3-hover-pale-red" href="/"><i class="fa-solid fa-x"></i><span class="w3-hide-small"> Close</span></a>
+    <a class="w3-button w3-round w3-margin w3-border w3-hover-pale-red" href="/"><i class="fa-solid fa-x"></i><span id="close-btn-top" class="w3-hide-small"> Close</span></a>
 
   </div>
 
@@ -331,8 +346,8 @@
     <!-- 404 view -->
     <div id="error-region" style="display:none;" class="w3-section w3-center">
       <span class="w3-xxxlarge"><i class="fa-solid fa-square-xmark"></i> 404</span>
-      <p class="w3-large">The page you are looking for was not found.</p>
-      <a href="/" class="w3-button w3-asphalt w3-round">Back to Home</a>
+      <p id="error-region-message" class="w3-large">The page you are looking for was not found.</p>
+      <a id="error-region-back" href="/" class="w3-button w3-asphalt w3-round">Back to Home</a>
     </div>
 
     <!-- Alerts region (toggled by dev switcher) -->
@@ -347,11 +362,11 @@
     <div id="paste-view-region" style="display:none;">
       <div id="burn-alert" class="w3-panel w3-pale-red w3-round w3-display-container w3-card-4 w3-margin-top" role="alert" style="display:none;">
         <span onclick="this.parentElement.style.display='none'" class="w3-button w3-display-topright w3-round fa fa-x"></span>
-        <p><i class="fas fa-fire"></i> <strong>For your eyes only.</strong> This paste has been permanently deleted after this view.</p>
+        <p><i class="fas fa-fire"></i> <strong id="alert-burn-1">For your eyes only.</strong> <span id="alert-burn-2">This paste has been permanently deleted after this view.</span></p>
       </div>
       <div id="expire-alert" class="w3-panel w3-card-4 w3-khaki w3-round w3-display-container w3-margin-top" role="alert" style="display:none;">
         <span onclick="this.parentElement.style.display='none'" class="w3-button w3-display-topright w3-round fa fa-x"></span>
-        <p><i class="fas fa-clock"></i> This paste will expire on <strong>2026-09-03 12:51:46 UTC</strong>.</p>
+        <p><i class="fas fa-clock"></i> <span id="alert-expire">This paste will expire on</span> <strong>2026-09-03 12:51:46 UTC</strong>.</p>
       </div>
       <pre id="pastebin-pre" class="w3-margin-top line-numbers linkable-line-numbers">
         <code id="pastebin-code-block" class="language-python">def hello():
@@ -369,41 +384,41 @@
          class="w3-button w3-hover-text-black w3-round"><i class="fab fa-docker"></i></a>
       <a href="https://github.com/GAS85/ownPastebin"
          class="w3-button w3-hover-text-black w3-round"><i class="fab fa-github"></i></a>
-      <a onclick="re_theme()" title="Change Theme" class="w3-button w3-hover-text-black w3-round"><i class="fa fa-adjust"></i></a>
+      <a onclick="re_theme()" data-i18n-title="change-theme" title="Change Theme" class="w3-button w3-hover-text-black w3-round"><i class="fa fa-adjust"></i></a>
     </div>
-    <a class="w3-hide-medium w3-button w3-hover-text-black w3-round" href="https://github.com/GAS85/ownPastebin/releases/tag/v2.0.0">Your own Pastebin v2.0.0</a>
-    <a href="/swagger-ui" class="w3-hide-medium w3-button w3-hover-text-black w3-round">API Documentation</a>
+    <a class="w3-hide-medium w3-button w3-hover-text-black w3-round" href="https://github.com/GAS85/ownPastebin/releases/tag/v2.0.0"><span id="slogan-footer">Your own</span> Pastebin v2.0.0</a>
+    <a id="api-docs-footer" href="/swagger-ui" class="w3-hide-medium w3-button w3-hover-text-black w3-round">API Documentation</a>
   </footer>
 
   <!-- ── Password Modal (only rendered for E2E-encrypted pastes) ── -->
-  <div id="password-modal" class="w3-modal" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="password-modal-title">
+  <div id="password-modal" class="w3-modal" role="dialog" aria-modal="true" aria-labelledby="password-modal-title">
     <div class="w3-modal-content w3-animate-top w3-card-4">
       <header class="w3-container w3-blue-grey">
         <button onclick="document.getElementById('password-modal').style.display='none'" class="w3-button w3-display-topright fa fa-x" aria-label="Close"></button>
-        <h4 id="password-modal-title"><i class="fas fa-key"></i> Password Protected</h4>
+        <h4 id="password-modal-title"><i class="fas fa-key"></i> <span id="password-req-header">Password Protected</span></h4>
       </header>
       <div class="w3-container w3-padding">
-        <p>This paste is E2E encrypted. Enter the password to decrypt it in your browser.</p>
-        <div class="w3-dropdown-hover w3-margin-bottom">Or decrypt locally with Python.
-          <div class="w3-dropdown-content w3-card-4">
-            <code class="w3-codespan w3-margin">pip install cryptography</code>
-            <br>Then you can execute it:<br>
-            <code class="w3-codespan w3-margin">python3 -c "
-            import base64; from cryptography.hazmat.primitives.ciphers.aead import AESGCM; from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC; from cryptography.hazmat.primitives import hashes;
-            d=base64.b64decode(input('Ciphertext (without v2: prefix): '))
-            pw=input('Password: ').encode()
-            kdf=PBKDF2HMAC(hashes.SHA256(),32,d[:16],200000)
+        <p id="password-req-message">This paste is E2E encrypted. Enter the password to decrypt it in your browser.</p>
+        <div class="w3-tooltip">
+          <p id="password-req-hint" class="w3-margin-bottom">Or decrypt locally with Python.</p>
+          <div class="w3-text w3-small">
+            <code class="w3-codespan">pip install cryptography</code><br>
+            <span id="password-req-hint-2">Then you can execute it:</span><br>
+            <code class="w3-codespan">python3 -c "import base64; from cryptography.hazmat.primitives.ciphers.aead import AESGCM; from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC; from cryptography.hazmat.primitives import hashes;
+            d=base64.b64decode(input('Ciphertext (without v2: prefix): '));
+            pw=input('Password: ').encode();
+            kdf=PBKDF2HMAC(hashes.SHA256(),32,d[:16],200000);
             print(AESGCM(kdf.derive(pw)).decrypt(d[16:28],d[28:],None).decode())"</code>
           </div>
         </div>
-        <br>
+
         <div class="w3-panel w3-khaki w3-border w3-round w3-padding w3-hide"
              id="modal-alert" role="alert">
-          <i class="fas fa-exclamation-triangle"></i> Could not decrypt. Wrong password?
+          <i class="fas fa-exclamation-triangle"></i> <span id="password-req-error">Could not decrypt. Wrong password?</span>
         </div>
-        <label for="modal-password"><strong>Password</strong></label>
+        <label for="modal-password"><strong id="password">Password</strong></label>
         <input class="w3-input w3-round w3-margin-bottom" type="password"
-               id="modal-password" placeholder="Enter password"
+               id="modal-password" data-i18n-placeholder="e2e-decrypt-password" placeholder="Enter password"
                autocomplete="current-password">
       </div>
       <footer class="w3-container w3-blue-grey w3-padding">
@@ -422,17 +437,17 @@
     <div class="w3-modal-content w3-animate-top w3-card-4" style="max-width:400px;">
       <header class="w3-container w3-blue-grey">
         <button onclick="document.getElementById('deletion-modal').style.display='none'" class="w3-button w3-display-topright fa fa-x" aria-label="Close"></button>
-        <h4 id="deletion-modal-title"><i class="fas fa-trash"></i> Delete this paste?</h4>
+        <h4 id="deletion-modal-title"><i class="fas fa-trash"></i> <span id="delete-req">Delete this paste?</span></h4>
       </header>
       <div class="w3-container w3-padding">
-        <p>This paste will be permanently deleted. The link cannot be reused.</p>
+        <p id="delete-warning">This paste will be permanently deleted. The link cannot be reused.</p>
       </div>
       <footer class="w3-container w3-padding w3-blue-grey">
-        <button type="button" class="w3-button w3-grey w3-round"
+        <button type="button" id="delete-close-btn" class="w3-button w3-grey w3-round"
                 onclick="document.getElementById('deletion-modal').style.display='none'">Cancel</button>
         <button type="button"
                 class="w3-button w3-red w3-hover-orange w3-round w3-right"
-                id="deletion-confirm-btn">Delete</button>
+                id="delete-confirm-btn">Delete</button>
       </footer>
     </div>
   </div>
@@ -454,7 +469,7 @@
   <script src="/static/custom.js"></script>
 
   <!-- ============================================================
-         DEV STATE SWITCHER — not in production template
+         DEV STATE SWITCHER - not in production template
        ============================================================ -->
   <script>
     // Switches the visible page state so all UI states can be tested
