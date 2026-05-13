@@ -15,7 +15,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
-          go-version: "1.22"
+          go-version: "1.26.1"
           cache: true # Handles Go's read-only module files correctly; replaces actions/cache
 
       - name: Download dependencies
