@@ -1,8 +1,4 @@
 name: Dev Build
-
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
 on:
   push:
     branches:
@@ -14,22 +10,13 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4.2.2
+        uses: actions/checkout@v4
 
       - name: Set up Go
-        uses: actions/setup-go@v5.5.0
+        uses: actions/setup-go@v5
         with:
           go-version: "1.22"
-
-      - name: Cache Go modules
-        uses: actions/cache@v4.2.3
-        with:
-          path: |
-            ~/.cache/go-build
-            ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-
+          cache: true # Handles Go's read-only module files correctly; replaces actions/cache
 
       - name: Download dependencies
         run: go mod download
@@ -50,7 +37,7 @@ jobs:
     environment: prod
 
     steps:
-      - uses: actions/checkout@v4.2.2
+      - uses: actions/checkout@v4
 
       - name: Set metadata
         id: meta
@@ -58,9 +45,9 @@ jobs:
           echo "VCS_REF=${GITHUB_SHA}" >> $GITHUB_OUTPUT
           echo "BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_OUTPUT
 
-      - uses: docker/setup-buildx-action@v3.10.0
+      - uses: docker/setup-buildx-action@v3
 
-      - uses: docker/login-action@v3.4.0
+      - uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
@@ -69,7 +56,7 @@ jobs:
         id: repo
         run: echo "REPO=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
 
-      - uses: docker/build-push-action@v6.15.0
+      - uses: docker/build-push-action@v6
         with:
           context: .
           push: true
