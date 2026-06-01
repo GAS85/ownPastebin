@@ -217,3 +217,39 @@ func TestExpiryTimesCustom(t *testing.T) {
 		t.Fatalf("unexpected: %v", opts)
 	}
 }
+
+func TestGetEnvHelpers(t *testing.T) {
+	t.Setenv("PASTEBIN_TEST_STRING", "hello")
+	t.Setenv("PASTEBIN_TEST_INT", "42")
+	t.Setenv("PASTEBIN_TEST_BOOL", "yes")
+
+	if got := getEnv("PASTEBIN_TEST_STRING", "default"); got != "hello" {
+		t.Fatalf("expected hello, got %q", got)
+	}
+	if got := getEnvInt("PASTEBIN_TEST_INT", 1); got != 42 {
+		t.Fatalf("expected 42, got %d", got)
+	}
+	if got := getEnvBool("PASTEBIN_TEST_BOOL", false); !got {
+		t.Fatal("expected true for yes")
+	}
+}
+
+func TestLoadSettingsReadsEnvironment(t *testing.T) {
+	t.Setenv("PASTEBIN_BASE_URL", "http://localhost:8080/pastebin")
+	t.Setenv("PASTEBIN_DEFAULT_TTL", "1h")
+	t.Setenv("PASTEBIN_MAX_TTL", "2h")
+	t.Setenv("PASTEBIN_TRUSTED_PROXY", "127.0.0.1")
+	cfg := loadSettings()
+	if cfg.PathPrefix != "/pastebin" {
+		t.Fatalf("expected /pastebin path prefix, got %q", cfg.PathPrefix)
+	}
+	if cfg.DefaultTTL != time.Hour {
+		t.Fatalf("expected DefaultTTL 1h, got %v", cfg.DefaultTTL)
+	}
+	if cfg.MaxTTL != 2*time.Hour {
+		t.Fatalf("expected MaxTTL 2h, got %v", cfg.MaxTTL)
+	}
+	if cfg.TrustedProxy == nil || cfg.TrustedProxy.String() != "127.0.0.1/32" {
+		t.Fatalf("unexpected TrustedProxy: %v", cfg.TrustedProxy)
+	}
+}
