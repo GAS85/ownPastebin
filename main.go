@@ -2,6 +2,7 @@ package main
 
 import (
 	"embed"
+	"fmt"
 	"html/template"
 	"io/fs"
 	"log/slog"
@@ -29,6 +30,144 @@ var staticFS embed.FS
 var prismFS, _ = fs.Sub(staticFS, "static")
 
 var Version string
+
+func buildTemplateFuncMap() template.FuncMap {
+	return template.FuncMap{
+		"lower": strings.ToLower,
+		"replace": strings.ReplaceAll,
+		"split": strings.Split,
+		"not": func(b bool) bool { return !b },
+		"safeJS": func(s string) template.JS { return template.JS(s) },
+		"formatTime": func(t *time.Time) string {
+			if t == nil {
+				return ""
+			}
+			return t.Format("2006-01-02 15:04:05 UTC")
+		},
+		"toJSON": toJSON,
+	}
+}
+
+func computeLimiterParams(maxParallelUploads int) (rate.Limit, int) {
+	uploadBurst := maxParallelUploads
+	uploadRate := rate.Limit(maxParallelUploads) / 2
+	if uploadRate < 1 {
+		uploadRate = 1
+	}
+	return uploadRate, uploadBurst
+}
+
+func newPrefixHandler(cfg *Settings, mux http.Handler, staticHandler http.Handler) http.Handler {
+	staticPrefix := cfg.PathPrefix + "/static/"
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, staticPrefix) {
+			http.StripPrefix(staticPrefix, staticHandler).ServeHTTP(w, r)
+			return
+		}
+		if cfg.PathPrefix != "" {
+			http.StripPrefix(cfg.PathPrefix, mux).ServeHTTP(w, r)
+			return
+		}
+		mux.ServeHTTP(w, r)
+	})
+}
+
+func listenAddress() string {
+	host := os.Getenv("PASTEBIN_HOST")
+	if host == "" {
+		host = "0.0.0.0"
+	}
+	port := os.Getenv("PASTEBIN_PORT")
+	if port == "" {
+		port = "8080"
+	}
+	return host + ":" + port
+}
+
+func newApp(cfg *Settings, store Storage, cry *Crypto, tmpl *template.Template, mgr *plugins.Manager, lim *ipRateLimiter) *App {
+	return &App{
+		cfg:       cfg,
+		storage:   store,
+		crypto:    cry,
+		tmpl:      tmpl,
+		plugins:   mgr,
+		uploadSem: make(chan struct{}, cfg.MaxParallelUploads),
+		limiter:   lim,
+	}
+}
+
+func parseIndexTemplate() (*template.Template, error) {
+	return template.New("index.html").Funcs(buildTemplateFuncMap()).ParseFS(templateFS, "templates/index.html")
+}
+
+func newPluginManager(cfg *Settings) *plugins.Manager {
+	activePlugins := []plugins.Plugin{
+		&plugins.PrismPlugin{EmbeddedFS: prismFS},
+		&plugins.MermaidPlugin{},
+	}
+	return plugins.NewManager(plugins.DefaultBase(cfg.PathPrefix), activePlugins)
+}
+
+var listenAndServe = http.ListenAndServe
+var listenAndServeTLS = http.ListenAndServeTLS
+
+func buildFinalHandler(cfg *Settings, app *App) (http.Handler, error) {
+	staticSub, err := fs.Sub(staticFS, "static")
+	if err != nil {
+		return nil, err
+	}
+	staticHandler := longCacheMiddleware(http.FileServer(http.FS(staticSub)))
+	mux := app.router()
+	return newPrefixHandler(cfg, mux, staticHandler), nil
+}
+
+func run() error {
+	cfg := loadSettings()
+
+	var cry *Crypto
+	if cfg.ServerSideEncryptionEnabled {
+		var err error
+		cry, err = newCrypto(cfg.ServerSideEncryptionKey)
+		if err != nil {
+			return fmt.Errorf("crypto init failed: %w", err)
+		}
+		slog.Info("AES-256-GCM server-side encryption enabled")
+	}
+
+	store := newStorage(cfg)
+	defer store.Close()
+
+	mgr := newPluginManager(cfg)
+
+	tmpl, err := parseIndexTemplate()
+	if err != nil {
+		return fmt.Errorf("template parse failed: %w", err)
+	}
+
+	uploadRate, uploadBurst := computeLimiterParams(cfg.MaxParallelUploads)
+	lim := newIPRateLimiter(uploadRate, uploadBurst, 5*time.Minute)
+	defer lim.Close()
+
+	app := newApp(cfg, store, cry, tmpl, mgr, lim)
+
+	finalHandler, err := buildFinalHandler(cfg, app)
+	if err != nil {
+		return fmt.Errorf("static fs setup failed: %w", err)
+	}
+
+	addr := listenAddress()
+
+	Version = os.Getenv("VERSION")
+	tlsKey := os.Getenv("PASTEBIN_TLS_KEY")
+	tlsCert := os.Getenv("PASTEBIN_TLS_CERT")
+	if tlsKey != "" && tlsCert != "" {
+		slog.Debug("server starting with TLS", "addr", addr, "cert", tlsCert, "key", tlsKey)
+		return listenAndServeTLS(addr, tlsCert, tlsKey, finalHandler)
+	}
+
+	slog.Debug("server starting", "addr", addr)
+	return listenAndServe(addr, finalHandler)
+}
 
 // reapZombies runs for the lifetime of the process and reaps any zombie
 // children whenever SIGCHLD is delivered.
@@ -69,174 +208,10 @@ func reapZombies() {
 }
 
 func main() {
-	// ── Zombie reaper ─────────────────────────────────────────────────────────
-	// Must be started before any other goroutines so that SIGCHLD from health-
-	// check helpers (ssl_client) is never missed.  Safe to run even when the
-	// process is not PID 1: waitpid(-1, WNOHANG) on a process with no children
-	// returns ECHILD immediately and the loop exits cleanly.
 	go reapZombies()
-
-	// ── Logger ────────────────────────────────────────────────────────────────
-	// Must be first so all subsequent log calls use the configured handler.
 	initLogger()
-
-	cfg := loadSettings()
-
-	// ── Crypto ────────────────────────────────────────────────────────────────
-	var cry *Crypto
-	if cfg.ServerSideEncryptionEnabled {
-		var err error
-		cry, err = newCrypto(cfg.ServerSideEncryptionKey)
-		if err != nil {
-			slog.Error("crypto init failed", "err", err)
-			os.Exit(1)
-		}
-		slog.Info("AES-256-GCM server-side encryption enabled")
-	}
-
-	// ── Storage ───────────────────────────────────────────────────────────────
-	store := newStorage(cfg)
-	defer store.Close()
-
-	// ── Plugins ───────────────────────────────────────────────────────────────
-	activePlugins := []plugins.Plugin{
-		&plugins.PrismPlugin{EmbeddedFS: prismFS},
-		&plugins.MermaidPlugin{},
-	}
-
-	// Forward PathPrefix to the plugins via the Base struct.
-	mgr := plugins.NewManager(plugins.DefaultBase(cfg.PathPrefix), activePlugins)
-
-	// ── Templates ─────────────────────────────────────────────────────────────
-	funcMap := template.FuncMap{
-		// {{ lower (replace .Label " " "") }}
-		"lower":   strings.ToLower,
-		"replace": strings.ReplaceAll,
-		// {{ $parts := split " " .Label }}, {{ index $parts 0 }}
-		"split":   strings.Split,
-		// {{not .Bool}} — used for {{if not .IsBurned}} etc.
-		"not": func(b bool) bool { return !b },
-		// {{safeJS .}} — marks a string as safe for inline <script> injection
-		"safeJS": func(s string) template.JS { return template.JS(s) },
-		// {{formatTime .ExpireAt}} — formats *time.Time for display in the template.
-		"formatTime": func(t *time.Time) string {
-			if t == nil {
-				return ""
-			}
-			return t.Format("2006-01-02 15:04:05 UTC")
-		},
-		// {{toJSON .JSInits}} — serialises a Go value to a JSON literal safe for
-		// embedding inside <script type="application/json">. Defined here so the
-		// template parser can resolve it at parse time; the implementation lives
-		// in routes.go as toJSON().
-		"toJSON": toJSON,
-	}
-	tmpl, err := template.New("index.html").Funcs(funcMap).ParseFS(templateFS, "templates/index.html")
-	if err != nil {
-		slog.Error("template parse failed", "err", err)
+	if err := run(); err != nil {
+		slog.Error("server stopped", "err", err)
 		os.Exit(1)
-	}
-
-	// ── Rate limiter ──────────────────────────────────────────────────────────
-	// Both parameters are derived from MaxParallelUploads so they stay correct
-	// when the operator changes PASTEBIN_MAX_PARALLEL_UPLOADS.
-	//
-	// Burst = MaxParallelUploads
-	//   A single IP must be able to fire exactly MaxParallelUploads concurrent
-	//   POSTs without being rate-limited, because the upload semaphore — not the
-	//   rate limiter — is the intended binding constraint on upload concurrency.
-	//   If burst < MaxParallelUploads the rate limiter would reject legitimate
-	//   concurrent uploads before the semaphore even gets a chance to throttle.
-	//
-	// Sustained rate = MaxParallelUploads / 2  req/s
-	//   Assumes each upload occupies the semaphore for ~2 s on average (network
-	//   read + encrypt + SQLite write for a mid-sized paste).  This allows one
-	//   IP to keep all slots busy continuously without triggering the limiter,
-	//   while still blocking a scripted flood of tiny, fast requests.
-	//   Floor of 1 req/s prevents a zero-rate if MaxParallelUploads is ever 1.
-	uploadBurst := cfg.MaxParallelUploads
-	uploadRate := rate.Limit(cfg.MaxParallelUploads) / 2
-	if uploadRate < 1 {
-		uploadRate = 1
-	}
-	lim := newIPRateLimiter(uploadRate, uploadBurst, 5*time.Minute)
-	slog.Debug("rate limiter configured",
-		"rate_per_sec", uploadRate,
-		"burst", uploadBurst,
-		"derived_from", cfg.MaxParallelUploads,
-	)
-	defer lim.Close()
-
-	// ── App ───────────────────────────────────────────────────────────────────
-	app := &App{
-		cfg:       cfg,
-		storage:   store,
-		crypto:    cry,
-		tmpl:      tmpl,
-		plugins:   mgr,
-		uploadSem: make(chan struct{}, cfg.MaxParallelUploads),
-		limiter:   lim,
-	}
-
-	// ── Static file server ────────────────────────────────────────────────────
-	// Serve the embedded static/ directory.
-	staticSub, err := fs.Sub(staticFS, "static")
-	if err != nil {
-		slog.Error("static fs setup failed", "err", err)
-		os.Exit(1)
-	}
-	staticHandler := longCacheMiddleware(http.FileServer(http.FS(staticSub)))
-
-	mux := app.router()
-
-	// staticPrefix is e.g. "/pastebin/static" or "/static".
-	staticPrefix := cfg.PathPrefix + "/static/"
-
-	// prefixHandler strips PathPrefix before handing off to the Chi router,
-	// so all route definitions stay as plain "/" paths regardless of deployment.
-	// Static files are handled before stripping so their full path is intact.
-	prefixHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if strings.HasPrefix(r.URL.Path, staticPrefix) {
-			http.StripPrefix(staticPrefix, staticHandler).ServeHTTP(w, r)
-			return
-		}
-		// Strip the path prefix so Chi sees e.g. "/" instead of "/pastebin/"
-		if cfg.PathPrefix != "" {
-			http.StripPrefix(cfg.PathPrefix, mux).ServeHTTP(w, r)
-			return
-		}
-		mux.ServeHTTP(w, r)
-	})
-
-	finalHandler := prefixHandler
-
-	// ── Server ────────────────────────────────────────────────────────────────
-	host := os.Getenv("PASTEBIN_HOST") // reuse existing env var names for drop-in compat
-	if host == "" {
-		host = "0.0.0.0"
-	}
-	port := os.Getenv("PASTEBIN_PORT")
-	if port == "" {
-		port = "8080"
-	}
-	addr := host + ":" + port
-
-	Version = os.Getenv("VERSION")
-	// TLS support (mirrors entrypoint.sh PASTEBIN_TLS_KEY / PASTEBIN_TLS_CERT vars)
-	tlsKey := os.Getenv("PASTEBIN_TLS_KEY")
-	tlsCert := os.Getenv("PASTEBIN_TLS_CERT")
-
-	if tlsKey != "" && tlsCert != "" {
-		slog.Debug("server starting with TLS", "addr", addr, "cert", tlsCert, "key", tlsKey)
-		if err := http.ListenAndServeTLS(addr, tlsCert, tlsKey, finalHandler); err != nil {
-			slog.Error("server stopped", "err", err)
-			os.Exit(1)
-		}
-	} else {
-		slog.Debug("server starting", "addr", addr)
-		if err := http.ListenAndServe(addr, finalHandler); err != nil {
-			slog.Error("server stopped", "err", err)
-			os.Exit(1)
-		}
 	}
 }
