@@ -3,11 +3,11 @@ on:
   workflow_call: # Allow this workflow to be called by other workflows
     inputs: {}
   push:
-   branches-ignore:
-    - "dev"
-    - "main"
-  tags-ignore:
-    - "v*.*.*"
+    branches-ignore:
+      - "dev"
+      - "main"
+    tags-ignore:
+      - "v*.*.*"
 
   pull_request:
 
