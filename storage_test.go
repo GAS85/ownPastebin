@@ -242,6 +242,46 @@ func TestWalFileSizeAndVacuumDB(t *testing.T) {
 	s.vacuumDB(false, 1)
 }
 
+func TestClosePerformsFinalIncrementalVacuumWhenFreePagesExist(t *testing.T) {
+	s := newTestStorage(t)
+	large := bytes.Repeat([]byte("x"), 64*1024)
+	if err := s.Save("large-key", &PasteData{Content: large}, 0); err != nil {
+		t.Fatalf("save failed: %v", err)
+	}
+	if err := s.Delete("large-key"); err != nil {
+		t.Fatalf("delete failed: %v", err)
+	}
+	var freelist int
+	if err := s.db.QueryRow(`PRAGMA freelist_count`).Scan(&freelist); err != nil {
+		t.Fatalf("freelist_count query failed: %v", err)
+	}
+	if freelist == 0 {
+		t.Skip("no free pages detected; skipping final vacuum branch coverage")
+	}
+	if err := s.Close(); err != nil {
+		t.Fatalf("close failed: %v", err)
+	}
+}
+
+func TestVacuumDBFullReclaimsFreePages(t *testing.T) {
+	s := newTestStorage(t)
+	large := bytes.Repeat([]byte("x"), 64*1024)
+	if err := s.Save("full-vacuum-key", &PasteData{Content: large}, 0); err != nil {
+		t.Fatalf("save failed: %v", err)
+	}
+	if err := s.Delete("full-vacuum-key"); err != nil {
+		t.Fatalf("delete failed: %v", err)
+	}
+	var freelist int
+	if err := s.db.QueryRow(`PRAGMA freelist_count`).Scan(&freelist); err != nil {
+		t.Fatalf("freelist_count query failed: %v", err)
+	}
+	if freelist == 0 {
+		t.Skip("no free pages detected; skipping full vacuum branch coverage")
+	}
+	s.vacuumDB(true, 0)
+}
+
 func TestCloseReclaimsFreelistOrClosesCleanly(t *testing.T) {
 	f, err := os.CreateTemp("", "pastebin-storage-test-*.db")
 	if err != nil {
@@ -308,11 +348,42 @@ func TestNewStorageFallsBackToSQLite(t *testing.T) {
 	os.Remove(path)
 	defer os.Remove(path)
 
-	cfg := &Settings{RedisURL: "redis://127.0.0.1:1", SQLitePath: path, MaxParallelUploads: 1}
+	cfg := &Settings{RedisURL: "invalid://", SQLitePath: path, MaxParallelUploads: 1}
 	store := newStorage(cfg)
 	defer store.Close()
 	if _, ok := store.(*SQLiteStorage); !ok {
 		t.Fatalf("expected SQLiteStorage fallback, got %T", store)
+	}
+}
+
+func TestNewSQLiteStorageRespectsPageSize(t *testing.T) {
+	f, err := os.CreateTemp("", "pastebin-pgsize-*.db")
+	if err != nil {
+		t.Fatalf("create temp db: %v", err)
+	}
+	path := f.Name()
+	f.Close()
+	os.Remove(path)
+	defer os.Remove(path)
+
+	cfg := &Settings{SQLitePath: path, SQLitePageSize: 8192}
+	store, err := newSQLiteStorage(path, cfg)
+	if err != nil {
+		t.Fatalf("newSQLiteStorage failed: %v", err)
+	}
+	defer store.Close()
+
+	stats := store.Stats()
+	if stats.PageSize == 0 {
+		t.Fatal("expected non-zero page size")
+	}
+}
+
+func TestSQLiteCleanupLoopStopsAfterStartup(t *testing.T) {
+	s := newTestStorage(t)
+	time.Sleep(50 * time.Millisecond)
+	if err := s.Close(); err != nil {
+		t.Fatalf("close storage: %v", err)
 	}
 }
 

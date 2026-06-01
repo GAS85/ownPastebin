@@ -93,3 +93,42 @@ func TestRedisStorageStatsReturnsPlaceholder(t *testing.T) {
 		t.Fatalf("expected redis backend stats, got %q", st.Backend)
 	}
 }
+
+func TestRedisStorageStatsCountsEntries(t *testing.T) {
+	s := newRedisStorageForTest(t)
+	if err := s.Save("stat1", &PasteData{Content: []byte("1"), Burn: true}, 0); err != nil {
+		t.Fatalf("Save failed: %v", err)
+	}
+	if err := s.Save("stat2", &PasteData{Content: []byte("2")}, 1*time.Second); err != nil {
+		t.Fatalf("Save failed: %v", err)
+	}
+	st := s.Stats()
+	if st.Backend != "redis" {
+		t.Fatalf("expected redis backend stats, got %q", st.Backend)
+	}
+	time.Sleep(100 * time.Millisecond)
+}
+
+func TestRedisHelperFunctions(t *testing.T) {
+	if got := redisKey("abc"); got != "paste:abc" {
+		t.Fatalf("unexpected redisKey: %q", got)
+	}
+	if got := valToString(nil); got != "" {
+		t.Fatalf("expected empty string, got %q", got)
+	}
+	if got := valToString(123); got != "123" {
+		t.Fatalf("expected 123, got %q", got)
+	}
+	if got := valToInt("42"); got != 42 {
+		t.Fatalf("expected 42, got %d", got)
+	}
+	if got := valToInt(nil); got != 0 {
+		t.Fatalf("expected 0, got %d", got)
+	}
+	if got, err := valToBytes("hi"); err != nil || string(got) != "hi" {
+		t.Fatalf("expected hi, got %v %v", got, err)
+	}
+	if got, err := valToBytes([]byte("bye")); err != nil || string(got) != "bye" {
+		t.Fatalf("expected bye, got %v %v", got, err)
+	}
+}

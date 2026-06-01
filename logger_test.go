@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"io"
 	"log/slog"
@@ -26,6 +27,30 @@ func TestJSONMsgHandlerWithAttrs(t *testing.T) {
 	msg, ok := out["msg"].(map[string]any)
 	if !ok || msg["message"] != "hello" || msg["foo"] != "bar" {
 		t.Fatalf("unexpected json record: %#v", out)
+	}
+}
+
+func TestHandlerWithGroupNoops(t *testing.T) {
+	var buf bytes.Buffer
+	j := &jsonMsgHandler{w: &buf, level: slog.LevelDebug}
+	if got := j.WithGroup("group"); got != j {
+		t.Fatal("expected json handler WithGroup to be a no-op")
+	}
+
+	th := &textHandler{w: &buf, level: slog.LevelDebug, dateFormat: "2006-01-02"}
+	if got := th.WithGroup("group"); got != th {
+		t.Fatal("expected text handler WithGroup to be a no-op")
+	}
+}
+
+func TestHandlerEnabled(t *testing.T) {
+	j := &jsonMsgHandler{w: &bytes.Buffer{}, level: slog.LevelInfo}
+	if !j.Enabled(context.Background(), slog.LevelInfo) || j.Enabled(context.Background(), slog.LevelDebug) {
+		t.Fatal("json handler Enabled mismatch")
+	}
+	text := &textHandler{w: &bytes.Buffer{}, level: slog.LevelWarn, dateFormat: "2006-01-02"}
+	if !text.Enabled(context.Background(), slog.LevelWarn) || text.Enabled(context.Background(), slog.LevelInfo) {
+		t.Fatal("text handler Enabled mismatch")
 	}
 }
 
