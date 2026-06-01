@@ -1,14 +1,17 @@
 name: Dev Test
 on:
+  workflow_call: # Allow this workflow to be called by other workflows
+    inputs: {}
   push:
+#    branches-ignore:
+#      - "dev"
+#    tags-ignore:
+#      - "v*.*.*"
+
   pull_request:
 
 jobs:
   test:
-    if: |
-      github.ref_type == 'branch' &&
-      github.ref_name != 'master' &&
-      github.ref_name != 'dev'
     runs-on: ubuntu-latest
     
     steps:
