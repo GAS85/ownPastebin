@@ -30,7 +30,7 @@
   "password-req-error": "Impossible de déchiffrer. Mauvais mot de passe ?",
   "password": "Mot de passe",
   "modal-close-btn": "Fermer",
-  "decrypt-btn": "Déchiffrer",
+  "decrypt": "Déchiffrer",
   "delete-req": "Supprimer ce paste ?",
   "delete-warning": "Ce paste sera définitivement supprimé. Le lien ne pourra pas être réutilisé.",
   "delete-close-btn": "Annuler",

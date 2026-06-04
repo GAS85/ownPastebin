@@ -30,7 +30,7 @@
   "password-req-error": "Entschlüssle het nöd klappt. Falsches Passwort?",
   "password": "Passwort",
   "modal-close-btn": "Schliess",
-  "decrypt-btn": "Entschlüssle",
+  "decrypt": "Entschlüssle",
   "delete-req": "D’Paste lösche?",
   "delete-warning": "D’Paste wird definitiv glöscht. De Link cha nümme verwendet werde.",
   "delete-close-btn": "Abbreche",

@@ -30,7 +30,7 @@
   "password-req-error": "Impossibile decifrare. Password errata?",
   "password": "Password",
   "modal-close-btn": "Chiudi",
-  "decrypt-btn": "Decifra",
+  "decrypt": "Decifra",
   "delete-req": "Eliminare questo paste?",
   "delete-warning": "Questo paste verrà eliminato definitivamente. Il link non potrà essere riutilizzato.",
   "delete-close-btn": "Annulla",

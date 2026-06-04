@@ -17,6 +17,22 @@ jobs:
   test:
     runs-on: ubuntu-latest
     
+    # Add PostgreSQL service container
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: pastebin_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    
     steps:
       - name: Checkout
         # https://github.com/actions/checkout/releases/tag/v6.0.2
@@ -32,8 +48,27 @@ jobs:
       - name: Download dependencies
         run: go mod download
 
+      # Install PostgreSQL client tools (optional, for debugging)
+      # - name: Install PostgreSQL client
+      #   run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
+      # Wait for PostgreSQL to be ready
+      - name: Wait for PostgreSQL
+        run: |
+          until pg_isready -h localhost -p 5432 -U postgres; do
+            echo "Waiting for PostgreSQL..."
+            sleep 1
+          done
+
+      # Verify PostgreSQL is working (optional)
+      # - name: Verify PostgreSQL connection
+      #   run: |
+      #     PGPASSWORD=postgres psql -h localhost -U postgres -d pastebin_test -c "SELECT version();"
+
       # CGO is required for go-sqlite3 (used in all tests via SQLiteStorage).
       - name: Run tests with coverage
+        env:
+          POSTGRES_TEST_DSN: postgres://postgres:postgres@localhost:5432/pastebin_test?sslmode=disable
         run: |
           CGO_ENABLED=1
           go test ./... \
@@ -44,6 +79,8 @@ jobs:
             -timeout 120s
 
       - name: Run tests with race detector
+        env:
+          POSTGRES_TEST_DSN: postgres://postgres:postgres@localhost:5432/pastebin_test?sslmode=disable
         run: CGO_ENABLED=1 go test ./... -race -v -timeout 120s
 
       - name: Upload coverage to Codecov
@@ -52,4 +89,3 @@ jobs:
         with:
           files: coverage.txt
           token: ${{ secrets.CODECOV_TOKEN }}
-

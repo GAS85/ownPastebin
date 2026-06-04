@@ -99,10 +99,12 @@ type Storage interface {
 // =============================================================================
 
 type SQLiteStorage struct {
-	db     *sql.DB
-	dbPath string
-	stop   chan struct{}
-	wg     sync.WaitGroup
+	db       *sql.DB
+	dbPath   string
+	stop     chan struct{}
+	wg       sync.WaitGroup
+	closeOnce sync.Once
+	closeErr  error
 }
 
 // helper conversions
@@ -440,24 +442,27 @@ func (s *SQLiteStorage) GetAndDelete(key string) (*PasteData, error) {
 }
 
 func (s *SQLiteStorage) Close() error {
-	close(s.stop)
-	s.wg.Wait()
-	// The goroutine is fully stopped.
+	s.closeOnce.Do(func() {
+		close(s.stop)
+		s.wg.Wait()
+		// The goroutine is fully stopped.
 
-	var freelistBefore, freelistAfter int
-	s.db.QueryRow(`PRAGMA freelist_count`).Scan(&freelistBefore)
-	if freelistBefore > 0 {
-		if _, err := s.db.Exec(`PRAGMA incremental_vacuum`); err != nil {
-			slog.Warn("final incremental vacuum failed", "err", err)
+		var freelistBefore, freelistAfter int
+		s.db.QueryRow(`PRAGMA freelist_count`).Scan(&freelistBefore)
+		if freelistBefore > 0 {
+			if _, err := s.db.Exec(`PRAGMA incremental_vacuum`); err != nil {
+				slog.Warn("final incremental vacuum failed", "err", err)
+			}
+			s.db.QueryRow(`PRAGMA freelist_count`).Scan(&freelistAfter)
+			slog.Info("SQLite shutdown vacuum",
+				"pages_freed", freelistBefore-freelistAfter,
+				"pages_remaining", freelistAfter,
+			)
 		}
-		s.db.QueryRow(`PRAGMA freelist_count`).Scan(&freelistAfter)
-		slog.Info("SQLite shutdown vacuum",
-			"pages_freed", freelistBefore-freelistAfter,
-			"pages_remaining", freelistAfter,
-		)
-	}
 
-	return s.db.Close()
+		s.closeErr = s.db.Close()
+	})
+	return s.closeErr
 }
 
 // walFileSize returns the current WAL file size in bytes, or 0 if absent.

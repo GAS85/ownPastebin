@@ -1,13 +1,23 @@
 package main
 
 import (
+	"context"
+	"encoding/base64"
 	"encoding/json"
+	"errors"
+	"fmt"
+	"html/template"
 	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
+
+	"log/slog"
+
+	"github.com/GAS85/ownPastebin/plugins"
+	"github.com/go-chi/chi/v5"
 )
 
 // ---------------------------------------------------------------------------
@@ -302,7 +312,7 @@ func TestUploadSemaphoreRejection(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestStoragePeekMeta(t *testing.T) {
-	s := newTestStorage(t)
+	s := NewTestSQLiteStorage(t)
 	s.Save("meta1", &PasteData{Content: []byte("data"), Burn: true, Lang: "go"}, 0)
 
 	meta, err := s.PeekMeta("meta1")
@@ -324,7 +334,7 @@ func TestStoragePeekMeta(t *testing.T) {
 }
 
 func TestStoragePeekMetaMissing(t *testing.T) {
-	s := newTestStorage(t)
+	s := NewTestSQLiteStorage(t)
 	meta, err := s.PeekMeta("nonexistent")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -339,7 +349,7 @@ func TestStoragePeekMetaMissing(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestStorageSlugConflict(t *testing.T) {
-	s := newTestStorage(t)
+	s := NewTestSQLiteStorage(t)
 	if err := s.Save("dup", &PasteData{Content: []byte("first")}, 0); err != nil {
 		t.Fatalf("first save: %v", err)
 	}
@@ -357,7 +367,7 @@ func TestStorageSlugConflict(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestStorageFlagsRoundtrip(t *testing.T) {
-	s := newTestStorage(t)
+	s := NewTestSQLiteStorage(t)
 	paste := &PasteData{
 		Content:      []byte("flags"),
 		Burn:         true,
@@ -385,7 +395,7 @@ func TestStorageFlagsRoundtrip(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestStorageStats(t *testing.T) {
-	s := newTestStorage(t)
+	s := NewTestSQLiteStorage(t)
 	s.Save("st1", &PasteData{Content: []byte("a"), Burn: true}, 0)
 	s.Save("st2", &PasteData{Content: []byte("b")}, time.Hour)
 
@@ -409,7 +419,7 @@ func TestStorageStats(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestStorageGetAndDeleteExpired(t *testing.T) {
-	s := newTestStorage(t)
+	s := NewTestSQLiteStorage(t)
 	s.Save("exp2", &PasteData{Content: []byte("temp"), Burn: true}, 1*time.Second)
 	time.Sleep(2 * time.Second)
 
@@ -551,5 +561,180 @@ func TestToJSONFallback(t *testing.T) {
 	out := toJSON(make(chan int))
 	if string(out) != "[]" {
 		t.Errorf("expected fallback [], got %s", out)
+	}
+}
+
+func TestParseLogLevelHelpers(t *testing.T) {
+	if parseLogLevel("DEBUG") != slog.LevelDebug {
+		t.Fatal("expected DEBUG to parse as debug level")
+	}
+	if parseLogLevel(" warning ") != slog.LevelWarn {
+		t.Fatal("expected WARNING to parse as warn level")
+	}
+	if parseLogLevel("bad") != slog.LevelInfo {
+		t.Fatal("expected invalid input to default to info level")
+	}
+}
+
+func TestLevelStringHelpers(t *testing.T) {
+	if levelString(slog.LevelError) != "ERROR" {
+		t.Fatal("expected ERROR")
+	}
+	if levelString(slog.LevelWarn) != "WARN" {
+		t.Fatal("expected WARN")
+	}
+	if levelString(slog.LevelInfo) != "INFO" {
+		t.Fatal("expected INFO")
+	}
+	if levelString(slog.LevelDebug) != "DEBUG" {
+		t.Fatal("expected DEBUG")
+	}
+}
+
+func TestBaseDataQueryParams(t *testing.T) {
+	app := &App{
+		cfg: &Settings{
+			PathPrefix:            "/pastebin",
+			DefaultTTL:            2 * time.Hour,
+			DefaultBurn:           true,
+			ProtectedPasteEnabled: true,
+		},
+		plugins: plugins.NewManager(plugins.DefaultBase("/pastebin"), nil),
+	}
+	req := httptest.NewRequest("GET", "/?level=info&msg=hello&glyph=star&url=/link", nil)
+	d := app.baseData(req)
+	if d.Level != "info" || d.Msg != "hello" || d.Glyph != "star" || d.FlashURL != "/link" {
+		t.Fatalf("unexpected baseData: %+v", d)
+	}
+}
+
+type stubStorage struct {
+	peekMeta func(string) (*PasteData, error)
+	get      func(string) (*PasteData, error)
+	getDel   func(string) (*PasteData, error)
+	deleteErr error
+	deleted   bool
+}
+
+func (s *stubStorage) Save(key string, d *PasteData, ttl time.Duration) error { return nil }
+func (s *stubStorage) Get(key string) (*PasteData, error) { return s.get(key) }
+func (s *stubStorage) PeekMeta(key string) (*PasteData, error) { return s.peekMeta(key) }
+func (s *stubStorage) Delete(key string) error { s.deleted = true; return s.deleteErr }
+func (s *stubStorage) GetAndDelete(key string) (*PasteData, error) { return s.getDel(key) }
+func (s *stubStorage) Stats() StorageStats { return StorageStats{Backend: "stub"} }
+func (s *stubStorage) Close() error { return nil }
+
+func TestFetchPasteUsesPeekMetaBurn(t *testing.T) {
+	called := false
+	store := &stubStorage{
+		peekMeta: func(string) (*PasteData, error) { return &PasteData{Burn: true}, nil },
+		getDel: func(string) (*PasteData, error) { called = true; return &PasteData{Content: []byte("burned")}, nil },
+	}
+	app := &App{storage: store}
+	paste, err := app.fetchPaste("id")
+	if err != nil || paste == nil || string(paste.Content) != "burned" {
+		t.Fatalf("unexpected paste: %v %v", paste, err)
+	}
+	if !called {
+		t.Fatal("expected GetAndDelete to be called")
+	}
+}
+
+func TestFetchPasteFallbackToGetOnPeekMetaError(t *testing.T) {
+	called := false
+	store := &stubStorage{
+		peekMeta: func(string) (*PasteData, error) { return nil, fmt.Errorf("boom") },
+		get:      func(string) (*PasteData, error) { called = true; return &PasteData{Content: []byte("ok")}, nil },
+	}
+	app := &App{storage: store}
+	paste, err := app.fetchPaste("id")
+	if err != nil || paste == nil || string(paste.Content) != "ok" {
+		t.Fatalf("unexpected paste: %v %v", paste, err)
+	}
+	if !called {
+		t.Fatal("expected Get to be called after PeekMeta error")
+	}
+}
+
+func TestDecryptIfNeededWithCrypto(t *testing.T) {
+	c, err := newCrypto(base64.StdEncoding.EncodeToString([]byte("0123456789abcdef0123456789abcdef")))
+	if err != nil {
+		t.Fatalf("newCrypto: %v", err)
+	}
+	ciphertext, err := c.Encrypt([]byte("secret"))
+	if err != nil {
+		t.Fatalf("encrypt: %v", err)
+	}
+	app := &App{crypto: c}
+	plaintext, err := app.decryptIfNeeded(&PasteData{Content: ciphertext, Encrypted: true})
+	if err != nil || string(plaintext) != "secret" {
+		t.Fatalf("decryptIfNeeded failed: %v %s", err, plaintext)
+	}
+}
+
+func TestDecryptIfNeededWithoutCrypto(t *testing.T) {
+	app := &App{crypto: nil}
+	plaintext, err := app.decryptIfNeeded(&PasteData{Content: []byte("hi"), Encrypted: true})
+	if err != nil || string(plaintext) != "hi" {
+		t.Fatalf("expected raw content, got %v %v", plaintext, err)
+	}
+}
+
+func TestHandleRawBinaryContent(t *testing.T) {
+	_, handler := NewAppForTest(t, TestConfig{})
+	payload := string([]byte{0xff, 0xfe, 0xfd})
+	post := doRequest(t, handler, "POST", "/", strings.NewReader(payload))
+	id := extractID(t, post.Body.String())
+
+	res := doRequest(t, handler, "GET", "/raw/"+id, nil)
+	if res.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", res.Code)
+	}
+	if got := res.Header().Get("Content-Type"); got != "application/octet-stream" {
+		t.Fatalf("expected application/octet-stream, got %q", got)
+	}
+	if cd := res.Header().Get("Content-Disposition"); !strings.Contains(cd, id) {
+		t.Fatalf("expected Content-Disposition to contain id, got %q", cd)
+	}
+}
+
+func TestHandleViewBinaryContent(t *testing.T) {
+	_, handler := NewAppForTest(t, TestConfig{})
+	payload := string([]byte{0xff, 0xfe, 0xfd})
+	post := doRequest(t, handler, "POST", "/", strings.NewReader(payload))
+	id := extractID(t, post.Body.String())
+
+	res := doRequest(t, handler, "GET", "/"+id, nil)
+	if res.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", res.Code)
+	}
+	if !strings.Contains(res.Body.String(), "[binary data]") {
+		t.Fatalf("expected binary placeholder in view body, got %q", res.Body.String())
+	}
+}
+
+func TestHandleDeleteStorageError(t *testing.T) {
+	store := &stubStorage{deleteErr: errors.New("boom"), peekMeta: func(string) (*PasteData, error) { return nil, nil }}
+	app := &App{cfg: &Settings{ProtectedPasteEnabled: false}, storage: store}
+	res := httptest.NewRecorder()
+	req := httptest.NewRequest("DELETE", "/id", nil)
+	chiCtx := chi.NewRouteContext()
+	chiCtx.URLParams.Add("id", "id")
+	req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, chiCtx))
+	app.handleDelete(res, req)
+	if res.Code != http.StatusInternalServerError {
+		t.Fatalf("expected 500, got %d", res.Code)
+	}
+}
+
+func TestRenderTemplateError(t *testing.T) {
+	tmpl := template.Must(template.New("fail").Funcs(template.FuncMap{
+		"fail": func() (string, error) { return "", errors.New("boom") },
+	}).Parse(`{{fail}}`))
+	app := &App{tmpl: tmpl}
+	res := httptest.NewRecorder()
+	app.render(res, TemplateData{}, http.StatusOK)
+	if res.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", res.Code)
 	}
 }

@@ -30,7 +30,7 @@
   "password-req-error": "解密失败。密码错误？",
   "password": "密码",
   "modal-close-btn": "关闭",
-  "decrypt-btn": "解密",
+  "decrypt": "解密",
   "delete-req": "删除该粘贴内容？",
   "delete-warning": "该粘贴内容将被永久删除，链接将无法再次使用。",
   "delete-close-btn": "取消",

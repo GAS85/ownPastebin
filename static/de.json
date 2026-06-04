@@ -30,7 +30,7 @@
   "password-req-error": "Entschlüsselung fehlgeschlagen. Falsches Passwort?",
   "password": "Passwort",
   "modal-close-btn": "Schließen",
-  "decrypt-btn": "Entschlüsseln",
+  "decrypt": "Entschlüsseln",
   "delete-req": "Diese Paste löschen?",
   "delete-warning": "Die Paste wird unwiderruflich gelöscht. Der Link kann anschließend nicht mehr verwendet werden.",
   "delete-close-btn": "Abbrechen",
