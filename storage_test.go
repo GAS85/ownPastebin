@@ -10,7 +10,8 @@ import (
 	"time"
 )
 
-func newTestStorage(t *testing.T) *SQLiteStorage {
+// NewTestSQLiteStorage exports the test helper for other test files
+func NewTestSQLiteStorage(t *testing.T) *SQLiteStorage {
 	t.Helper()
 	f, err := os.CreateTemp("", "pastebin-storage-test-*.db")
 	if err != nil {
@@ -32,6 +33,13 @@ func newTestStorage(t *testing.T) *SQLiteStorage {
 	})
 	return s
 }
+
+// For backward compatibility with existing tests
+func newTestStorage(t *testing.T) *SQLiteStorage {
+	return NewTestSQLiteStorage(t)
+}
+
+// SQLite-specific tests
 
 func TestStorageSaveAndGet(t *testing.T) {
 	s := newTestStorage(t)
@@ -227,7 +235,7 @@ func TestEnsureIncrementalVacuumMigrates(t *testing.T) {
 }
 
 func TestWalFileSizeAndVacuumDB(t *testing.T) {
-	s := newTestStorage(t)
+	s := NewTestSQLiteStorage(t)
 	if err := s.Save("vacuum-key", &PasteData{Content: []byte("data")}, 0); err != nil {
 		t.Fatalf("save failed: %v", err)
 	}
@@ -243,7 +251,7 @@ func TestWalFileSizeAndVacuumDB(t *testing.T) {
 }
 
 func TestClosePerformsFinalIncrementalVacuumWhenFreePagesExist(t *testing.T) {
-	s := newTestStorage(t)
+	s := NewTestSQLiteStorage(t)
 	large := bytes.Repeat([]byte("x"), 64*1024)
 	if err := s.Save("large-key", &PasteData{Content: large}, 0); err != nil {
 		t.Fatalf("save failed: %v", err)
@@ -264,7 +272,7 @@ func TestClosePerformsFinalIncrementalVacuumWhenFreePagesExist(t *testing.T) {
 }
 
 func TestVacuumDBFullReclaimsFreePages(t *testing.T) {
-	s := newTestStorage(t)
+	s := NewTestSQLiteStorage(t)
 	large := bytes.Repeat([]byte("x"), 64*1024)
 	if err := s.Save("full-vacuum-key", &PasteData{Content: large}, 0); err != nil {
 		t.Fatalf("save failed: %v", err)
@@ -309,7 +317,7 @@ func TestCloseReclaimsFreelistOrClosesCleanly(t *testing.T) {
 }
 
 func TestSQLiteStatsReturnsCounts(t *testing.T) {
-	s := newTestStorage(t)
+	s := NewTestSQLiteStorage(t)
 	if err := s.Save("stat-key", &PasteData{Content: []byte("data"), Burn: true, Protected: true}, 0); err != nil {
 		t.Fatalf("save failed: %v", err)
 	}
@@ -323,8 +331,8 @@ func TestSQLiteStatsReturnsCounts(t *testing.T) {
 	}
 }
 
-func TestStoragePeekMetaExpiredDeletes(t *testing.T) {
-	s := newTestStorage(t)
+func TestStoragePeekMetaExpired(t *testing.T) {
+	s := NewTestSQLiteStorage(t)
 	if err := s.Save("expire-meta", &PasteData{Content: []byte("gone")}, 1*time.Second); err != nil {
 		t.Fatalf("save failed: %v", err)
 	}
@@ -380,7 +388,7 @@ func TestNewSQLiteStorageRespectsPageSize(t *testing.T) {
 }
 
 func TestSQLiteCleanupLoopStopsAfterStartup(t *testing.T) {
-	s := newTestStorage(t)
+	s := NewTestSQLiteStorage(t)
 	time.Sleep(50 * time.Millisecond)
 	if err := s.Close(); err != nil {
 		t.Fatalf("close storage: %v", err)

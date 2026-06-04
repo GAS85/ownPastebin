@@ -70,7 +70,7 @@ func TestConcurrentBurnAfterRead(t *testing.T) {
 
 func TestConcurrentStorageAccess(t *testing.T) {
 	// Hammer the SQLite storage directly with concurrent reads and writes.
-	s := newTestStorage(t)
+	s := NewTestSQLiteStorage(t)
 
 	const writers = 20
 	const readers = 20

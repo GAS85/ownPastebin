@@ -312,7 +312,7 @@ func TestUploadSemaphoreRejection(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestStoragePeekMeta(t *testing.T) {
-	s := newTestStorage(t)
+	s := NewTestSQLiteStorage(t)
 	s.Save("meta1", &PasteData{Content: []byte("data"), Burn: true, Lang: "go"}, 0)
 
 	meta, err := s.PeekMeta("meta1")
@@ -334,7 +334,7 @@ func TestStoragePeekMeta(t *testing.T) {
 }
 
 func TestStoragePeekMetaMissing(t *testing.T) {
-	s := newTestStorage(t)
+	s := NewTestSQLiteStorage(t)
 	meta, err := s.PeekMeta("nonexistent")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -349,7 +349,7 @@ func TestStoragePeekMetaMissing(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestStorageSlugConflict(t *testing.T) {
-	s := newTestStorage(t)
+	s := NewTestSQLiteStorage(t)
 	if err := s.Save("dup", &PasteData{Content: []byte("first")}, 0); err != nil {
 		t.Fatalf("first save: %v", err)
 	}
@@ -367,7 +367,7 @@ func TestStorageSlugConflict(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestStorageFlagsRoundtrip(t *testing.T) {
-	s := newTestStorage(t)
+	s := NewTestSQLiteStorage(t)
 	paste := &PasteData{
 		Content:      []byte("flags"),
 		Burn:         true,
@@ -395,7 +395,7 @@ func TestStorageFlagsRoundtrip(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestStorageStats(t *testing.T) {
-	s := newTestStorage(t)
+	s := NewTestSQLiteStorage(t)
 	s.Save("st1", &PasteData{Content: []byte("a"), Burn: true}, 0)
 	s.Save("st2", &PasteData{Content: []byte("b")}, time.Hour)
 
@@ -419,7 +419,7 @@ func TestStorageStats(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestStorageGetAndDeleteExpired(t *testing.T) {
-	s := newTestStorage(t)
+	s := NewTestSQLiteStorage(t)
 	s.Save("exp2", &PasteData{Content: []byte("temp"), Burn: true}, 1*time.Second)
 	time.Sleep(2 * time.Second)
 
