@@ -30,7 +30,7 @@
   "password-req-error": "Could not decrypt. Wrong password?",
   "password": "Password",
   "modal-close-btn": "Close",
-  "decrypt-btn": "Decrypt",
+  "decrypt": "Decrypt",
   "delete-req": "Delete this paste?",
   "delete-warning": "This paste will be permanently deleted. The link cannot be reused.",
   "delete-close-btn": "Cancel",

@@ -42,7 +42,7 @@
       {{if .IsCreated}}
       {{if not .IsBurned}}
       {{if not .IsProtected}}
-      <a id="remove-btn" href="#" class="w3-bar-item w3-button w3-round w3-margin-top w3-center"><i class="fas fa-trash"></i> Delete</a>
+      <a id="remove-btn" href="#" class="w3-bar-item w3-button w3-round w3-margin-top w3-center w3-border w3-border-red"><i class="fas fa-trash"></i> Delete</a>
       {{end}}
       {{end}}
       {{end}}
@@ -75,6 +75,11 @@
 
       <!-- Copy/Raw/Download (view state) -->
       {{if .IsCreated}}
+      {{if .IsEncrypted}}
+      <a id="decrypt-btn-controls" class="w3-bar-item w3-button w3-round w3-margin-top w3-border w3-border-light-green w3-hover-light-green w3-center" href="#"
+           onclick="document.getElementById('password-modal').style.display='block'"><i class="fa-solid fa-key"></i> <span
+                data-i18n="decrypt">Decrypt</span></a>
+      {{end}}
       <a id="copy-btn" class="w3-bar-item w3-button w3-round w3-margin-top w3-border w3-border-light-green w3-hover-light-green w3-center" href="#"><i class="fa-regular fa-copy"></i> <span
               id="copy-btn-name">Copy</span></a>
       {{if not .IsBurned}}
@@ -434,7 +439,7 @@
                 onclick="document.getElementById('password-modal').style.display='none'">Close</button>
         <button type="button"
                 class="w3-button w3-green w3-hover-light-green w3-round w3-right"
-                id="decrypt-btn">Decrypt</button>
+                id="decrypt-btn" data-i18n="decrypt">Decrypt</button>
       </footer>
     </div>
   </div>
