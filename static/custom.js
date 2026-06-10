@@ -223,6 +223,7 @@ const uri_prefix = getMeta("uri-prefix") || "";
 const defaultLang = "en";
 
 const flags = {
+  bg: "🇧🇬",
   ch: "🇨🇭",
   cn: "🇨🇳",
   en: "🇬🇧",
