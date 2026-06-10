@@ -355,6 +355,13 @@ Example:
 {"level":"INFO","msg":{"bytes":14562,"duration":"710µs","ip":"192.168.65.1:59435","message":"access","method":"GET","path":"/","status":200},"time":"2026-04-27T20:13:34.986291506+02:00"}
 ```
 
+## Translate
+
+1. Copy `static/en.json` to any new language file you need.
+2. Translate it.
+3. In `static/custom.js` update `const flags` with new language.
+4. In `templates/index.html` and `templates/index_full.html` add new language in `i18n-dropdown` div.
+
 ## 🛠️ Notes
 
 * Works with curl, browsers, API clients
