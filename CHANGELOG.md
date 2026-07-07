@@ -2,6 +2,38 @@
 
 All notable changes to this project are documented in this file.
 
+## v2.4.5
+
+### Add
+
+- Custom theme support from w3 css as, `blue`, `teal`, `green`, etc. via `PASTEBIN_THEME`
+- Custom CSS Support via `PASTEBIN_THEME_CUSTOM_CSS`
+
+## v2.4.4
+
+### Changed
+
+- Update dependencies to latest versions
+
+## v2.4.3
+
+### Changed
+
+- Add Bulgarian translation
+
+## v2.4.2
+
+### Changed
+
+- Test coverage and UI improvements
+
+## v2.4.1
+
+### Changed
+
+- Bump go versions
+- Correction to the the info output
+
 ## v2.4.0
 
 ### Added

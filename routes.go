@@ -47,6 +47,7 @@ type TemplateData struct {
 	ExpireAt              *time.Time // nil = never expires
 	CSSImports            []string   // plugin CSS — loaded before custom.css
 	TailCSSImports        []string   // loaded last — custom.css always wins the cascade
+	ThemeCSS              template.CSS // Custom Theme CSS override
 	JSImports             []string
 	JSInits               []string
 	ExpiryTimes           []ExpiryOption
@@ -64,6 +65,12 @@ type TemplateData struct {
 func (a *App) baseData(r *http.Request) TemplateData {
 	// New-paste page: no language known yet — exclude conditional plugins (Mermaid).
 	css, js, inits := a.plugins.BuildFor("")
+
+	var themeCSS template.CSS
+	if a.cfg.ThemeCSS != "" {
+		themeCSS = template.CSS(a.cfg.ThemeCSS)
+	}
+
 	return TemplateData{
 		Version:               os.Getenv("VERSION"),
 		URIPrefix:             a.cfg.PathPrefix,
@@ -75,6 +82,7 @@ func (a *App) baseData(r *http.Request) TemplateData {
 		DefaultExpiry:         strconv.FormatInt(int64(a.cfg.DefaultTTL.Seconds()), 10),
 		DefaultBurn:           a.cfg.DefaultBurn,
 		ProtectedPasteEnabled: a.cfg.ProtectedPasteEnabled,
+		ThemeCSS:              themeCSS,
 		Level:                 r.URL.Query().Get("level"),
 		Msg:                   r.URL.Query().Get("msg"),
 		Glyph:                 r.URL.Query().Get("glyph"),

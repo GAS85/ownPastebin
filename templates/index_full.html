@@ -17,6 +17,8 @@
 
   <!-- W3.CSS + FontAwesome from CDN for standalone test -->
   <link rel="stylesheet" href="https://www.w3schools.com/w3css/5/w3.css">
+  <!-- Any theme from https://www.w3schools.com/w3css/w3css_color_themes.asp -->
+  <link rel="stylesheet" href="https://www.w3schools.com/lib/w3-theme-orange.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
   <!-- Prism from CDN -->
   <link rel="stylesheet" href="/static/prism.css">
@@ -56,12 +58,35 @@
     #dev-switcher button:hover {
       background: #888;
     }
+
+    /* Default theme 
+       Only used classes are uncommented*/
+    .w3-theme-l5 {color:#000 !important; background-color:#fff !important}
+    /* .w3-theme-l4 {color:#000 !important; background-color:#fff3cd !important} */
+    .w3-theme-l3 {color:#000 !important; background-color:#f8f9fa !important}
+    .w3-theme-l2 {color:#ffffff !important; background-color:#607d8b !important}
+    /* .w3-theme-l1 {color:#000 !important; background-color:#ffcd37 !important}
+    .w3-theme-d1 {color:#000 !important; background-color:#eab000 !important} */
+    .w3-theme-d2 {color:#fff !important; background-color:#607d8b !important}
+    .w3-theme-d3 {color:#fff !important; background-color:#616161 !important}
+    /* .w3-theme-d4 {color:#fff !important; background-color:#9c7500 !important} */
+    .w3-theme-d5 {color:#fff !important; background-color:#9e9e9e !important}
+    .w3-theme-light {color:#000 !important; background-color:#eee !important}
+    .w3-theme-dark {color:#fff !important; background-color:#343a40 !important}
+    .w3-theme-action {color:#fff !important; background-color:#4caf50 !important}
+    .w3-theme {color:#000 !important; background-color:#eee !important}
+    .w3-text-theme {color:#383838 !important}
+    .w3-border-theme {border-color:#8bc34a !important}
+    /* .w3-hover-theme:hover {color:#000 !important; background-color:#ffc107 !important}
+    .w3-hover-text-theme:hover {color:#ffc107 !important}
+    .w3-hover-border-theme:hover {border-color:#ffc107 !important} */
+
   </style>
 </head>
 
 <body>
   <!-- TOP NAV -->
-  <div class="w3-container w3-display-container w3-sidebar w3-bar-block w3-asphalt w3-large" id="navbar">
+  <div class="w3-container w3-display-container w3-sidebar w3-bar-block w3-theme-light w3-large" id="navbar">
 
     <a href="#" class="w3-button w3-round w3-large w3-margin w3-display-topleft fa fa-x" onclick="toggleMobileMenu()"></a>
 
@@ -73,7 +98,7 @@
       <a id="create-new" href="/" class="w3-bar-item w3-button w3-round w3-margin-top w3-center"><i class="fa-regular fa-file"></i> New</a>
 
       <!-- Remove btn: shown on view state -->
-      <a id="remove-btn" href="#" class="w3-bar-item w3-button w3-round w3-margin-top w3-center w3-border w3-border-red"><i class="fas fa-trash"></i> Delete</a>
+      <a id="remove-btn" href="#" class="w3-bar-item w3-button w3-round w3-margin-top w3-center w3-theme-action w3-hover-pale-red"><i class="fas fa-trash"></i> Delete</a>
 
       <!-- Expiry dropdown - CSS hover, no JS needed for open/close -->
       <div id="expiry-burn-controls-expire" class="w3-dropdown-hover w3-margin-top">
@@ -101,19 +126,19 @@
 
       <!-- Copy/Raw/Download (view state) -->
       <div id="view-controls" style="display:none;">
-        <a id="decrypt-btn-controls" class="w3-bar-item w3-button w3-round w3-margin-top w3-border w3-border-light-green w3-hover-light-green w3-center" href="#"
+        <a id="decrypt-btn-controls" class="w3-bar-item w3-button w3-round w3-margin-top w3-border w3-border-theme w3-center" href="#"
            onclick="document.getElementById('password-modal').style.display='block'"><i class="fa-solid fa-key"></i> <span
                 data-i18n="decrypt">Decrypt</span></a>
-        <a id="copy-btn" class="w3-bar-item w3-button w3-round w3-margin-top w3-border w3-border-light-green w3-hover-light-green w3-center" href="#"><i class="fa-regular fa-copy"></i> <span
+        <a id="copy-btn" class="w3-bar-item w3-button w3-round w3-margin-top w3-border w3-border-theme w3-center" href="#"><i class="fa-regular fa-copy"></i> <span
                 id="copy-btn-name">Copy</span></a>
-        <a class="w3-bar-item w3-button w3-round w3-margin-top w3-border w3-border-light-green w3-hover-light-green w3-center" href="#"><i class="fa-regular fa-file-lines"></i> <span
+        <a class="w3-bar-item w3-button w3-round w3-margin-top w3-border w3-border-theme w3-center" href="#"><i class="fa-regular fa-file-lines"></i> <span
                 id="raw-btn-name">Raw</span></a>
-        <a class="w3-bar-item w3-button w3-round w3-margin-top w3-border w3-border-light-green w3-hover-light-green w3-center" href="#"><i class="fa-solid fa-download"></i> <span
+        <a class="w3-bar-item w3-button w3-round w3-margin-top w3-border w3-border-theme w3-center" href="#"><i class="fa-solid fa-download"></i> <span
                 id="download-btn-name">Download</span></a>
       </div>
 
       <!-- Language selector -->
-      <select class="w3-bar-item w3-select w3-round w3-margin-top w3-margin-bottom w3-center" id="language-selector">
+      <select class="w3-bar-item w3-theme-action w3-round w3-margin-top w3-margin-bottom w3-center" id="language-selector">
         <option value="markup">Markup</option>
         <option value="bash">Bash</option>
         <option value="css">CSS</option>
@@ -275,14 +300,14 @@
       <input class="w3-bar-item w3-input w3-margin-top w3-round" id="pastebin-password" type="password" data-i18n-placeholder="e2e-encrypt-password" placeholder="Password (optional)"
              oninput="updateStrength()">
 
-      <div class="w3-light-grey w3-round w3-margin-top" style="height:8px;">
+      <div class="w3-theme-l5 w3-round w3-margin-top" style="height:8px;">
         <div id="password-strength-bar"
              class="w3-container w3-round"
              style="height:8px; width:0%">
         </div>
       </div>
 
-      <small id="password-strength-text"></small>
+      <small id="password-strength-text" class="w3-bar-item w3-center"></small>
 
       <!-- Protected dropdown -->
       <div id="controls-protected" class="w3-dropdown-hover w3-margin-top w3-center">
@@ -293,7 +318,7 @@
         </div>
       </div>
 
-      <button id="send-btn-sidebar" class="w3-bar-item w3-button w3-margin-top w3-green w3-hover-light-green w3-round w3-center"><i class="fa-solid fa-upload"></i> <span
+      <button id="send-btn-sidebar" class="w3-bar-item w3-button w3-margin-top w3-theme-action w3-round w3-center"><i class="fa-solid fa-upload"></i> <span
               id="send-btn-sidebar-name">Send</span></button>
 
     </div>
@@ -316,7 +341,7 @@
 
   <!-- Navigation Toggler -->
 
-  <div class="w3-flex w3-asphalt" id="topnav" style="flex-direction:row;justify-content:space-between">
+  <div class="w3-flex w3-theme-light" id="topnav" style="flex-direction:row;justify-content:space-between">
 
     <div class="w3-margin-bottom">
       <a href="#" class="w3-button w3-round w3-margin-left" onclick="toggleMobileMenu()"><i class="fa-solid fa-bars"></i></a>
@@ -336,7 +361,7 @@
       </div>
     </div>
     <a href="/" class="w3-button w3-round w3-margin-top w3-display-topmiddle">Pastebin</a>
-    <a id="send-btn-top" class="w3-button w3-round w3-margin w3-green w3-hover-light-green"><i class="fa-solid fa-upload"></i><span id="send-btn-top-name" class="w3-hide-small"> Send</span></a>
+    <a id="send-btn-top" class="w3-button w3-round w3-margin w3-theme-action"><i class="fa-solid fa-upload"></i><span id="send-btn-top-name" class="w3-hide-small"> Send</span></a>
 
     <a class="w3-button w3-round w3-margin w3-border" href="#"><i class="fa-solid fa-download"></i><span id="download-btn-top" class="w3-hide-small"> Download</span></a>
 
@@ -345,13 +370,13 @@
   </div>
 
   <!-- MAIN -->
-  <main class="w3-container w3-dark-grey" id="main-content">
+  <main class="w3-container w3-theme-l3" id="main-content">
 
     <!-- 404 view -->
     <div id="error-region" style="display:none;" class="w3-section w3-center">
-      <span class="w3-xxxlarge"><i class="fa-solid fa-square-xmark"></i> 404</span>
+      <span class="w3-xxxlarge w3-text-theme"><i class="fa-solid fa-square-xmark"></i> 404</span>
       <p id="error-region-message" class="w3-large">The page you are looking for was not found.</p>
-      <a id="error-region-back" href="/" class="w3-button w3-asphalt w3-round">Back to Home</a>
+      <a id="error-region-back" href="/" class="w3-button w3-theme w3-round">Back to Home</a>
     </div>
 
     <!-- Alerts region (toggled by dev switcher) -->
@@ -359,7 +384,7 @@
 
     <!-- New/editable paste: textarea -->
     <div class="w3-section" id="textarea-region">
-      <textarea autofocus class="w3-input w3-border w3-border-grey w3-light-grey w3-round w3-monospace w3-large" id="content-textarea"></textarea>
+      <textarea autofocus class="w3-input w3-border w3-theme-l5 w3-round w3-monospace w3-large" id="content-textarea"></textarea>
     </div>
 
     <!-- Created paste view (shown in "view" state) -->
@@ -372,7 +397,7 @@
         <span onclick="this.parentElement.style.display='none'" class="w3-button w3-display-topright w3-round fa fa-x"></span>
         <p><i class="fas fa-clock"></i> <span id="alert-expire">This paste will expire on</span> <strong>2026-09-03 12:51:46 UTC</strong>.</p>
       </div>
-      <pre id="pastebin-pre" class="w3-margin-top line-numbers linkable-line-numbers">
+      <pre id="pastebin-pre" class="w3-margin-top line-numbers linkable-line-numbers w3-theme-l5">
         <code id="pastebin-code-block" class="language-python">def hello():
     print("Hello from pastebin!")
     return 42</code>
@@ -382,7 +407,7 @@
   </main>
 
   <!-- FOOTER -->
-  <footer class="w3-flex w3-asphalt w3-padding w3-small w3-hide-small w3-animate-bottom" id="footer" style="flex-direction:row;justify-content:space-between">
+  <footer class="w3-flex w3-theme-light w3-padding w3-small w3-hide-small w3-animate-bottom" id="footer" style="flex-direction:row;justify-content:space-between">
     <div id="icons">
       <a href="https://hub.docker.com/r/gas85/ownpastebin"
          class="w3-button w3-hover-text-black w3-round"><i class="fab fa-docker"></i></a>
@@ -397,7 +422,7 @@
   <!-- ── Password Modal (only rendered for E2E-encrypted pastes) ── -->
   <div id="password-modal" class="w3-modal" role="dialog" aria-modal="true" aria-labelledby="password-modal-title">
     <div class="w3-modal-content w3-animate-top w3-card-4">
-      <header class="w3-container w3-blue-grey">
+      <header class="w3-container w3-theme-l2">
         <button onclick="document.getElementById('password-modal').style.display='none'" class="w3-button w3-display-topright fa fa-x" aria-label="Close"></button>
         <h4 id="password-modal-title"><i class="fas fa-key"></i> <span id="password-req-header">Password Protected</span></h4>
       </header>
@@ -425,11 +450,11 @@
                id="modal-password" data-i18n-placeholder="e2e-decrypt-password" placeholder="Enter password"
                autocomplete="current-password">
       </div>
-      <footer class="w3-container w3-blue-grey w3-padding">
-        <button type="button" class="w3-button w3-grey w3-round" id="modal-close-btn"
+      <footer class="w3-container w3-theme-l2 w3-padding">
+        <button type="button" class="w3-button w3-theme-l5 w3-round" id="modal-close-btn"
                 onclick="document.getElementById('password-modal').style.display='none'">Close</button>
         <button type="button"
-                class="w3-button w3-green w3-hover-light-green w3-round w3-right"
+                class="w3-button w3-theme-action w3-round w3-right"
                 id="decrypt-btn" data-i18n="decrypt">Decrypt</button>
       </footer>
     </div>
@@ -439,18 +464,18 @@
   <div id="deletion-modal" class="w3-modal" style="display:none;"
        role="dialog" aria-modal="true" aria-labelledby="deletion-modal-title">
     <div class="w3-modal-content w3-animate-top w3-card-4" style="max-width:400px;">
-      <header class="w3-container w3-blue-grey">
+      <header class="w3-container w3-theme-l2">
         <button onclick="document.getElementById('deletion-modal').style.display='none'" class="w3-button w3-display-topright fa fa-x" aria-label="Close"></button>
         <h4 id="deletion-modal-title"><i class="fas fa-trash"></i> <span id="delete-req">Delete this paste?</span></h4>
       </header>
       <div class="w3-container w3-padding">
         <p id="delete-warning">This paste will be permanently deleted. The link cannot be reused.</p>
       </div>
-      <footer class="w3-container w3-padding w3-blue-grey">
-        <button type="button" id="delete-close-btn" class="w3-button w3-grey w3-round"
+      <footer class="w3-container w3-padding w3-theme-l2">
+        <button type="button" id="delete-close-btn" class="w3-button w3-theme-l5 w3-round"
                 onclick="document.getElementById('deletion-modal').style.display='none'">Cancel</button>
         <button type="button"
-                class="w3-button w3-red w3-hover-orange w3-round w3-right"
+                class="w3-button w3-theme-action w3-hover-pale-red w3-round w3-right"
                 id="delete-confirm-btn">Delete</button>
       </footer>
     </div>

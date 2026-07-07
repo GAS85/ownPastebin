@@ -40,6 +40,10 @@ services:
       #- PASTEBIN_SHELL_DATE_FORMAT="%Y-%m-%d %H:%M:%S"
       #- PASTEBIN_LOG_FORMAT=json
       #- PASTEBIN_PROTECTED_PASTE_ENABLED=true
+      # Theme from https://www.w3schools.com/w3css/w3css_color_themes.asp
+      #- PASTEBIN_THEME="blue-grey"
+      # Custom CSS in format of w3c theme, will override PASTEBIN_THEME
+      #- PASTEBIN_THEME_CUSTOM_CSS="w3-theme-l5 {color:#000 !important; background-color:#fff !important}.w3-theme-l3 {color:#000 !important; background-color:#f8f9fa !important}"
     restart: always
 #    depends_on:
 #      - redis

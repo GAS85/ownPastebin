@@ -64,6 +64,9 @@ type Settings struct {
 	// Empty / unset means XFF is never trusted — r.RemoteAddr is always used.
 	// Set via PASTEBIN_TRUSTED_PROXY, e.g. "127.0.0.1" or "10.0.0.0/8".
 	TrustedProxy *net.IPNet
+
+	// Custom Theme CSS
+	ThemeCSS string
 }
 
 func loadSettings() *Settings {
@@ -89,6 +92,8 @@ func loadSettings() *Settings {
 		ServerSideEncryptionKey:     os.Getenv("PASTEBIN_SERVER_SIDE_ENCRYPTION_KEY"),
 
 		ProtectedPasteEnabled: getEnvBool("PASTEBIN_PROTECTED_PASTE_ENABLED", false),
+
+		ThemeCSS: os.Getenv("PASTEBIN_THEME_CUSTOM_CSS"),
 
 		Version: os.Getenv("VERSION"),
 	}

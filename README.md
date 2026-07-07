@@ -38,6 +38,7 @@ A minimal, RAM-friendly paste service with support for raw uploads, TTL, burn-af
 * 📦 Binary-safe uploads/downloads
 * 🧠 Designed to be memory efficient
 * 🌐 i18n support - different languages as json files
+* 🎨 Theme support - set predefined Theme or use custom CSS to override
 
 ## ⚙️ Configuration
 
@@ -97,6 +98,10 @@ The application automatically selects the first available backend:
 * `PASTEBIN_LOG_LEVEL` - Set log level. Default: `Info`.
 * `PASTEBIN_LOG_FORMAT` - Set it to `json`, to have JSON logs output. Default: `text`.
 * `PASTEBIN_FILE_LOG` - Set log file location to log all App output. Default is not set, it is logged to stdout. If you need log file, simply provide a path writable by user "nobody". Recommended is `/app/data/pastebin.log`.
+* `PASTEBIN_THEME` - Set custom theme as per [W3.CSS Color Themes](https://www.w3schools.com/w3css/w3css_color_themes.asp), add e.g. `blue`, `teal`, `green`, etc. Default theme used when not set.
+* `PASTEBIN_THEME_CUSTOM_CSS` - Overrides Theme with your own CSS. Please use format as in a [W3.CSS Color Themes](https://www.w3schools.com/w3css/w3css_color_themes.asp).
+This will overrule `PASTEBIN_THEME`, you should't use both. Default theme used when non of them set.
+You can set it to e.g. `w3-theme-l5 {color:#000 !important; background-color:#fff !important}.w3-theme-l3 {color:#000 !important; background-color:#f8f9fa !important}...`.
 
 ## ⏳ TTL Settings
 

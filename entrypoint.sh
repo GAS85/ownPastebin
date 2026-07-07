@@ -13,6 +13,18 @@ export PASTEBIN_PORT="${PASTEBIN_PORT:-8080}"
 export PASTEBIN_LOG_FORMAT="${PASTEBIN_LOG_FORMAT:-text}"
 export PASTEBIN_LOG_LEVEL="${PASTEBIN_LOG_LEVEL:-INFO}"
 export PASTEBIN_DATE_FORMAT="${PASTEBIN_DATE_FORMAT:-%Y-%m-%d %H:%M:%S}"
+export DEFAULT_THEME_CSS=".w3-theme-l5 {color:#000 !important; background-color:#fff !important}
+.w3-theme-l3 {color:#000 !important; background-color:#f8f9fa !important}
+.w3-theme-l2 {color:#ffffff !important; background-color:#607d8b !important}
+.w3-theme-d2 {color:#fff !important; background-color:#607d8b !important}
+.w3-theme-d3 {color:#fff !important; background-color:#616161 !important}
+.w3-theme-d5 {color:#fff !important; background-color:#9e9e9e !important}
+.w3-theme-light {color:#000 !important; background-color:#eee !important}
+.w3-theme-dark {color:#fff !important; background-color:#343a40 !important}
+.w3-theme-action {color:#fff !important; background-color:#4caf50 !important}
+.w3-theme {color:#000 !important; background-color:#eee !important}
+.w3-text-theme {color:#383838 !important}
+.w3-border-theme {border-color:#8bc34a !important}"
 
 if [ ${PASTEBIN_LOG_FORMAT} = "json" ]; then
     # strict RFC 3339
@@ -112,6 +124,23 @@ if [ "$PASTEBIN_PROTECTED_PASTE_ENABLED" = "true" ] && [ -z "$PASTEBIN_MAX_TTL" 
     log WARNING "You have enabled support for protected pastes, but you haven’t set a maximum TTL (PASTEBIN_MAX_TTL). This could result in pastes that live indefinitely. They can only be removed via direct database access."
 fi
 
+# ── Set custom theme ──────────────────────────────────────────────────────────
+if [ -n "${PASTEBIN_THEME+x}" ]; then
+    # Removing ", ', ` from variable name
+    export PASTEBIN_THEME="$(echo $PASTEBIN_THEME | tr -d "\"\'\`" )"
+    # Will set custom CSS to w3 values
+    PASTEBIN_THEME_CUSTOM_CSS=$(wget -qcO- "https://www.w3schools.com/lib/w3-theme-$PASTEBIN_THEME.css") || {
+        log WARNING "Downloading theme '$PASTEBIN_THEME' failed, using default." ;
+        PASTEBIN_THEME_CUSTOM_CSS="$DEFAULT_THEME_CSS"
+    }
+fi
+
+# If PASTEBIN_THEME_CUSTOM_CSS was not set, set it to defaults
+[ -n "$PASTEBIN_THEME_CUSTOM_CSS" ] || PASTEBIN_THEME_CUSTOM_CSS="$DEFAULT_THEME_CSS"
+
+# Remove new lines from custom CSS
+export PASTEBIN_THEME_CUSTOM_CSS="$(echo $PASTEBIN_THEME_CUSTOM_CSS | tr '\n' ' ')"
+
 # ── Startup summary ───────────────────────────────────────────────────────────
 
 log INFO "Welcome to own Pastebin ${VERSION}, build ${VCS_REF}.
@@ -134,7 +163,8 @@ $([ -n "${PASTEBIN_TLS_CERT}" ] && echo "\t\tTLS cert:                ${PASTEBIN
 \t\tTrusted proxy:           ${PASTEBIN_TRUSTED_PROXY:-not set (XFF ignored)},
 $([ -n "${TZ}" ] && echo "\t\tTimezone:                ${TZ},";)
 \t\tLog level:               ${PASTEBIN_LOG_LEVEL},
-\t\tDate format:             ${PASTEBIN_SHELL_DATE_FORMAT}"
+\t\tDate format:             ${PASTEBIN_SHELL_DATE_FORMAT},
+\t\tTheme:                   ${PASTEBIN_THEME}"
 
 # ── File Logging  ─────────────────────────────────────────────────────────────
 if [ -n "${PASTEBIN_FILE_LOG+x}" ]; then
