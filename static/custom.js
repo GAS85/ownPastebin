@@ -444,21 +444,43 @@ function toggleMobileMenu() {
 //
 // Theme Selector
 //
-function re_theme() {
-  var element = document.body;
-  element.classList.toggle("light-mode");
+// Simple mapping - only light to dark
+const themeMap = {
+    "w3-theme-l5": "w3-theme-d5",
+    "w3-theme-l4": "w3-theme-d4",
+    "w3-theme-l3": "w3-theme-d3",
+    "w3-theme-l2": "w3-theme-d2",
+    "w3-theme-l1": "w3-theme-d1",
+    "w3-theme-light":    "w3-theme-dark"
+};
+
+function applyTheme(isDark) {
+    document.querySelectorAll("*").forEach(el => {
+        for (const [light, dark] of Object.entries(themeMap)) {
+            if (el.classList.contains(light) && isDark) {
+                el.classList.replace(light, dark);
+            } else if (el.classList.contains(dark) && !isDark) {
+                el.classList.replace(dark, light);
+            }
+        }
+    });
 }
 
-// Set initial theme based on user preference
+function re_theme() {
+    document.body.classList.toggle("light-mode");
+    applyTheme(!document.body.classList.contains("light-mode"));
+}
+
 function setInitialTheme() {
-  if (
-    window.matchMedia &&
-    window.matchMedia("(prefers-color-scheme: dark)").matches
-  ) {
-    document.body.classList.remove("light-mode");
-  } else {
-    document.body.classList.add("light-mode");
-  }
+    const isDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+
+    if (isDark) {
+        document.body.classList.remove("light-mode");
+    } else {
+        document.body.classList.add("light-mode");
+    }
+
+    applyTheme(isDark);
 }
 // Initialize theme on page load
 setInitialTheme();
