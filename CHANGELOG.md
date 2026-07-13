@@ -2,6 +2,17 @@
 
 All notable changes to this project are documented in this file.
 
+## v2.4.7
+
+### Add
+
+- Add `PASTEBIN_LOG_EXCLUDE` support to suppress some logs from output
+
+### Changed
+
+- Update Alpine base image version to `3.24`
+- Docker `HEALTHCHECK` query update
+
 ## v2.4.6
 
 - Fix: remove `"`, `'` and "`" from custom css prior to apply.

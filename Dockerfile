@@ -67,7 +67,7 @@ RUN go mod download
 RUN CGO_ENABLED=1 GOOS=linux go build -ldflags="-s -w" -o pastebin .
 
 # ── Final stage ───────────────────────────────────────────────────────────────
-FROM alpine:3.23
+FROM alpine:3.24
 
 ARG VERSION=dev
 ARG VCS_REF=dev
@@ -109,4 +109,4 @@ ENTRYPOINT ["/entrypoint.sh"]
 HEALTHCHECK --interval=5m \
             --timeout=5s \
             --retries=3 \
-            CMD wget -qO- "${PASTEBIN_BASE_URL:-http://localhost/8080}/config?healthcheck" > /dev/null || exit
+            CMD wget -qO- "${PASTEBIN_BASE_URL:-http://localhost/8080}/config?health" > /dev/null || exit

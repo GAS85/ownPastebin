@@ -163,6 +163,7 @@ $([ -n "${PASTEBIN_TLS_CERT}" ] && echo "\t\tTLS cert:                ${PASTEBIN
 \t\tTrusted proxy:           ${PASTEBIN_TRUSTED_PROXY:-not set (XFF ignored)},
 $([ -n "${TZ}" ] && echo "\t\tTimezone:                ${TZ},";)
 \t\tLog level:               ${PASTEBIN_LOG_LEVEL},
+$([ -n "${PASTEBIN_LOG_EXCLUDE}" ] && echo "\t\tLogs Exclude regex:      ${PASTEBIN_LOG_EXCLUDE},";)
 \t\tDate format:             ${PASTEBIN_SHELL_DATE_FORMAT},
 $([ -n "${PASTEBIN_THEME}" ] && echo "\t\tTheme:                   ${PASTEBIN_THEME},";)"
 
@@ -183,6 +184,11 @@ if [ -n "${PASTEBIN_FILE_LOG+x}" ]; then
 fi
 
 # ── Start the app  ────────────────────────────────────────────────────────────
-exec /app/pastebin
+
+if [ -n "$PASTEBIN_LOG_EXCLUDE" ]; then
+    exec sh -c '/app/pastebin | awk "!/$1/ { print; fflush() }"' sh "$PASTEBIN_LOG_EXCLUDE"
+else
+    exec /app/pastebin
+fi
 
 log INFO "Shutdown."
