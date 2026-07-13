@@ -39,6 +39,7 @@ services:
       # Date format for the shell
       #- PASTEBIN_SHELL_DATE_FORMAT="%Y-%m-%d %H:%M:%S"
       #- PASTEBIN_LOG_FORMAT=json
+      #- PASTEBIN_LOG_EXCLUDE=config\?health
       #- PASTEBIN_PROTECTED_PASTE_ENABLED=true
       # Theme from https://www.w3schools.com/w3css/w3css_color_themes.asp
       #- PASTEBIN_THEME="blue-grey"
