@@ -45,7 +45,7 @@ spec:
             - name: PASTEBIN_PORT
               value: "8080"
             - name: PASTEBIN_LOG_EXCLUDE
-              value: /config\?(liveness|readiness|startup|health)
+              value: liveness|readiness|startup|health
           # --- PROBES ----
           livenessProbe:
             httpGet:
