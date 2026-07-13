@@ -139,7 +139,7 @@ fi
 [ -n "$PASTEBIN_THEME_CUSTOM_CSS" ] || PASTEBIN_THEME_CUSTOM_CSS="$DEFAULT_THEME_CSS"
 
 # Remove new lines from custom CSS
-export PASTEBIN_THEME_CUSTOM_CSS="$(echo $PASTEBIN_THEME_CUSTOM_CSS | tr '\n' ' ')"
+export PASTEBIN_THEME_CUSTOM_CSS="$(echo $PASTEBIN_THEME_CUSTOM_CSS | tr '\n' ' ' | tr -d "\"\'\`")"
 
 # ── Startup summary ───────────────────────────────────────────────────────────
 
