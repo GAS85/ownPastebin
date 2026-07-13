@@ -139,7 +139,7 @@ fi
 [ -n "$PASTEBIN_THEME_CUSTOM_CSS" ] || PASTEBIN_THEME_CUSTOM_CSS="$DEFAULT_THEME_CSS"
 
 # Remove new lines from custom CSS
-export PASTEBIN_THEME_CUSTOM_CSS="$(echo $PASTEBIN_THEME_CUSTOM_CSS | tr '\n' ' ')"
+export PASTEBIN_THEME_CUSTOM_CSS="$(echo $PASTEBIN_THEME_CUSTOM_CSS | tr '\n' ' ' | tr -d "\"\'\`")"
 
 # ── Startup summary ───────────────────────────────────────────────────────────
 
@@ -164,7 +164,7 @@ $([ -n "${PASTEBIN_TLS_CERT}" ] && echo "\t\tTLS cert:                ${PASTEBIN
 $([ -n "${TZ}" ] && echo "\t\tTimezone:                ${TZ},";)
 \t\tLog level:               ${PASTEBIN_LOG_LEVEL},
 \t\tDate format:             ${PASTEBIN_SHELL_DATE_FORMAT},
-\t\tTheme:                   ${PASTEBIN_THEME}"
+$([ -n "${PASTEBIN_THEME}" ] && echo "\t\tTheme:                   ${PASTEBIN_THEME},";)"
 
 # ── File Logging  ─────────────────────────────────────────────────────────────
 if [ -n "${PASTEBIN_FILE_LOG+x}" ]; then
