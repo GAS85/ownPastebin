@@ -2,6 +2,11 @@
 
 All notable changes to this project are documented in this file.
 
+## v2.4.6
+
+- Fix: remove `"`, `'` and "`" from custom css prior to apply.
+- Fix: Show theme only when it set
+
 ## v2.4.5
 
 ### Add
