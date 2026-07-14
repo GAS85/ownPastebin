@@ -97,7 +97,7 @@ The application automatically selects the first available backend:
 * `PASTEBIN_TRUSTED_PROXY` - Provide IP or CIDR of trusted proxies, so that X-Forwarded-For header will be used.
 * `PASTEBIN_LOG_LEVEL` - Set log level. Default: `Info`.
 * `PASTEBIN_LOG_FORMAT` - Set it to `json`, to have JSON logs output. Default: `text`.
-* `PASTEBIN_LOG_EXCLUDE` - Set it to any regex that you needs to exclude from the logs, e.g. `/health|127.0.0.1` will exclude calls to `/health` endpoint, and or from IP `127.0.0.1`. Default is not set, so that everything shown.
+* `PASTEBIN_LOG_EXCLUDE` - Set it to any regex that you needs to exclude from the logs, e.g. `\/health|127.0.0.1` will exclude calls to `/health` endpoint, and or from IP `127.0.0.1`. Default is not set, so that everything shown.
 * `PASTEBIN_FILE_LOG` - Set log file location to log all App output. Default is not set, it is logged to stdout. If you need log file, simply provide a path writable by user "nobody". Recommended is `/app/data/pastebin.log`.
 * `PASTEBIN_THEME` - Set custom theme as per [W3.CSS Color Themes](https://www.w3schools.com/w3css/w3css_color_themes.asp), add e.g. `blue`, `teal`, `green`, etc. Default theme used when not set.
 * `PASTEBIN_THEME_CUSTOM_CSS` - Overrides Theme with your own CSS. Please use format as in a [W3.CSS Color Themes](https://www.w3schools.com/w3css/w3css_color_themes.asp).
@@ -123,7 +123,7 @@ Supported Formats:
 
 ## 📏 Limits
 
-* `PASTEBIN_MAX_PARALLEL_UPLOADS` - Max amount of parallel POST requests. Default `20`. Be aware that each requests needs memory. E.g. if `PASTEBIN_MAX_PASTE_SIZE=5MB` and `PASTEBIN_MAX_PARALLEL_UPLOADS=20`, that needs around 5 *20* 2,3 (roughly amount of modifications) = 230 Mb of RAM and with `PASTEBIN_MAX_PASTE_SIZE=30MB` around 1,5 GB of RAM.
+* `PASTEBIN_MAX_PARALLEL_UPLOADS` - Max amount of parallel POST requests. Default `20`. Be aware that each requests needs memory. E.g. if `PASTEBIN_MAX_PASTE_SIZE=5MB` and `PASTEBIN_MAX_PARALLEL_UPLOADS=20`, that needs around 5\*20\*2,3 (roughly amount of modifications) = 230 Mb of RAM and with `PASTEBIN_MAX_PASTE_SIZE=30MB` around 1,5 GB of RAM.
 * `PASTEBIN_MAX_PASTE_SIZE` - Max upload size. Default: `5MB`
 
 Supported Formats:

@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented in this file.
 
+## v2.4.8
+
+### Add
+
+- Add `PASTEBIN_LOG_EXCLUDE` pattern validator, will exit on error.
+
 ## v2.4.7
 
 ### Add

@@ -141,6 +141,13 @@ fi
 # Remove new lines from custom CSS
 export PASTEBIN_THEME_CUSTOM_CSS="$(echo $PASTEBIN_THEME_CUSTOM_CSS | tr '\n' ' ' | tr -d "\"\'\`")"
 
+# ── Logs exclude pattern validation ───────────────────────────────────────────
+
+if ! awk "!/$PASTEBIN_LOG_EXCLUDE/ { }" </dev/null >/dev/null 2>&1; then
+    log ERROR "Invalid regex PASTEBIN_LOG_EXCLUDE:${PASTEBIN_LOG_EXCLUDE}"
+    exit 1
+fi
+
 # ── Startup summary ───────────────────────────────────────────────────────────
 
 log INFO "Welcome to own Pastebin ${VERSION}, build ${VCS_REF}.
