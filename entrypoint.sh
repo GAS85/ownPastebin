@@ -4,6 +4,8 @@ set -e
 # ── Defaults ──────────────────────────────────────────────────────────────────
 export PASTEBIN_BASE_URL="${PASTEBIN_BASE_URL:-http://localhost:8080}"
 export PASTEBIN_SQLITE_PATH="${PASTEBIN_SQLITE_PATH:-/app/data/pastes.db}"
+DB_DIR="$(dirname ${PASTEBIN_SQLITE_PATH})"
+export SQLITE_TMPDIR="${DB_DIR}/tmp"
 export PASTEBIN_SLUG_LEN="${PASTEBIN_SLUG_LEN:-20}"
 export PASTEBIN_MAX_PARALLEL_UPLOADS="${PASTEBIN_MAX_PARALLEL_UPLOADS:-20}"
 export PASTEBIN_MAX_PASTE_SIZE="${PASTEBIN_MAX_PASTE_SIZE:-5MB}"
@@ -47,6 +49,9 @@ log() {
         echo -e "$(ts) - $1 - $(basename "$0") - $(echo "$2" | grep -v '^$')"
     fi
 }
+
+# ── Create custom SQLlite temp dir ────────────────────────────────────────────
+mkdir -p ${SQLITE_TMPDIR}
 
 # ── Key generator ─────────────────────────────────────────────────────────────
 if [ "${GENERATE_KEY}" = "true" ]; then

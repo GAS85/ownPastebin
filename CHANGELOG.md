@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented in this file.
 
+## v2.4.9
+
+### Add
+
+- Add `SQLITE_TMPDIR` support to avoid vacuum error in root read only systems e.g. in k8s
+
 ## v2.4.8
 
 ### Add
