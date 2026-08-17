@@ -68,5 +68,8 @@
   "pwd-medium": "😐 中等",
   "pwd-strong": "😀 强",
   "pwd-beast": "🤖 极强！",
-  "label-expires": "过期时间"
+  "label-expires": "过期时间",
+
+  "cookielaw": "Cookie 政策",
+  "privacy": "隐私说明"
 }

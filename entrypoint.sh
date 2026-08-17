@@ -14,6 +14,8 @@ export PASTEBIN_HOST="${PASTEBIN_HOST:-0.0.0.0}"
 export PASTEBIN_PORT="${PASTEBIN_PORT:-8080}"
 export PASTEBIN_LOG_FORMAT="${PASTEBIN_LOG_FORMAT:-text}"
 export PASTEBIN_LOG_LEVEL="${PASTEBIN_LOG_LEVEL:-INFO}"
+export PASTEBIN_COOKIE_URL="${PASTEBIN_COOKIE_URL:-}"
+export PASTEBIN_PRIVACY_URL="${PASTEBIN_PRIVACY_URL:-}"
 export PASTEBIN_DATE_FORMAT="${PASTEBIN_DATE_FORMAT:-%Y-%m-%d %H:%M:%S}"
 export DEFAULT_THEME_CSS=".w3-theme-l5 {color:#000 !important; background-color:#fff !important}
 .w3-theme-l3 {color:#000 !important; background-color:#f8f9fa !important}
@@ -37,7 +39,7 @@ else
     # Convert strftime format to Go time layout for the Go binary
     # This converts common formats:
     # %Y -> 2006, %m -> 01, %d -> 02, %H -> 15, %M -> 04, %S -> 05, %Z -> MST, %z -> -0700
-    #export PASTEBIN_DATE_FORMAT="$(date -D "%Y-%m-%dT%H:%M:%S %z" -d "2006-01-02T15:04:05 0700" +"$PASTEBIN_DATE_FORMAT")"
+    # export PASTEBIN_DATE_FORMAT="$(date -D "%Y-%m-%dT%H:%M:%S %z" -d "2006-01-02T15:04:05 0700" +"$PASTEBIN_DATE_FORMAT")"
     export PASTEBIN_DATE_FORMAT="$(echo "$PASTEBIN_SHELL_DATE_FORMAT" | sed 's/%Y/2006/g; s/%m/01/g; s/%d/02/g; s/%H/15/g; s/%M/04/g; s/%S/05/g; s/%Z/MST/g; s/%z/-0700/g')"
     ts() { date +"$PASTEBIN_SHELL_DATE_FORMAT"; }
 fi
@@ -51,7 +53,7 @@ log() {
 }
 
 # ── Create custom SQLlite temp dir ────────────────────────────────────────────
-mkdir -p ${SQLITE_TMPDIR}
+mkdir -p "${SQLITE_TMPDIR}"
 
 # ── Key generator ─────────────────────────────────────────────────────────────
 if [ "${GENERATE_KEY}" = "true" ]; then
@@ -176,8 +178,11 @@ $([ -n "${PASTEBIN_TLS_CERT}" ] && echo "\t\tTLS cert:                ${PASTEBIN
 $([ -n "${TZ}" ] && echo "\t\tTimezone:                ${TZ},";)
 \t\tLog level:               ${PASTEBIN_LOG_LEVEL},
 $([ -n "${PASTEBIN_LOG_EXCLUDE}" ] && echo "\t\tLogs Exclude regex:      ${PASTEBIN_LOG_EXCLUDE},";)
+$([ -n "${PASTEBIN_COOKIE_URL}" ] && echo "\t\tCookie URL:              ${PASTEBIN_COOKIE_URL},";)
+$([ -n "${PASTEBIN_PRIVACY_URL}" ] && echo "\t\tPrivacy note URL:        ${PASTEBIN_PRIVACY_URL},";)
 \t\tDate format:             ${PASTEBIN_SHELL_DATE_FORMAT},
-$([ -n "${PASTEBIN_THEME}" ] && echo "\t\tTheme:                   ${PASTEBIN_THEME},";)"
+$([ -n "${PASTEBIN_THEME}" ] && echo "\t\tTheme:                   ${PASTEBIN_THEME},";)
+"
 
 # ── File Logging  ─────────────────────────────────────────────────────────────
 if [ -n "${PASTEBIN_FILE_LOG+x}" ]; then

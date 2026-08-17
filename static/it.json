@@ -68,5 +68,8 @@
   "pwd-medium": "😒 Medio",
   "pwd-strong": "😀 Forte",
   "pwd-beast": "🤖 Bestiale!",
-  "label-expires": "Scade"
+  "label-expires": "Scade",
+
+  "cookielaw": "Informativa sui cookie",
+  "privacy": "Informativa sulla privacy"
 }

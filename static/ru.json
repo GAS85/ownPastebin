@@ -68,5 +68,8 @@
   "pwd-medium": "😒 Средний",
   "pwd-strong": "😀 Сильный",
   "pwd-beast": "🤖 Зверь!",
-  "label-expires": "Истекает"
+  "label-expires": "Истекает",
+
+  "cookielaw": "Политика использования файлов cookie",
+  "privacy": "Уведомление о конфиденциальности"
 }

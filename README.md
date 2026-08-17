@@ -103,6 +103,8 @@ The application automatically selects the first available backend:
 * `PASTEBIN_THEME_CUSTOM_CSS` - Overrides Theme with your own CSS. Please use format as in a [W3.CSS Color Themes](https://www.w3schools.com/w3css/w3css_color_themes.asp).
 This will overrule `PASTEBIN_THEME`, you should't use both. Default theme used when non of them set.
 You can set it to e.g. `w3-theme-l5 {color:#000 !important; background-color:#fff !important}.w3-theme-l3 {color:#000 !important; background-color:#f8f9fa !important}...`.
+* `PASTEBIN_COOKIE_URL` - Set custom Cookie URL. This Application itself will not set any cookies, but if you are using this application as sub path to your domain or behind e.g. [OAUTH2 Proxy](https://github.com/oauth2-proxy/oauth2-proxy) they could set cookies and you will need to reference your cookie policy here. Default is not set.
+* `PASTEBIN_PRIVACY_URL` - Set custom Privacy Policy URL if you need. Default is not set.
 
 ## ⏳ TTL Settings
 

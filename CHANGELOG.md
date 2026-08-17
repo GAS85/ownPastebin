@@ -2,6 +2,16 @@
 
 All notable changes to this project are documented in this file.
 
+## v2.4.9
+
+### Add
+
+- Add `PASTEBIN_COOKIE_URL` and `PASTEBIN_PRIVACY_URL` support.
+
+### Changed
+
+- Translations update with cookies and privacy notice.
+
 ## v2.4.8
 
 ### Add
