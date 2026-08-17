@@ -12,6 +12,9 @@ All notable changes to this project are documented in this file.
 ### Changed
 
 - Translations update with cookies and privacy notice.
+- Load heavy prism JS and CSS only when it is needed - on paste open. Remove them from initial page loading.
+  This will reduce first page load to 50% from 913Kb to 450Kb.
+  Or from ~18s to ~13,7s on regular 2G Network.
 
 ## v2.4.8
 
