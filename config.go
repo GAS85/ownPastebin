@@ -45,10 +45,12 @@ type Settings struct {
 	SQLitePageSize     int // 0 = SQLite default (4096); only effective on new databases
 	Version            string
 
-	// Cookie and Privacy note URLs to your Services.
+	// Cookie, Privacy note and Custom URLs to your Services.
 	// We do not set any cookies, but if used as sub path probably you have to provide it.
 	CookieURL          string
 	PrivacyNoteURL     string
+	CustomURL          string
+	CustomURLIcon      string
 
 	// ExpiryTimes is the list of expiry options shown in the UI dropdown.
 	// Populated from PASTEBIN_EXPIRY_TIMES; falls back to defaultExpiryTimes when empty.
@@ -93,10 +95,12 @@ func loadSettings() *Settings {
 																			// uploadSem = 1,5GB / 30 MB = 50
 		SQLitePageSize:     getEnvInt("PASTEBIN_SQLITE_PAGE_SIZE", 0),
 
-		// Optional Cookie Policy / Privacy URLs.
+		// Optional Cookie Policy / Privacy / Custom URLs.
 		// Empty when the environment variables are not set.
 		CookieURL:      os.Getenv("PASTEBIN_COOKIE_URL"),
 		PrivacyNoteURL: os.Getenv("PASTEBIN_PRIVACY_URL"),
+		CustomURL:      os.Getenv("PASTEBIN_CUSTOM_URL"),
+		CustomURLIcon:  os.Getenv("PASTEBIN_CUSTOM_ICON"),
 
 		ServerSideEncryptionEnabled: getEnvBool("PASTEBIN_SERVER_SIDE_ENCRYPTION_ENABLED", false),
 		ServerSideEncryptionKey:     os.Getenv("PASTEBIN_SERVER_SIDE_ENCRYPTION_KEY"),

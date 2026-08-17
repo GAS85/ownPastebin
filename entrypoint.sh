@@ -16,6 +16,8 @@ export PASTEBIN_LOG_FORMAT="${PASTEBIN_LOG_FORMAT:-text}"
 export PASTEBIN_LOG_LEVEL="${PASTEBIN_LOG_LEVEL:-INFO}"
 export PASTEBIN_COOKIE_URL="${PASTEBIN_COOKIE_URL:-}"
 export PASTEBIN_PRIVACY_URL="${PASTEBIN_PRIVACY_URL:-}"
+export PASTEBIN_CUSTOM_ICON="${PASTEBIN_CUSTOM_ICON:-}"
+export PASTEBIN_CUSTOM_URL="${PASTEBIN_CUSTOM_URL:-}"
 export PASTEBIN_DATE_FORMAT="${PASTEBIN_DATE_FORMAT:-%Y-%m-%d %H:%M:%S}"
 export DEFAULT_THEME_CSS=".w3-theme-l5 {color:#000 !important; background-color:#fff !important}
 .w3-theme-l3 {color:#000 !important; background-color:#f8f9fa !important}
@@ -157,6 +159,14 @@ if ! awk "!/$PASTEBIN_LOG_EXCLUDE/ { }" </dev/null >/dev/null 2>&1; then
     exit 1
 fi
 
+# ── Custom URL and Icon validation ────────────────────────────────────────────
+
+if [ -n "${PASTEBIN_CUSTOM_URL}" ] && [ -z "${PASTEBIN_CUSTOM_ICON}" ]; then
+    # Set default custom icon if not set
+    export PASTEBIN_CUSTOM_ICON="fa-solid fa-question"
+    log INFO "Custom URL was set, but custom Icon was not. Will set it to default '?'."
+fi
+
 # ── Startup summary ───────────────────────────────────────────────────────────
 
 log INFO "Welcome to own Pastebin ${VERSION}, build ${VCS_REF}.
@@ -182,6 +192,8 @@ $([ -n "${TZ}" ] && echo "\t\tTimezone:                ${TZ},";)
 $([ -n "${PASTEBIN_LOG_EXCLUDE}" ] && echo "\t\tLogs Exclude regex:      ${PASTEBIN_LOG_EXCLUDE},";)
 $([ -n "${PASTEBIN_COOKIE_URL}" ] && echo "\t\tCookie URL:              ${PASTEBIN_COOKIE_URL},";)
 $([ -n "${PASTEBIN_PRIVACY_URL}" ] && echo "\t\tPrivacy note URL:        ${PASTEBIN_PRIVACY_URL},";)
+$([ -n "${PASTEBIN_CUSTOM_URL}" ] && echo "\t\tCustom URL:              ${PASTEBIN_CUSTOM_URL},";)
+$([ -n "${PASTEBIN_CUSTOM_ICON}" ] && echo "\t\tCustom Icon:             ${PASTEBIN_CUSTOM_ICON},";)
 \t\tDate format:             ${PASTEBIN_SHELL_DATE_FORMAT},
 $([ -n "${PASTEBIN_THEME}" ] && echo "\t\tTheme:                   ${PASTEBIN_THEME},";)
 "

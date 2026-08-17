@@ -39,6 +39,8 @@ A minimal, RAM-friendly paste service with support for raw uploads, TTL, burn-af
 * 🧠 Designed to be memory efficient
 * 🌐 i18n support - different languages as json files
 * 🎨 Theme support - set predefined Theme or use custom CSS to override
+* 🍪 Cookie and Privacy Notice support - set your own links to cookie and privacy policy
+* 🔗 Custom links support - set your own personal link with icon to any service
 
 ## ⚙️ Configuration
 
@@ -105,6 +107,8 @@ This will overrule `PASTEBIN_THEME`, you should't use both. Default theme used w
 You can set it to e.g. `w3-theme-l5 {color:#000 !important; background-color:#fff !important}.w3-theme-l3 {color:#000 !important; background-color:#f8f9fa !important}...`.
 * `PASTEBIN_COOKIE_URL` - Set custom Cookie URL. This Application itself will not set any cookies, but if you are using this application as sub path to your domain or behind e.g. [OAUTH2 Proxy](https://github.com/oauth2-proxy/oauth2-proxy) they could set cookies and you will need to reference your cookie policy here. Default is not set.
 * `PASTEBIN_PRIVACY_URL` - Set custom Privacy Policy URL if you need. Default is not set.
+* `PASTEBIN_CUSTOM_ICON` - Set custom icon to your `PASTEBIN_CUSTOM_URL` if needed. You can set something from [Font Awesome](https://fontawesome.com/search?ic=free-collection) free collection, e.g. `fa-solid fa-question` to set a ❔. Default: `fa-solid fa-question` if `PASTEBIN_CUSTOM_URL` was set.
+* `PASTEBIN_CUSTOM_URL` - Set custom URL if needed, works together with `PASTEBIN_CUSTOM_ICON`. Default is not set.
 
 ## ⏳ TTL Settings
 

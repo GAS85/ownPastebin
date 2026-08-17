@@ -27,6 +27,8 @@ services:
       #- PASTEBIN_TLS_CERT=/path/to/tls.cer
       #- PASTEBIN_COOKIE_URL=https://to.the.cookies
       #- PASTEBIN_PRIVACY_URL=https://to.the.privacy.note
+      #- PASTEBIN_CUSTOM_ICON=fa-solid fa-question
+      #- PASTEBIN_CUSTOM_URL=https://custom.url
       #- PASTEBIN_TRUSTED_PROXY=127.0.0.1
       #- PASTEBIN_DEFAULT_TTL=30d
       #- PASTEBIN_DEFAULT_BURN=true

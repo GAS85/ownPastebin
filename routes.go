@@ -50,6 +50,8 @@ type TemplateData struct {
 	ThemeCSS              template.CSS // Custom Theme CSS override
 	CookieURL             string
 	PrivacyNoteURL        string
+	CustomURL             string
+	CustomURLIcon         string
 	JSImports             []string
 	JSInits               []string
 	ExpiryTimes           []ExpiryOption
@@ -77,6 +79,8 @@ func (a *App) baseData(r *http.Request) TemplateData {
 		Version:               os.Getenv("VERSION"),
 		CookieURL:             a.cfg.CookieURL,
 		PrivacyNoteURL:        a.cfg.PrivacyNoteURL,
+		CustomURL:             a.cfg.CustomURL,
+		CustomURLIcon:         a.cfg.CustomURLIcon,
 		URIPrefix:             a.cfg.PathPrefix,
 		CSSImports:            css,
 		TailCSSImports:        a.plugins.TailCSSImports(),

@@ -7,6 +7,7 @@ All notable changes to this project are documented in this file.
 ### Add
 
 - Add `PASTEBIN_COOKIE_URL` and `PASTEBIN_PRIVACY_URL` support.
+- Add `PASTEBIN_CUSTOM_ICON` and `PASTEBIN_CUSTOM_URL` support.
 
 ### Changed
 
