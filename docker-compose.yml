@@ -10,6 +10,8 @@ services:
     environment:
       # BACKEND SELECTION
       # Uncomment ONLY what you want to use
+      # Valkey
+      #- PASTEBIN_REDIS_URL=redis://valkey:6379/0
       # Redis
       #- PASTEBIN_REDIS_URL=redis://redis:6379/0
       # PostgreSQL
@@ -51,8 +53,23 @@ services:
       #- PASTEBIN_THEME_CUSTOM_CSS="w3-theme-l5 {color:#000 !important; background-color:#fff !important}.w3-theme-l3 {color:#000 !important; background-color:#f8f9fa !important}"
     restart: always
 #    depends_on:
+#      - valkey
 #      - redis
 #      - postgres
+
+  # # Valkey (OPTIONAL)
+  # valkey:
+  #   image: valkey/valkey:latest
+  #   container_name: pastebin-valkey
+  #   restart: always
+  #   volumes:
+  #     - ./data:/data
+  #   command: redis-server --appendonly yes
+  #   healthcheck:
+  #     test: ["CMD", "redis-cli", "ping"]
+  #     interval: 20s
+  #     timeout: 3s
+  #     retries: 5
 
   # # REDIS (OPTIONAL)
   # redis:
