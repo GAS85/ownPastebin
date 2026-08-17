@@ -30,6 +30,8 @@ export DEFAULT_THEME_CSS=".w3-theme-l5 {color:#000 !important; background-color:
 .w3-text-theme {color:#383838 !important}
 .w3-border-theme {border-color:#8bc34a !important}"
 
+# ── Logger ────────────────────────────────────────────────────────────────────
+
 if [ ${PASTEBIN_LOG_FORMAT} = "json" ]; then
     # strict RFC 3339
     ts() { date -Ins | sed 's/,/./'; }
@@ -52,9 +54,6 @@ log() {
     fi
 }
 
-# ── Create custom SQLlite temp dir ────────────────────────────────────────────
-mkdir -p "${SQLITE_TMPDIR}"
-
 # ── Key generator ─────────────────────────────────────────────────────────────
 if [ "${GENERATE_KEY}" = "true" ]; then
     KEY=$(openssl rand -base64 32)
@@ -62,6 +61,9 @@ if [ "${GENERATE_KEY}" = "true" ]; then
     log INFO "Set variable PASTEBIN_SERVER_SIDE_ENCRYPTION_KEY=$KEY"
     exit 0
 fi
+
+# ── Create custom SQLlite temp dir ────────────────────────────────────────────
+mkdir -p "${SQLITE_TMPDIR}"
 
 # ── TLS validation ────────────────────────────────────────────────────────────
 if [ -n "${PASTEBIN_TLS_KEY+x}" ]; then
