@@ -2,6 +2,20 @@
 
 All notable changes to this project are documented in this file.
 
+## v2.4.9
+
+### Add
+
+- Add `PASTEBIN_COOKIE_URL` and `PASTEBIN_PRIVACY_URL` support.
+- Add `PASTEBIN_CUSTOM_ICON` and `PASTEBIN_CUSTOM_URL` support.
+
+### Changed
+
+- Translations update with cookies and privacy notice.
+- Load heavy prism JS and CSS only when it is needed - on paste open. Remove them from initial page loading.
+  This will reduce first page load to 50% from 913Kb to 450Kb.
+  Or from ~18s to ~13,7s on regular 2G Network.
+
 ## v2.4.8
 
 ### Add

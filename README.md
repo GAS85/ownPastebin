@@ -27,7 +27,7 @@ A minimal, RAM-friendly paste service with support for raw uploads, TTL, burn-af
 * ⚡ Fast and lightweight
 * 🔌 Pluggable storage:
 
-  * Redis (optional, in-memory)
+  * Valkey / Redis (optional, in-memory)
   * PostgreSQL (optional, persistent)
   * SQLite (default)
 
@@ -39,6 +39,8 @@ A minimal, RAM-friendly paste service with support for raw uploads, TTL, burn-af
 * 🧠 Designed to be memory efficient
 * 🌐 i18n support - different languages as json files
 * 🎨 Theme support - set predefined Theme or use custom CSS to override
+* 🍪 Cookie and Privacy Notice support - set your own links to cookie and privacy policy
+* 🔗 Custom links support - set your own personal link with icon to any service
 
 ## ⚙️ Configuration
 
@@ -46,21 +48,25 @@ All configuration is done via environment variables.
 
 ### 🗄️ Storage Backends (Priority Order)
 
-The application automatically selects the first available backend:
+The application automatically selects the first available backend, but it is recommended to configure only 1 of them, or use defaults:
 
-1. [Redis](https://github.com/redis/redis) - `PASTEBIN_REDIS_URL`
+1. [Valkey](https://github.com/valkey-io/valkey) / [Redis](https://github.com/redis/redis) - `PASTEBIN_REDIS_URL`
 2. [Postgres](https://github.com/postgres/postgres) - `PASTEBIN_POSTGRES_URL`
 3. [SQLite](https://github.com/sqlite/sqlite) default if none above was set - `PASTEBIN_SQLITE_PATH`
 
 ### Variables
 
-* `PASTEBIN_REDIS_URL` - Redis connection string. No default - if not set, Redis is disabled. Example:
+* `PASTEBIN_REDIS_URL` - Valkey/Redis connection string. No default - if not set, Valkey/Redis is disabled. Example:
+
+  ```plain
+  redis://valkey:6379/0
+  ```
 
   ```plain
   redis://redis:6379/0
   ```
 
-* `PASTEBIN_POSTGRES_URL` - PostgreSQL connection string. Used if Redis is not configured. No default - if not set, PostgreSQL is disabled. Example:
+* `PASTEBIN_POSTGRES_URL` - PostgreSQL connection string. Used if Valkey/Redis is not configured. No default - if not set, PostgreSQL is disabled. Example:
 
    ```plain
    postgresql://user:pass@postgres:5432/pastebin
@@ -99,18 +105,14 @@ The application automatically selects the first available backend:
 * `PASTEBIN_LOG_FORMAT` - Set it to `json`, to have JSON logs output. Default: `text`.
 * `PASTEBIN_LOG_EXCLUDE` - Set it to any regex that you needs to exclude from the logs, e.g. `\/health|127.0.0.1` will exclude calls to `/health` endpoint, and or from IP `127.0.0.1`. Default is not set, so that everything shown.
 * `PASTEBIN_FILE_LOG` - Set log file location to log all App output. Default is not set, it is logged to stdout. If you need log file, simply provide a path writable by user "nobody". Recommended is `/app/data/pastebin.log`.
-* `PASTEBIN_THEME` - Set custom theme as per [W3.CSS Color Themes](https://www.w3schools.com/w3css/w3css_color_themes.asp), add e.g. `blue`, `teal`, `green`, etc. Default theme used when not set.
-* `PASTEBIN_THEME_CUSTOM_CSS` - Overrides Theme with your own CSS. Please use format as in a [W3.CSS Color Themes](https://www.w3schools.com/w3css/w3css_color_themes.asp).
-This will overrule `PASTEBIN_THEME`, you should't use both. Default theme used when non of them set.
-You can set it to e.g. `w3-theme-l5 {color:#000 !important; background-color:#fff !important}.w3-theme-l3 {color:#000 !important; background-color:#f8f9fa !important}...`.
 
 ## ⏳ TTL Settings
 
+* `PASTEBIN_DEFAULT_BURN` - If enabled all pastes without `burn=false` will be saved to be viewed only once. You can still set `burn=false` via UI or CLI. Default: `false`.
 * `PASTEBIN_DEFAULT_TTL` - Default expiration if none provided. Default: `0` (no expiration)
 * `PASTEBIN_MAX_TTL` -  Maximum allowed TTL. It is recommended to set this value for internet accessible sites. It is recommended to set this value if protected pastes are enabled. If set:
   * caps user-provided TTL
   * used when no TTL is provided
-* `PASTEBIN_DEFAULT_BURN` - If enabled all pastes without `burn=false` will be saved to be viewed only once. You can still set `burn=false` via UI or CLI. Default: `false`.
 
 Supported Formats:
 
@@ -164,12 +166,20 @@ docker run -e GENERATE_KEY=true gas85/ownpastebin:latest
   * 1 Week
 * `PASTEBIN_DATE_FORMAT` - Text logs timestamp format. Disabled when logs format is set to `json`. Default: `%Y-%m-%d %H:%M:%S`
 * `TZ` - Timezone. Default `Europe/Zurich`
+* `PASTEBIN_THEME` - Set custom theme as per [W3.CSS Color Themes](https://www.w3schools.com/w3css/w3css_color_themes.asp), add e.g. `blue`, `teal`, `green`, etc. Default theme used when not set.
+* `PASTEBIN_THEME_CUSTOM_CSS` - Overrides Theme with your own CSS. Please use format as in a [W3.CSS Color Themes](https://www.w3schools.com/w3css/w3css_color_themes.asp).
+This will overrule `PASTEBIN_THEME`, you should't use both. Default theme used when non of them set.
+You can set it to e.g. `w3-theme-l5 {color:#000 !important; background-color:#fff !important}.w3-theme-l3 {color:#000 !important; background-color:#f8f9fa !important}...`.
+* `PASTEBIN_COOKIE_URL` - Set custom Cookie URL. This Application itself will not set any cookies, but if you are using this application as sub path to your domain or behind e.g. [OAUTH2 Proxy](https://github.com/oauth2-proxy/oauth2-proxy) they could set cookies and you will need to reference your cookie policy here. Default is not set.
+* `PASTEBIN_PRIVACY_URL` - Set custom Privacy Policy URL if you need. Default is not set.
+* `PASTEBIN_CUSTOM_ICON` - Set custom icon to your `PASTEBIN_CUSTOM_URL` if needed. You can set something from [Font Awesome](https://fontawesome.com/search?ic=free-collection) free collection, e.g. `fa-solid fa-question` to set a ❔. Default: `fa-solid fa-question` if `PASTEBIN_CUSTOM_URL` was set.
+* `PASTEBIN_CUSTOM_URL` - Set custom URL if needed, works together with `PASTEBIN_CUSTOM_ICON`. Default is not set.
 
 ## 🧠 Storage Behavior
 
 | Config                  | Backend Used |
 | ----------------------- | ------------ |
-| `PASTEBIN_REDIS_URL`    | Redis        |
+| `PASTEBIN_REDIS_URL`    | Valkey/Redis |
 | `PASTEBIN_POSTGRES_URL` | PostgreSQL   |
 | None set                | SQLite       |
 
@@ -177,7 +187,7 @@ docker run -e GENERATE_KEY=true gas85/ownpastebin:latest
 
 ### Notes
 
-* Redis = fastest, but memory-based storage. Fits good for Local network usage.
+* Valkey, or Redis = fastest, but memory-based storage. Fits good for Local network usage.
 * PostgreSQL = persistent, scalable. Fits good for Local network and Internet usage, distributed, high performance.
 * SQLite = zero-config, minimal RAM usage. Default, simple fast storage fits to all.
 

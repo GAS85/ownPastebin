@@ -402,6 +402,27 @@ function initI18n() {
   });
 }
 
+// ── Load prism JS dynamically ──────────────────────────────────────────────────
+
+function loadPrism() {
+  if (!document.querySelector("#pastebin-pre")) {
+    return;
+  }
+
+  var css = document.createElement("link");
+  css.rel = "stylesheet";
+  css.href = uri_prefix + "/static/prism.css";
+  document.head.appendChild(css);
+
+  import(uri_prefix + "/static/prism.js")
+    .then(function () {
+      Prism.highlightAll();
+    })
+    .catch(function (err) {
+      console.error("Failed to load Prism:", err);
+    });
+}
+
 // ── Render plugin init as JSON ──────────────────────────────────────────────────
 
 function init_plugins() {
@@ -616,6 +637,7 @@ var state = {
 
 document.addEventListener("DOMContentLoaded", function () {
   initI18n();
+  loadPrism();
 
   // ── Line numbers + line highlight setup ──────────────────────────────────
   //

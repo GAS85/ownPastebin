@@ -68,5 +68,8 @@
   "pwd-medium": "😒 Mittel",
   "pwd-strong": "😀 Stark",
   "pwd-beast": "🤖 Brutal!",
-  "label-expires": "Verfallt am"
+  "label-expires": "Verfallt am",
+
+  "cookielaw": "Cookie-Richtlinie",
+  "privacy": "Datenschutzhinweis"
 }

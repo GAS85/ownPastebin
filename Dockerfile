@@ -93,6 +93,7 @@ RUN apk add --no-cache ca-certificates tzdata openssl
 WORKDIR /app
 
 COPY --from=builder --chmod=555 /build/pastebin /app/pastebin
+# We can also prepare it in builder and then remove empty lines and comments (around 30%), `grep -vE "# |^$" entrypoint.sh` but why?
 COPY --chmod=555 entrypoint.sh /entrypoint.sh
 COPY --chmod=444 LICENSE /app/LICENSE
 

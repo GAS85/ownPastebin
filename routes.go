@@ -48,6 +48,10 @@ type TemplateData struct {
 	CSSImports            []string   // plugin CSS — loaded before custom.css
 	TailCSSImports        []string   // loaded last — custom.css always wins the cascade
 	ThemeCSS              template.CSS // Custom Theme CSS override
+	CookieURL             string
+	PrivacyNoteURL        string
+	CustomURL             string
+	CustomURLIcon         string
 	JSImports             []string
 	JSInits               []string
 	ExpiryTimes           []ExpiryOption
@@ -73,6 +77,10 @@ func (a *App) baseData(r *http.Request) TemplateData {
 
 	return TemplateData{
 		Version:               os.Getenv("VERSION"),
+		CookieURL:             a.cfg.CookieURL,
+		PrivacyNoteURL:        a.cfg.PrivacyNoteURL,
+		CustomURL:             a.cfg.CustomURL,
+		CustomURLIcon:         a.cfg.CustomURLIcon,
 		URIPrefix:             a.cfg.PathPrefix,
 		CSSImports:            css,
 		TailCSSImports:        a.plugins.TailCSSImports(),

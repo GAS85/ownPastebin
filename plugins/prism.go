@@ -12,15 +12,17 @@ type PrismPlugin struct {
 }
 
 func (p *PrismPlugin) CSSImports(prefix string) []string {
-	return []string{
-		prefix + "/static/prism.css",
-	}
+	return nil
+	// return []string{
+	// 	prefix + "/static/prism.css",
+	// }
 }
 
 func (p *PrismPlugin) JSImports(prefix string) []string {
-	return []string{
-		prefix + "/static/prism.js",
-	}
+	return nil
+	// return []string{
+	// 	prefix + "/static/prism.js",
+	// }
 }
 
 func (p *PrismPlugin) JSInit() string {

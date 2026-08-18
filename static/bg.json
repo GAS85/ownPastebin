@@ -68,5 +68,8 @@
   "pwd-medium": "😒 Средна",
   "pwd-strong": "😀 Силна",
   "pwd-beast": "🤖 Звяр!",
-  "label-expires": "Изтича след"
+  "label-expires": "Изтича след",
+
+  "cookielaw": "Политика за бисквитките",
+  "privacy": "Бележка за поверителност"
 }
