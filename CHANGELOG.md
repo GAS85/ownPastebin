@@ -2,6 +2,14 @@
 
 All notable changes to this project are documented in this file.
 
+## v2.4.10
+
+### Changed
+
+- Add custom Icon to the sidebar on a smaller screens.
+- Load clipboard.min.js on paste view only - reduce 10 Kb.
+- Plugin Update the test to expect one JS import and check index 0 as we removed clipboard.min.js from defaults.
+
 ## v2.4.9
 
 ### Add

@@ -404,6 +404,18 @@ function initI18n() {
 
 // ── Load prism JS dynamically ──────────────────────────────────────────────────
 
+function loadScript(src) {
+  return new Promise(function (resolve, reject) {
+    var script = document.createElement("script");
+
+    script.src = src;
+    script.onload = resolve;
+    script.onerror = reject;
+
+    document.head.appendChild(script);
+  });
+}
+
 function loadPrism() {
   if (!document.querySelector("#pastebin-pre")) {
     return;
@@ -414,12 +426,14 @@ function loadPrism() {
   css.href = uri_prefix + "/static/prism.css";
   document.head.appendChild(css);
 
-  import(uri_prefix + "/static/prism.js")
+  loadScript(uri_prefix + "/static/prism.js")
     .then(function () {
       Prism.highlightAll();
+
+      return loadScript(uri_prefix + "/static/clipboard.min.js");
     })
     .catch(function (err) {
-      console.error("Failed to load Prism:", err);
+      console.error("Failed to load scripts:", err);
     });
 }
 

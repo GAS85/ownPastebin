@@ -26,7 +26,10 @@ func TestDefaultBaseAssets(t *testing.T) {
 	if got := base.CSSImports[0]; got != "/prefix/static/w3.css" {
 		t.Fatalf("unexpected first CSS import: %q", got)
 	}
-	if got := base.JSImports[1]; got != "/prefix/static/custom.js" {
+	if len(base.JSImports) != 1 {
+		t.Fatalf("expected 1 JS import, got %d", len(base.JSImports))
+	}
+	if got := base.JSImports[0]; got != "/prefix/static/custom.js" {
 		t.Fatalf("unexpected second JS import: %q", got)
 	}
 }

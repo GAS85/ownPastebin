@@ -143,7 +143,7 @@ func DefaultBase(prefix string) *Base {
 			// custom.css is NOT here — see Manager.TailCSSImports().
 		},
 		JSImports: []string{
-			static + "/clipboard.min.js",
+			// static + "/clipboard.min.js",
 			static + "/custom.js",
 		},
 	}
