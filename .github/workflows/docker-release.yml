@@ -86,7 +86,10 @@ jobs:
         run: |
           # Install needed SW
 
-          apt update && apt install -y openssl minify
+          apt update && apt install -y openssl
+
+          # Get minify binary from github --> extract only binary
+          wget https://github.com/tdewolff/minify/releases/download/v2.24.17/minify_linux_amd64.tar.gz -O - | tar -xz minify
 
           # remove files from .dockerignore
           rm -rf \
@@ -144,6 +147,9 @@ jobs:
               s/443329/{{.Version}}/g; \
               s/994342/{{.BaseURL}}/g; \
               s/473472/{{.ProtectedPasteEnabled}}/g' "templates/openapi.json.tmpl"
+
+          # Cleanup
+          rm -rf minify*
 
       - name: Set up Go
         # https://github.com/actions/setup-go/releases/tag/v7.0.0
