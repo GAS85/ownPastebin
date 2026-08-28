@@ -609,26 +609,26 @@ func TestBaseDataQueryParams(t *testing.T) {
 }
 
 type stubStorage struct {
-	peekMeta func(string) (*PasteData, error)
-	get      func(string) (*PasteData, error)
-	getDel   func(string) (*PasteData, error)
+	peekMeta  func(string) (*PasteData, error)
+	get       func(string) (*PasteData, error)
+	getDel    func(string) (*PasteData, error)
 	deleteErr error
 	deleted   bool
 }
 
 func (s *stubStorage) Save(key string, d *PasteData, ttl time.Duration) error { return nil }
-func (s *stubStorage) Get(key string) (*PasteData, error) { return s.get(key) }
-func (s *stubStorage) PeekMeta(key string) (*PasteData, error) { return s.peekMeta(key) }
-func (s *stubStorage) Delete(key string) error { s.deleted = true; return s.deleteErr }
-func (s *stubStorage) GetAndDelete(key string) (*PasteData, error) { return s.getDel(key) }
-func (s *stubStorage) Stats() StorageStats { return StorageStats{Backend: "stub"} }
-func (s *stubStorage) Close() error { return nil }
+func (s *stubStorage) Get(key string) (*PasteData, error)                     { return s.get(key) }
+func (s *stubStorage) PeekMeta(key string) (*PasteData, error)                { return s.peekMeta(key) }
+func (s *stubStorage) Delete(key string) error                                { s.deleted = true; return s.deleteErr }
+func (s *stubStorage) GetAndDelete(key string) (*PasteData, error)            { return s.getDel(key) }
+func (s *stubStorage) Stats() StorageStats                                    { return StorageStats{Backend: "stub"} }
+func (s *stubStorage) Close() error                                           { return nil }
 
 func TestFetchPasteUsesPeekMetaBurn(t *testing.T) {
 	called := false
 	store := &stubStorage{
 		peekMeta: func(string) (*PasteData, error) { return &PasteData{Burn: true}, nil },
-		getDel: func(string) (*PasteData, error) { called = true; return &PasteData{Content: []byte("burned")}, nil },
+		getDel:   func(string) (*PasteData, error) { called = true; return &PasteData{Content: []byte("burned")}, nil },
 	}
 	app := &App{storage: store}
 	paste, err := app.fetchPaste("id")

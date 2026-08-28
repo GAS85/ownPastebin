@@ -11,7 +11,6 @@ import (
 	"testing"
 )
 
-
 func TestJSONMsgHandlerWithAttrs(t *testing.T) {
 	var buf bytes.Buffer
 	h := &jsonMsgHandler{w: &buf, level: slog.LevelDebug}
@@ -90,4 +89,3 @@ func TestInitLoggerTextAndJSON(t *testing.T) {
 		t.Fatalf("expected text output, got %q", textOut)
 	}
 }
-

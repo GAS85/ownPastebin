@@ -47,10 +47,10 @@ type Settings struct {
 
 	// Cookie, Privacy note and Custom URLs to your Services.
 	// We do not set any cookies, but if used as sub path probably you have to provide it.
-	CookieURL          string
-	PrivacyNoteURL     string
-	CustomURL          string
-	CustomURLIcon      string
+	CookieURL      string
+	PrivacyNoteURL string
+	CustomURL      string
+	CustomURLIcon  string
 
 	// ExpiryTimes is the list of expiry options shown in the UI dropdown.
 	// Populated from PASTEBIN_EXPIRY_TIMES; falls back to defaultExpiryTimes when empty.
@@ -84,16 +84,16 @@ func loadSettings() *Settings {
 		PostgresURL: os.Getenv("PASTEBIN_POSTGRES_URL"),
 		SQLitePath:  getEnv("PASTEBIN_SQLITE_PATH", "/app/data/pastes.db"),
 
-		BaseURL:      baseURL,
-		PathPrefix:   extractPathPrefix(baseURL),
-		SlugLen:      getEnvInt("PASTEBIN_SLUG_LEN", 20),
-		DefaultBurn:  getEnvBool("PASTEBIN_DEFAULT_BURN", false),
-		MaxPasteSize: parseSize(getEnv("PASTEBIN_MAX_PASTE_SIZE", "5MB")),
+		BaseURL:            baseURL,
+		PathPrefix:         extractPathPrefix(baseURL),
+		SlugLen:            getEnvInt("PASTEBIN_SLUG_LEN", 20),
+		DefaultBurn:        getEnvBool("PASTEBIN_DEFAULT_BURN", false),
+		MaxPasteSize:       parseSize(getEnv("PASTEBIN_MAX_PASTE_SIZE", "5MB")),
 		MaxParallelUploads: getEnvInt("PASTEBIN_MAX_PARALLEL_UPLOADS", 20), // 50 concurrent uploads max
-																			// It needs 2 GB RAM for 25 MB pastes
-																			// uploadSem = RAM / Max Upload size
-																			// uploadSem = 1,5GB / 30 MB = 50
-		SQLitePageSize:     getEnvInt("PASTEBIN_SQLITE_PAGE_SIZE", 0),
+		// It needs 2 GB RAM for 25 MB pastes
+		// uploadSem = RAM / Max Upload size
+		// uploadSem = 1,5GB / 30 MB = 50
+		SQLitePageSize: getEnvInt("PASTEBIN_SQLITE_PAGE_SIZE", 0),
 
 		// Optional Cookie Policy / Privacy / Custom URLs.
 		// Empty when the environment variables are not set.

@@ -99,10 +99,10 @@ type Storage interface {
 // =============================================================================
 
 type SQLiteStorage struct {
-	db       *sql.DB
-	dbPath   string
-	stop     chan struct{}
-	wg       sync.WaitGroup
+	db        *sql.DB
+	dbPath    string
+	stop      chan struct{}
+	wg        sync.WaitGroup
 	closeOnce sync.Once
 	closeErr  error
 }
@@ -182,8 +182,8 @@ func newSQLiteStorage(path string, cfg *Settings) (*SQLiteStorage, error) {
 func applyPragmas(db *sql.DB) error {
 	pragmas := []string{
 		"PRAGMA synchronous=NORMAL",
-		"PRAGMA temp_store=MEMORY",       // temp tables in RAM
-		"PRAGMA mmap_size=268435456",     // 256 MB memory-mapped I/O
+		"PRAGMA temp_store=MEMORY",   // temp tables in RAM
+		"PRAGMA mmap_size=268435456", // 256 MB memory-mapped I/O
 		"PRAGMA foreign_keys=ON",
 		"PRAGMA auto_vacuum=INCREMENTAL", // space reclamation (ensureIncrementalVacuum activates it)
 		"PRAGMA cache_size=-20000",       // ~20 MB page cache (negative = KiB)
@@ -291,12 +291,12 @@ func (s *SQLiteStorage) Stats() StorageStats {
 	if err := row.Scan(&st.Total, &perm, &expiring, &burn, &ssEnc, &e2eEnc, &prot); err != nil {
 		slog.Warn("sqlite stats query failed", "err", err)
 	}
-	st.Permanent    = perm.Int64
-	st.Expiring     = expiring.Int64
-	st.BurnOnRead   = burn.Int64
-	st.SSEncrypted  = ssEnc.Int64
+	st.Permanent = perm.Int64
+	st.Expiring = expiring.Int64
+	st.BurnOnRead = burn.Int64
+	st.SSEncrypted = ssEnc.Int64
 	st.E2EEncrypted = e2eEnc.Int64
-	st.Protected    = prot.Int64
+	st.Protected = prot.Int64
 
 	// File sizes from the OS — no DB connection needed.
 	if fi, err := os.Stat(s.dbPath); err == nil {
@@ -993,7 +993,7 @@ func (s *RedisStorage) Get(key string) (*PasteData, error) {
 		return nil, err
 	}
 	if vals[0] == nil {
-		return nil, nil  // key does not exist
+		return nil, nil // key does not exist
 	}
 	content, err := valToBytes(vals[0])
 	if err != nil {
@@ -1021,12 +1021,12 @@ func (s *RedisStorage) GetAndDelete(key string) (*PasteData, error) {
 
 	pipe := s.client.TxPipeline()
 	contentCmd := pipe.HGet(ctx, rkey, "content")
-	burnCmd    := pipe.HGet(ctx, rkey, "burn")
-	encCmd     := pipe.HGet(ctx, rkey, "enc")
-	e2eCmd     := pipe.HGet(ctx, rkey, "e2e")
-	protCmd    := pipe.HGet(ctx, rkey, "prot")
-	langCmd    := pipe.HGet(ctx, rkey, "lang")
-	ttlCmd     := pipe.TTL(ctx, rkey)
+	burnCmd := pipe.HGet(ctx, rkey, "burn")
+	encCmd := pipe.HGet(ctx, rkey, "enc")
+	e2eCmd := pipe.HGet(ctx, rkey, "e2e")
+	protCmd := pipe.HGet(ctx, rkey, "prot")
+	langCmd := pipe.HGet(ctx, rkey, "lang")
+	ttlCmd := pipe.TTL(ctx, rkey)
 	pipe.Del(ctx, rkey)
 
 	_, err := pipe.Exec(ctx)
@@ -1042,11 +1042,11 @@ func (s *RedisStorage) GetAndDelete(key string) (*PasteData, error) {
 	}
 
 	burn, _ := burnCmd.Int()
-	enc, _  := encCmd.Int()
-	e2e, _  := e2eCmd.Int()
+	enc, _ := encCmd.Int()
+	e2e, _ := e2eCmd.Int()
 	prot, _ := protCmd.Int()
 	lang, _ := langCmd.Result()
-	ttl     := ttlCmd.Val()
+	ttl := ttlCmd.Val()
 
 	p := &PasteData{
 		Content:      content,

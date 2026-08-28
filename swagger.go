@@ -13,12 +13,12 @@ var swaggerFS embed.FS
 
 // openAPIData holds the values interpolated into openapi.json.tmpl.
 type openAPIData struct {
-	SSEEnabled string
-	MaxSize    string
-	MaxTTL     int64
-	Version    string
-	BaseURL    string
-	SlugLen    int
+	SSEEnabled            string
+	MaxSize               string
+	MaxTTL                int64
+	Version               string
+	BaseURL               string
+	SlugLen               int
 	ProtectedPasteEnabled string
 }
 
@@ -42,12 +42,12 @@ func (a *App) openAPISpec() (string, error) {
 	}
 
 	data := openAPIData{
-		SSEEnabled: strconv.FormatBool(a.cfg.ServerSideEncryptionEnabled),
-		MaxSize:    strconv.FormatInt(a.cfg.MaxPasteSize, 10),
-		MaxTTL:     maxTTL,
-		Version:    a.cfg.Version,
-		BaseURL:    a.cfg.BaseURL,
-		SlugLen:    a.cfg.SlugLen,
+		SSEEnabled:            strconv.FormatBool(a.cfg.ServerSideEncryptionEnabled),
+		MaxSize:               strconv.FormatInt(a.cfg.MaxPasteSize, 10),
+		MaxTTL:                maxTTL,
+		Version:               a.cfg.Version,
+		BaseURL:               a.cfg.BaseURL,
+		SlugLen:               a.cfg.SlugLen,
 		ProtectedPasteEnabled: strconv.FormatBool(a.cfg.ProtectedPasteEnabled),
 	}
 

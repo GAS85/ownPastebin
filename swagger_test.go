@@ -10,12 +10,12 @@ import (
 func TestOpenAPISpecRendersTemplate(t *testing.T) {
 	cfg := &Settings{
 		ServerSideEncryptionEnabled: true,
-		MaxPasteSize: 12345,
-		MaxTTL: 24 * time.Hour,
-		Version: "v1.2.3",
-		BaseURL: "http://localhost:8080",
-		SlugLen: 12,
-		ProtectedPasteEnabled: true,
+		MaxPasteSize:                12345,
+		MaxTTL:                      24 * time.Hour,
+		Version:                     "v1.2.3",
+		BaseURL:                     "http://localhost:8080",
+		SlugLen:                     12,
+		ProtectedPasteEnabled:       true,
 	}
 	a := &App{cfg: cfg}
 	spec, err := a.openAPISpec()

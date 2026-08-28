@@ -16,18 +16,18 @@ func NewTestPostgresStorage(t *testing.T) (Storage, func()) {
 	if dsn == "" {
 		dsn = "postgres://postgres:postgres@localhost:5432/pastebin_test?sslmode=disable"
 	}
-	
+
 	s, err := newPostgresStorage(dsn)
 	if err != nil {
 		t.Skipf("Skipping PostgreSQL tests: %v", err)
 	}
-	
+
 	// Clean up any existing test data
 	_, err = s.db.Exec(`DELETE FROM pastes WHERE id LIKE 'test-%'`)
 	if err != nil {
 		t.Logf("Warning: could not clean test data: %v", err)
 	}
-	
+
 	cleanup := func() {
 		// Clean up test data
 		s.db.Exec(`DELETE FROM pastes WHERE id LIKE 'test-%'`)
@@ -237,7 +237,7 @@ func TestPostgresPeekMetaExpired(t *testing.T) {
 		t.Fatalf("save failed: %v", err)
 	}
 	defer store.Delete(key)
-	
+
 	time.Sleep(2 * time.Second)
 	got, err := store.PeekMeta(key)
 	if err != nil {
@@ -313,7 +313,7 @@ func TestPostgresStats(t *testing.T) {
 
 	// Get stats
 	stats := store.Stats()
-	
+
 	// Basic validation
 	if stats.Backend != "postgres" {
 		t.Errorf("expected backend postgres, got %s", stats.Backend)
@@ -370,12 +370,12 @@ func TestPostgresAllDataTypes(t *testing.T) {
 			Protected:    tc.protected,
 			Lang:         tc.lang,
 		}
-		
+
 		if err := store.Save(key, paste, 0); err != nil {
 			t.Fatalf("Save %s: %v", tc.name, err)
 		}
 		defer store.Delete(key)
-		
+
 		got, err := store.Get(key)
 		if err != nil {
 			t.Fatalf("Get %s: %v", tc.name, err)
@@ -383,7 +383,7 @@ func TestPostgresAllDataTypes(t *testing.T) {
 		if got == nil {
 			t.Fatalf("Get %s returned nil", tc.name)
 		}
-		
+
 		if got.Burn != tc.burn {
 			t.Errorf("%s: Burn = %v, want %v", tc.name, got.Burn, tc.burn)
 		}
@@ -410,12 +410,12 @@ func TestPostgresLargeContent(t *testing.T) {
 	// Test with 1MB of data
 	largeContent := bytes.Repeat([]byte("A"), 1024*1024)
 	paste := &PasteData{Content: largeContent, Lang: "text"}
-	
+
 	if err := store.Save(key, paste, 0); err != nil {
 		t.Fatalf("Save large content: %v", err)
 	}
 	defer store.Delete(key)
-	
+
 	got, err := store.Get(key)
 	if err != nil {
 		t.Fatalf("Get large content: %v", err)
@@ -435,7 +435,7 @@ func TestPostgresConcurrentOperations(t *testing.T) {
 	// Test concurrent saves with different keys
 	const n = 10
 	done := make(chan bool, n)
-	
+
 	for i := 0; i < n; i++ {
 		go func(idx int) {
 			key := "test-pg-concurrent-" + string(rune('0'+idx))
@@ -446,7 +446,7 @@ func TestPostgresConcurrentOperations(t *testing.T) {
 			done <- true
 		}(i)
 	}
-	
+
 	// Wait for all goroutines
 	for i := 0; i < n; i++ {
 		<-done
@@ -464,17 +464,17 @@ func TestPostgresCleanupLoop(t *testing.T) {
 		t.Fatalf("Save: %v", err)
 	}
 	defer store.Delete(key)
-	
+
 	// Wait for expiry
 	time.Sleep(2 * time.Second)
-	
+
 	// Trigger cleanup manually (normally runs every hour)
 	pgStore := store.(*PostgresStorage)
 	_, err := pgStore.db.Exec(`DELETE FROM pastes WHERE expire_at IS NOT NULL AND expire_at < NOW()`)
 	if err != nil {
 		t.Fatalf("manual cleanup failed: %v", err)
 	}
-	
+
 	// Verify it's gone
 	got, err := store.Get(key)
 	if err != nil {
@@ -496,11 +496,11 @@ func TestPostgresTransactionIsolation(t *testing.T) {
 		t.Fatalf("Save: %v", err)
 	}
 	defer store.Delete(key)
-	
+
 	// Simulate concurrent update attempts
 	const n = 5
 	done := make(chan bool, n)
-	
+
 	for i := 0; i < n; i++ {
 		go func() {
 			// Try to save with same key - should get conflict
@@ -512,11 +512,11 @@ func TestPostgresTransactionIsolation(t *testing.T) {
 			done <- true
 		}()
 	}
-	
+
 	for i := 0; i < n; i++ {
 		<-done
 	}
-	
+
 	// Original content should remain
 	got, err := store.Get(key)
 	if err != nil {
@@ -553,7 +553,7 @@ func TestMain(m *testing.M) {
 			}
 		}
 	}
-	
+
 	// Run tests
 	code := m.Run()
 	os.Exit(code)

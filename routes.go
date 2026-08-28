@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"html/template"
 	"io"
-	"os"
 	"log/slog"
 	"net/http"
+	"os"
 	"runtime"
 	"strconv"
 	"time"
@@ -34,19 +34,19 @@ type TemplateData struct {
 	IsEditable            bool
 	IsCreated             bool
 	IsBurned              bool
-	IsBurn                bool       // true = this paste is configured as burn-on-read
+	IsBurn                bool // true = this paste is configured as burn-on-read
 	IsError               bool
 	IsEncrypted           bool
 	IsClone               bool
-	IsProtected           bool       // true = DELETE is blocked; hides/disables delete button in UI
-	ProtectedPasteEnabled bool       // true = add protected option to the UI
+	IsProtected           bool // true = DELETE is blocked; hides/disables delete button in UI
+	ProtectedPasteEnabled bool // true = add protected option to the UI
 	PastebinCode          string
 	PastebinID            string
 	PastebinCls           string
 	Version               string
-	ExpireAt              *time.Time // nil = never expires
-	CSSImports            []string   // plugin CSS — loaded before custom.css
-	TailCSSImports        []string   // loaded last — custom.css always wins the cascade
+	ExpireAt              *time.Time   // nil = never expires
+	CSSImports            []string     // plugin CSS — loaded before custom.css
+	TailCSSImports        []string     // loaded last — custom.css always wins the cascade
 	ThemeCSS              template.CSS // Custom Theme CSS override
 	CookieURL             string
 	PrivacyNoteURL        string
@@ -358,18 +358,18 @@ func (a *App) handleView(w http.ResponseWriter, r *http.Request) {
 	css, js, inits := a.plugins.BuildFor(paste.Lang)
 
 	d := a.baseData(r)
-	d.CSSImports   = css
-	d.JSImports    = js
-	d.JSInits      = inits
-	d.IsCreated    = true
-	d.IsBurned     = paste.Burn
-	d.IsBurn       = paste.Burn
-	d.IsEncrypted  = paste.E2EEncrypted
-	d.IsProtected  = paste.Protected
+	d.CSSImports = css
+	d.JSImports = js
+	d.JSInits = inits
+	d.IsCreated = true
+	d.IsBurned = paste.Burn
+	d.IsBurn = paste.Burn
+	d.IsEncrypted = paste.E2EEncrypted
+	d.IsProtected = paste.Protected
 	d.PastebinCode = text
-	d.PastebinID   = id
-	d.PastebinCls  = "language-" + paste.Lang
-	d.ExpireAt     = paste.ExpireAt
+	d.PastebinID = id
+	d.PastebinCls = "language-" + paste.Lang
+	d.ExpireAt = paste.ExpireAt
 	a.render(w, d, http.StatusOK)
 }
 

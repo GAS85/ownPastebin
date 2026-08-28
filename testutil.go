@@ -105,8 +105,8 @@ func NewAppForTest(t *testing.T, tc TestConfig) (*App, http.Handler) {
 		`</body></html>`
 
 	funcMap := template.FuncMap{
-		"not":        func(b bool) bool { return !b },
-		"safeJS":     func(s string) template.JS { return template.JS(s) },
+		"not":    func(b bool) bool { return !b },
+		"safeJS": func(s string) template.JS { return template.JS(s) },
 		"formatTime": func(t *time.Time) string {
 			if t == nil {
 				return ""

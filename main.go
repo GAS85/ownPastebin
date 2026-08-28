@@ -31,11 +31,11 @@ var Version string
 
 func buildTemplateFuncMap() template.FuncMap {
 	return template.FuncMap{
-		"lower": strings.ToLower,
+		"lower":   strings.ToLower,
 		"replace": strings.ReplaceAll,
-		"split": strings.Split,
-		"not": func(b bool) bool { return !b },
-		"safeJS": func(s string) template.JS { return template.JS(s) },
+		"split":   strings.Split,
+		"not":     func(b bool) bool { return !b },
+		"safeJS":  func(s string) template.JS { return template.JS(s) },
 		"formatTime": func(t *time.Time) string {
 			if t == nil {
 				return ""
