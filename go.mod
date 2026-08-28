@@ -10,6 +10,7 @@ require (
 	github.com/mattn/go-sqlite3 v1.14.47
 	github.com/redis/go-redis/v9 v9.21.0
 	golang.org/x/net v0.56.0
+	golang.org/x/sys v0.46.0
 	golang.org/x/time v0.15.0
 )
 

@@ -81,16 +81,13 @@ jobs:
           echo "VCS_REF=${{ github.sha }}" >> $GITHUB_OUTPUT
           echo "BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_OUTPUT
 
+      - name: Install Packages
+        run: |
+          sudo apt update && apt install -y openssl minify
+
       - name: Setup environment
         # Exactly as Dockerfile
         run: |
-          # Install needed SW
-
-          apt update && apt install -y openssl
-
-          # Get minify binary from github --> extract only binary
-          wget https://github.com/tdewolff/minify/releases/download/v2.24.17/minify_linux_amd64.tar.gz -O - | tar -xz minify
-
           # remove files from .dockerignore
           rm -rf \
             .git  \
@@ -147,9 +144,6 @@ jobs:
               s/443329/{{.Version}}/g; \
               s/994342/{{.BaseURL}}/g; \
               s/473472/{{.ProtectedPasteEnabled}}/g' "templates/openapi.json.tmpl"
-
-          # Cleanup
-          rm -rf minify*
 
       - name: Set up Go
         # https://github.com/actions/setup-go/releases/tag/v7.0.0

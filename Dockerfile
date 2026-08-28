@@ -64,7 +64,7 @@ RUN find static/ -type f -name "*.css" ! -name "*.min.*" -exec minify -i "{}" \;
 
 RUN go mod download
 
-RUN CGO_ENABLED=1 GOOS=linux go build -ldflags="-s -w" -o pastebin .
+RUN CGO_ENABLED=1 GOOS=linux go build -ldflags="-s -w" -tags alpine -o pastebin .
 
 # ── Final stage ───────────────────────────────────────────────────────────────
 FROM alpine:3.24
