@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented in this file.
 
+## v2.4.12
+
+### Changed
+
+- Swagger UI update with integrity check `wget -O - <URL> | openssl dgst -sha256 -binary | openssl enc -base64 -A`, crossorigin set to anonymous.
+
 ## v2.4.11
 
 ### Changed
