@@ -199,6 +199,38 @@ func TestExtractPathPrefix(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
+// originFromBaseURL
+// ---------------------------------------------------------------------------
+
+func TestOriginFromBaseURL(t *testing.T) {
+	cases := []struct {
+		in   string
+		want string
+	}{
+		{"http://localhost:8080", "http://localhost:8080"},
+		{"http://localhost:8080/", "http://localhost:8080"},
+		{"http://localhost:8080/pastebin", "http://localhost:8080"},
+		{"https://paste.example.com/a/b", "https://paste.example.com"},
+		{"https://paste.example.com:8443/x", "https://paste.example.com:8443"},
+		{"not a url", ""},
+		{"", ""},
+	}
+	for _, c := range cases {
+		if got := originFromBaseURL(c.in); got != c.want {
+			t.Errorf("originFromBaseURL(%q) = %q, want %q", c.in, got, c.want)
+		}
+	}
+}
+
+func TestLoadSettingsPopulatesOrigin(t *testing.T) {
+	t.Setenv("PASTEBIN_BASE_URL", "https://paste.example.com/pastebin")
+	cfg := loadSettings()
+	if cfg.Origin != "https://paste.example.com" {
+		t.Fatalf("expected origin without path, got %q", cfg.Origin)
+	}
+}
+
+// ---------------------------------------------------------------------------
 // expiryTimes fallback
 // ---------------------------------------------------------------------------
 
