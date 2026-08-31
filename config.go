@@ -2,6 +2,7 @@ package main
 
 import (
 	"net"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -35,6 +36,7 @@ type Settings struct {
 
 	// App
 	BaseURL            string
+	Origin             string // scheme://host[:port] derived from BaseURL, for CORS — never includes a path
 	PathPrefix         string // e.g. "" for http://host:port  or  "/pastebin" for http://host:port/pastebin
 	DefaultBurn        bool
 	DefaultTTL         time.Duration
@@ -85,6 +87,7 @@ func loadSettings() *Settings {
 		SQLitePath:  getEnv("PASTEBIN_SQLITE_PATH", "/app/data/pastes.db"),
 
 		BaseURL:            baseURL,
+		Origin:             originFromBaseURL(baseURL),
 		PathPrefix:         extractPathPrefix(baseURL),
 		SlugLen:            getEnvInt("PASTEBIN_SLUG_LEN", 20),
 		DefaultBurn:        getEnvBool("PASTEBIN_DEFAULT_BURN", false),
@@ -339,4 +342,13 @@ func extractPathPrefix(rawURL string) string {
 	// Trim trailing slashes
 	s = strings.TrimRight(s, "/")
 	return s
+}
+
+// originFromBaseURL returns just the scheme+host[:port] of BaseURL, with any path stripped.
+func originFromBaseURL(rawURL string) string {
+	u, err := url.Parse(rawURL)
+	if err != nil || u.Scheme == "" || u.Host == "" {
+		return ""
+	}
+	return u.Scheme + "://" + u.Host
 }
