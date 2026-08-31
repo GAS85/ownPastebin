@@ -2,6 +2,14 @@
 
 All notable changes to this project are documented in this file.
 
+## v2.4.11
+
+### Changed
+
+- Move "Zombie reaper for Alpine containers" to be applied only upon Alpine build.
+- Add binary artifacts to the pipeline
+- Format update with `gofmt -w *.go`
+
 ## v2.4.10
 
 ### Changed

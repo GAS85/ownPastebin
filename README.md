@@ -222,6 +222,112 @@ Please refer to [k8s.yml](https://github.com/GAS85/ownPastebin/blob/main/k8s.yml
 kubectl apply -f k8s.yml
 ```
 
+### Apache HTTP Server
+
+As **root**, inside of your VirtualHost:
+
+```apache
+# Avoid pastes being consumed by previewers/crawlers
+RewriteEngine On
+
+RewriteCond %{HTTP_USER_AGENT} (bot|crawler|spider|slurp|preview|fetch|facebookexternalhit|SkypeUriPreview) [NC]
+RewriteCond %{REQUEST_URI} !^/favicon\.ico$ [NC]
+RewriteRule ^/.+ / [R=302,L]
+
+# Pastebin
+<Location "/">
+    ProxyPreserveHost On
+    ProxyPass http://localhost:8080 retry=0 connectiontimeout=5 timeout=30 keepalive=on
+    ProxyPassReverse http://localhost:8080
+    RequestHeader set Connection ""
+</Location>
+```
+
+As **subpath**, inside of your VirtualHost:
+
+```apache
+# Avoid pastes being consumed by previewers/crawlers
+RewriteEngine On
+
+RewriteCond %{HTTP_USER_AGENT} (bot|crawler|spider|slurp|preview|fetch|facebookexternalhit|SkypeUriPreview) [NC]
+RewriteCond %{REQUEST_URI} !^/pastebin/favicon\.ico$ [NC]
+RewriteRule ^/pastebin/.+ /pastebin [R=302,L]
+
+# Pastebin
+<Location /pastebin>
+    ProxyPreserveHost On
+    ProxyPass http://localhost:8080/pastebin retry=0 connectiontimeout=5 timeout=30 keepalive=on
+    ProxyPassReverse http://localhost:8080/pastebin
+    RequestHeader set Connection ""
+</Location>
+```
+
+### Nginx
+
+For Nginx, define a map in the http context. This should be outside the server block in the http context, for example:
+
+```nginx
+http {
+    # Avoid pastes being consumed by previewers/crawlers
+    map $http_user_agent $pastebin_preview {
+        default 0;
+        ~*(bot|crawler|spider|slurp|preview|fetch|facebookexternalhit|SkypeUriPreview) 1;
+    }
+
+    server {
+        ...
+    }
+}
+```
+
+As **Root** path
+
+Inside the server block:
+
+```nginx
+# Avoid pastes being consumed by previewers/crawlers
+location / {
+    if ($pastebin_preview) {
+        rewrite ^/(?!favicon\.ico$).+ / redirect;
+    }
+
+    proxy_set_header Host $host;
+    proxy_set_header Connection "";
+    proxy_pass http://localhost:8080;
+    proxy_http_version 1.1;
+}
+```
+
+As **Subpath**
+
+Inside the server block:
+
+```nginx
+# Avoid pastes being consumed by previewers/crawlers
+location /pastebin {
+    if ($pastebin_preview) {
+        rewrite ^/pastebin/(?!favicon\.ico$).+ /pastebin redirect;
+    }
+
+    proxy_set_header Host $host;
+    proxy_set_header Connection "";
+    proxy_pass http://localhost:8080/pastebin;
+    proxy_http_version 1.1;
+}
+```
+
+This results in:
+
+```plain
+/pastebin/ABC123      --> /pastebin        (crawler/previewer)
+/pastebin/foo/bar     --> /pastebin        (crawler/previewer)
+/pastebin/favicon.ico --> proxied normally (crawler/previewer)
+/pastebin/ABC123      --> proxied normally (normal browser)
+/pastebin             --> proxied normally
+```
+
+ℹ️ *Note*: User-Agent detection is not a security mechanism. Any client can impersonate another User-Agent. This configuration is intended to reduce accidental paste consumption by link previewers and crawlers, not to prevent deliberate downloading.
+
 ## Build
 
 You can build it from sources with following commands:
@@ -340,8 +446,8 @@ curl -X DELETE http://localhost:8080/abc123
 
 If `burn=true`:
 
-* First request → returns content
-* Second request → `404 Not Found`
+* First request --> returns content
+* Second request --> `404 Not Found`
 
 ### Protected paste
 
@@ -382,7 +488,7 @@ Example:
 
 * Works with curl, browsers, API clients
 * Binary-safe storage
-* No in-memory caching → RAM efficient
+* No in-memory caching --> RAM efficient
 * SQLite uses WAL mode for better concurrency
 * Expired pastes are cleaned on access (lazy cleanup) and periodically during the day
 
