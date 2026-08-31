@@ -99,3 +99,7 @@ jobs:
           crane cp \
             "docker.io/${{ steps.meta.outputs.REPO }}:dev" \
             "ghcr.io/${{ steps.meta.outputs.REPO }}:dev"
+
+          crane mutate \
+            --label org.opencontainers.image.source="https://github.com/GAS85/ownPastebin" \
+            "ghcr.io/${{ steps.meta.outputs.REPO }}:dev"

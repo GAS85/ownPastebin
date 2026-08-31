@@ -240,6 +240,14 @@ jobs:
             "docker.io/${{ steps.meta.outputs.REPO }}:${{ steps.meta.outputs.VERSION }}" \
             "ghcr.io/${{ steps.meta.outputs.REPO }}:${{ steps.meta.outputs.VERSION }}"
 
+          crane mutate \
+            --label org.opencontainers.image.source="https://github.com/GAS85/ownPastebin" \
+            "ghcr.io/${{ steps.meta.outputs.REPO }}:${{ steps.meta.outputs.VERSION }}"
+
           crane cp \
             "docker.io/${{ steps.meta.outputs.REPO }}:latest" \
+            "ghcr.io/${{ steps.meta.outputs.REPO }}:latest"
+
+          crane mutate \
+            --label org.opencontainers.image.source="https://github.com/GAS85/ownPastebin" \
             "ghcr.io/${{ steps.meta.outputs.REPO }}:latest"
