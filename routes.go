@@ -111,6 +111,11 @@ func toJSON(v any) template.JS {
 func (a *App) router() http.Handler {
 	r := chi.NewRouter()
 
+	// Baseline security headers — applied to every response, including
+	// swagger/config/static. Must be registered first so route-specific
+	// middlewares below can override individual headers where needed.
+	r.Use(securityHeadersMiddleware)
+
 	// Access log — wraps every route including swagger and config.
 	r.Use(a.accessLogMiddleware)
 	// Per-IP rate limiting on all routes.
@@ -118,21 +123,21 @@ func (a *App) router() http.Handler {
 
 	// Paste content — must never be cached: content can be burned/deleted at
 	// any moment, and serving a stale copy after deletion would be a data leak.
-	r.With(noCacheMiddleware).Get("/raw/{id}", a.handleRaw)
-	r.With(noCacheMiddleware).Get("/download/{id}", a.handleDownload)
+	r.With(a.rawContentMiddleware).Get("/raw/{id}", a.handleRaw)
+	r.With(a.rawContentMiddleware).Get("/download/{id}", a.handleDownload)
 
 	// Long-lived cacheable endpoints — safe to cache for 6 months.
-	r.With(longCacheMiddleware).Get("/config", a.handleConfig)
-	r.With(longCacheMiddleware).Get("/openapi.json", a.handleOpenAPISpec)
-	r.With(longCacheMiddleware).Get("/swagger-ui", a.handleSwaggerUI)
+	r.With(a.longCacheMiddleware).Get("/config", a.handleConfig)
+	r.With(a.longCacheMiddleware).Get("/openapi.json", a.handleOpenAPISpec)
+	r.With(a.longCacheMiddleware).Get("/swagger-ui", a.handleSwaggerUI)
 
-	r.Get("/", a.handleNewPaste)
+	r.With(a.longCacheMiddleware).Get("/", a.handleNewPaste)
 	r.Post("/", a.handleCreatePaste)
 
 	// /{id} must be last — it is a catch-all wildcard.
 	// Paste view shares the no-cache policy: burn-on-read pastes vanish after
 	// the first fetch and must not be replayed from any cache.
-	r.With(noCacheMiddleware).Get("/{id}", a.handleView)
+	r.With(a.noCacheMiddleware).Get("/{id}", a.handleView)
 	r.Delete("/{id}", a.handleDelete)
 
 	return r
@@ -273,7 +278,7 @@ func (a *App) handleCreatePaste(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Location", url)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	w.Write([]byte(`{"url":"` + url + `","id":"` + id + `","lang":"` + lang + `","protected":` + strconv.FormatBool(protected) + `}`))
+	json.NewEncoder(w).Encode(map[string]any{"url": url, "id": id, "lang": lang, "protected": protected})
 }
 
 // GET /config
@@ -283,13 +288,13 @@ func (a *App) handleConfig(w http.ResponseWriter, r *http.Request) {
 		maxTTL = int64(a.cfg.MaxTTL.Seconds())
 	}
 	w.Header().Set("Content-Type", "application/json")
-	w.Write([]byte(`{` +
-		`"max_ttl":` + strconv.FormatInt(maxTTL, 10) + `,` +
-		`"default_ttl":` + strconv.FormatInt(int64(a.cfg.DefaultTTL.Seconds()), 10) + `,` +
-		`"max_paste_size":` + strconv.FormatInt(a.cfg.MaxPasteSize, 10) + `,` +
-		`"server_side_encryption":` + strconv.FormatBool(a.cfg.ServerSideEncryptionEnabled) + `,` +
-		`"protected_paste_enabled":` + strconv.FormatBool(a.cfg.ProtectedPasteEnabled) +
-		`}`))
+	json.NewEncoder(w).Encode(map[string]any{
+		"max_ttl":                 maxTTL,
+		"default_ttl":             int64(a.cfg.DefaultTTL.Seconds()),
+		"max_paste_size":          a.cfg.MaxPasteSize,
+		"server_side_encryption":  a.cfg.ServerSideEncryptionEnabled,
+		"protected_paste_enabled": a.cfg.ProtectedPasteEnabled,
+	})
 }
 
 // GET /raw/{id}

@@ -33,24 +33,115 @@ func TestResponseRecorderCapturesStatusAndBytes(t *testing.T) {
 }
 
 func TestNoCacheMiddlewareSetsHeaders(t *testing.T) {
-	h := noCacheMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	app := &App{cfg: &Settings{BaseURL: "http://localhost:8080", Origin: "http://localhost:8080"}}
+	h := app.noCacheMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 	w := httptest.NewRecorder()
 	h.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/", nil))
+
 	if got := w.Header().Get("Cache-Control"); got != "no-store, no-cache, must-revalidate" {
 		t.Fatalf("unexpected Cache-Control header: %q", got)
+	}
+	if got := w.Header().Get("Access-Control-Allow-Origin"); got != "http://localhost:8080" {
+		t.Fatalf("unexpected Access-Control-Allow-Origin: %q", got)
+	}
+	// The view page renders Prism/Mermaid JS — it must NOT get a
+	// script-blocking CSP from this middleware.
+	if got := w.Header().Get("Content-Security-Policy"); got != "" {
+		t.Fatalf("noCacheMiddleware must not set its own CSP, got %q", got)
+	}
+}
+
+func TestNoCacheMiddlewareOmitsACAOWhenOriginEmpty(t *testing.T) {
+	app := &App{cfg: &Settings{}}
+	h := app.noCacheMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/", nil))
+
+	if got := w.Header().Get("Access-Control-Allow-Origin"); got != "" {
+		t.Fatalf("expected no ACAO header when Origin is unset, got %q", got)
 	}
 }
 
 func TestLongCacheMiddlewareSetsHeaders(t *testing.T) {
-	h := longCacheMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	app := &App{cfg: &Settings{BaseURL: "http://localhost:8080", Origin: "http://localhost:8080"}}
+	h := app.longCacheMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 	w := httptest.NewRecorder()
 	h.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/", nil))
+
 	if got := w.Header().Get("Cache-Control"); got != "public, max-age=15552000, immutable" {
 		t.Fatalf("unexpected Cache-Control header: %q", got)
+	}
+	if got := w.Header().Get("Access-Control-Allow-Origin"); got != "http://localhost:8080" {
+		t.Fatalf("unexpected Access-Control-Allow-Origin: %q", got)
+	}
+	// Swagger UI needs to run its own JS — must not get a restrictive CSP here.
+	if got := w.Header().Get("Content-Security-Policy"); got != "" {
+		t.Fatalf("longCacheMiddleware must not set its own CSP, got %q", got)
+	}
+}
+
+func TestRawContentMiddlewareSandboxesCSP(t *testing.T) {
+	app := &App{cfg: &Settings{BaseURL: "http://localhost:8080", Origin: "http://localhost:8080"}}
+	h := app.rawContentMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/", nil))
+
+	if got := w.Header().Get("Cache-Control"); got != "no-store, no-cache, must-revalidate" {
+		t.Fatalf("unexpected Cache-Control header: %q", got)
+	}
+	if got := w.Header().Get("Content-Security-Policy"); got != "sandbox" {
+		t.Fatalf("expected sandboxed CSP for raw content, got %q", got)
+	}
+	if got := w.Header().Get("Access-Control-Allow-Origin"); got != "http://localhost:8080" {
+		t.Fatalf("unexpected Access-Control-Allow-Origin: %q", got)
+	}
+}
+
+func TestSecurityHeadersMiddlewareSetsBaseline(t *testing.T) {
+	h := securityHeadersMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/", nil))
+
+	cases := map[string]string{
+		"X-Content-Type-Options": "nosniff",
+		"X-Frame-Options":        "SAMEORIGIN",
+		"Referrer-Policy":        "no-referrer",
+	}
+	for header, want := range cases {
+		if got := w.Header().Get(header); got != want {
+			t.Errorf("%s: got %q, want %q", header, got, want)
+		}
+	}
+}
+
+// securityHeadersMiddleware runs before route-specific middleware in the
+// chain (r.Use before r.With), so a stricter downstream CSP must win over
+// the baseline via plain header overwrite — this locks in that ordering.
+func TestSecurityHeadersOverriddenByRawContentMiddleware(t *testing.T) {
+	app := &App{cfg: &Settings{}}
+	h := securityHeadersMiddleware(app.rawContentMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})))
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/", nil))
+
+	if got := w.Header().Get("Content-Security-Policy"); got != "sandbox" {
+		t.Fatalf("expected rawContentMiddleware's sandbox CSP to win, got %q", got)
+	}
+	// Headers securityHeadersMiddleware sets and nothing downstream touches
+	// must still be present.
+	if got := w.Header().Get("X-Content-Type-Options"); got != "nosniff" {
+		t.Fatalf("expected baseline nosniff to survive, got %q", got)
 	}
 }
 

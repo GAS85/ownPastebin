@@ -1,4 +1,8 @@
 name: Dev Test
+
+permissions:
+  contents: read
+
 on:
   workflow_call: # Allow this workflow to be called by other workflows
     inputs: {}

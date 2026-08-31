@@ -62,9 +62,11 @@ func NewAppForTest(t *testing.T, tc TestConfig) (*App, http.Handler) {
 	if maxUploads == 0 {
 		maxUploads = 50
 	}
+	baseURL := "http://localhost:8080" + tc.PathPrefix
 	cfg := &Settings{
 		SQLitePath:                  dbPath,
-		BaseURL:                     "http://localhost:8080" + tc.PathPrefix,
+		BaseURL:                     baseURL,
+		Origin:                      originFromBaseURL(baseURL),
 		PathPrefix:                  tc.PathPrefix,
 		SlugLen:                     20,
 		MaxPasteSize:                maxSize,

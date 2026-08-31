@@ -183,22 +183,53 @@ func (l *ipRateLimiter) Close() {
 	l.stopOnce.Do(func() { close(l.stop) })
 }
 
+// securityHeadersMiddleware sets baseline anti-XSS / anti-clickjacking headers on every response.
+func securityHeadersMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		h := w.Header()
+		h.Set("X-Content-Type-Options", "nosniff")
+		h.Set("X-Frame-Options", "SAMEORIGIN") // SAMEORIGIN, not DENY/'none': the app may legitimately frame its own pages (e.g. an embedded preview).
+		h.Set("Referrer-Policy", "no-referrer")
+		// h.Set("Permissions-Policy", "picture-in-picture=(), geolocation=(), camera=();") // Experimental for now, not enabled. See https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Permissions_Policy
+		// h.Set("Content-Security-Policy", "default-src 'self'; frame-ancestors 'self'; object-src 'none'; base-uri 'self'") // As it is will brake html as dynamic hashes are calculated during the build
+		next.ServeHTTP(w, r)
+	})
+}
+
 // ---------------------------------------------------------------------------
 // Cache-Control headers
 // ---------------------------------------------------------------------------
 
 // noCacheMiddleware sets headers that prevent any caching of the response — used for paste content endpoints (/raw, /download, /{id}) where stale data must never be served, especially after a burn-on-read deletion.
-func noCacheMiddleware(next http.Handler) http.Handler {
+func (a *App) noCacheMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate")
+		if a.cfg.Origin != "" {
+			w.Header().Set("Access-Control-Allow-Origin", a.cfg.Origin)
+		}
 		next.ServeHTTP(w, r)
 	})
 }
 
 // longCacheMiddleware allows public caches to store the response for 6 months (15 552 000 s). Used for static assets, the OpenAPI spec, the Swagger UI, and the /config endpoint — all of which are either truly static or change only on a new deployment.
-func longCacheMiddleware(next http.Handler) http.Handler {
+func (a *App) longCacheMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "public, max-age=15552000, immutable")
+		if a.cfg.Origin != "" {
+			w.Header().Set("Access-Control-Allow-Origin", a.cfg.Origin)
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// rawContentMiddleware — /raw/{id} and /download/{id}. Pure attacker-supplied bytes with no legitimate need to execute as HTML/JS/CSS, so this overrides the baseline CSP with a full sandbox — the strictest policy in the app.
+func (a *App) rawContentMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate")
+		w.Header().Set("Content-Security-Policy", "sandbox")
+		if a.cfg.Origin != "" {
+			w.Header().Set("Access-Control-Allow-Origin", a.cfg.Origin)
+		}
 		next.ServeHTTP(w, r)
 	})
 }

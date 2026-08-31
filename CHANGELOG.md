@@ -2,6 +2,35 @@
 
 All notable changes to this project are documented in this file.
 
+## v2.4.12
+
+### Add
+
+- Add security headers:
+  - `Content-Type-Options: nosniff`.
+  - `Content-Security-Policy: sandbox` for `raw` and `download` endpoints.
+  - `X-Frame-Options: SAMEORIGIN`.
+  - `Referrer-Policy: no-referrer`.
+- Add `rawContentMiddleware` to handle headers for `raw` and `download` endpoints.
+- Add `ghcr.io/gas85/ownpastebin` images.
+
+### Changed
+
+- Swagger UI update with integrity check `wget -O - <URL> | openssl dgst -sha256 -binary | openssl enc -base64 -A`, crossorigin set to anonymous #22.
+- bump OpenSSL version to 3.5.8, CVE-2026-14456 #15, #16, #17
+- Move from manual JSON compilation to safe one #23.
+- Parse `Origin` from the Base URL and use it in the header.
+- Add cache headers `longCacheMiddleware` to the root html.
+- Tests update
+
+## v2.4.11
+
+### Changed
+
+- Move "Zombie reaper for Alpine containers" to be applied only upon Alpine build.
+- Add binary artifacts to the pipeline
+- Format update with `gofmt -w *.go`
+
 ## v2.4.10
 
 ### Changed

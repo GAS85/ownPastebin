@@ -114,7 +114,7 @@ func buildFinalHandler(cfg *Settings, app *App) (http.Handler, error) {
 	if err != nil {
 		return nil, err
 	}
-	staticHandler := longCacheMiddleware(http.FileServer(http.FS(staticSub)))
+	staticHandler := securityHeadersMiddleware(app.longCacheMiddleware(http.FileServer(http.FS(staticSub))))
 	mux := app.router()
 	return newPrefixHandler(cfg, mux, staticHandler), nil
 }

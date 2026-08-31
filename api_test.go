@@ -330,3 +330,53 @@ func TestConfigIncludesProtectedPasteFlag(t *testing.T) {
 		t.Fatalf("config missing protected_paste_enabled: %s", res.Body.String())
 	}
 }
+
+func TestSecurityHeadersOnViewPage(t *testing.T) {
+	_, handler := NewAppForTest(t, TestConfig{})
+
+	res := doRequest(t, handler, "POST", "/", strings.NewReader("header check"))
+	id := extractID(t, res.Body.String())
+
+	res = doRequest(t, handler, "GET", "/"+id, nil)
+	if got := res.Header().Get("X-Content-Type-Options"); got != "nosniff" {
+		t.Errorf("view page missing nosniff: %q", got)
+	}
+	if got := res.Header().Get("X-Frame-Options"); got != "SAMEORIGIN" {
+		t.Errorf("view page missing X-Frame-Options: %q", got)
+	}
+	if got := res.Header().Get("Content-Security-Policy"); got == "sandbox" {
+		t.Error("view page must not be CSP-sandboxed — it needs to run Prism/Mermaid JS")
+	}
+}
+
+func TestSecurityHeadersOnRawEndpoint(t *testing.T) {
+	_, handler := NewAppForTest(t, TestConfig{})
+
+	res := doRequest(t, handler, "POST", "/", strings.NewReader("raw header check"))
+	id := extractID(t, res.Body.String())
+
+	res = doRequest(t, handler, "GET", "/raw/"+id, nil)
+	if got := res.Header().Get("X-Content-Type-Options"); got != "nosniff" {
+		t.Errorf("raw endpoint missing nosniff — this is the MIME-sniffing XSS mitigation: %q", got)
+	}
+	if got := res.Header().Get("Content-Security-Policy"); got != "sandbox" {
+		t.Errorf("raw endpoint expected sandboxed CSP, got %q", got)
+	}
+}
+
+func TestSecurityHeadersOnStaticAssets(t *testing.T) {
+	_, handler := NewAppForTest(t, TestConfig{})
+
+	res := doRequest(t, handler, "GET", "/static/prism.js", nil)
+	if got := res.Header().Get("X-Content-Type-Options"); got != "nosniff" {
+		t.Errorf("static assets missing nosniff: %q", got)
+	}
+}
+
+func TestSecurityHeadersOnConfigEndpoint(t *testing.T) {
+	_, handler := NewAppForTest(t, TestConfig{})
+	res := doRequest(t, handler, "GET", "/config", nil)
+	if got := res.Header().Get("X-Frame-Options"); got != "SAMEORIGIN" {
+		t.Errorf("/config missing X-Frame-Options: %q", got)
+	}
+}
