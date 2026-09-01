@@ -200,7 +200,7 @@ func TestBuildFinalHandler(t *testing.T) {
 		t.Fatalf("buildFinalHandler failed: %v", err)
 	}
 
-	req := httptest.NewRequest(http.MethodGet, "/pastebin/static/prism.js", nil)
+	req := httptest.NewRequest(http.MethodGet, "/pastebin/static/js/prism.js", nil)
 	res := httptest.NewRecorder()
 	handler.ServeHTTP(res, req)
 	if res.Code != http.StatusOK {

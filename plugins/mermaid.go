@@ -24,7 +24,7 @@ func (p *MermaidPlugin) CSSImports(_ string) []string {
 
 func (p *MermaidPlugin) JSImports(prefix string) []string {
 	return []string{
-		prefix + "/static/mermaid.min.js",
+		prefix + "/static/js/mermaid.min.js",
 	}
 }
 

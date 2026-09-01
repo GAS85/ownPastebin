@@ -2,6 +2,7 @@
 .github/
 data/
 .gitignore
+.gitkeep
 .dockerignore
 README.md
 CHANGELOG.md
