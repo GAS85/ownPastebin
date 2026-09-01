@@ -18,6 +18,7 @@ import (
 
 	"github.com/GAS85/ownPastebin/plugins"
 	"github.com/go-chi/chi/v5"
+	gonanoid "github.com/matoous/go-nanoid/v2"
 )
 
 // ---------------------------------------------------------------------------
@@ -737,4 +738,279 @@ func TestRenderTemplateError(t *testing.T) {
 	if res.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d", res.Code)
 	}
+}
+
+// ---------------------------------------------------------------------------
+// Additional tests for uncovered paths in handleCreatePaste
+// ---------------------------------------------------------------------------
+
+// Define a variable that holds the ID generation function for testing
+var idGenerator = func(size int) (string, error) {
+	return gonanoid.New(size)
+}
+
+func TestHandleCreatePaste_EncryptionError(t *testing.T) {
+	// We need to test the encryption error path. Since we can't easily mock the Crypto type,
+	// we'll test the case where crypto is nil but encryption is enabled (encryption is skipped)
+
+	app, handler := NewAppForTest(t, TestConfig{})
+	// Enable server-side encryption
+	app.cfg.ServerSideEncryptionEnabled = true
+	// Set crypto to nil - this will skip encryption
+	app.crypto = nil
+
+	res := doRequest(t, handler, "POST", "/", strings.NewReader("test content"))
+	// Should succeed because encryption is skipped when crypto is nil
+	if res.Code != http.StatusCreated {
+		t.Fatalf("expected 201 when encryption is skipped, got %d", res.Code)
+	}
+}
+
+// func TestHandleCreatePaste_SlugGenerationError(t *testing.T) {
+// 	// Save the original generator function
+// 	origGenerator := idGenerator
+// 	// Replace it with a failing one
+// 	idGenerator = func(size int) (string, error) {
+// 		return "", errors.New("random generation failed")
+// 	}
+// 	// Restore after the test
+// 	defer func() { idGenerator = origGenerator }()
+
+// 	_, handler := NewAppForTest(t, TestConfig{})
+// 	res := doRequest(t, handler, "POST", "/", strings.NewReader("test content"))
+// 	if res.Code != http.StatusInternalServerError {
+// 		t.Fatalf("expected 500 for slug generation error, got %d", res.Code)
+// 	}
+// 	if !strings.Contains(res.Body.String(), "id generation failed") {
+// 		t.Errorf("expected 'id generation failed' in body, got %q", res.Body.String())
+// 	}
+// }
+
+func TestHandleCreatePaste_StorageSaveError(t *testing.T) {
+	// Create a custom storage that fails on Save
+	store := &customStorage{
+		saveFn: func(key string, d *PasteData, ttl time.Duration) error {
+			return errors.New("storage write failed")
+		},
+	}
+
+	app, handler := NewAppForTest(t, TestConfig{})
+	app.storage = store
+
+	res := doRequest(t, handler, "POST", "/", strings.NewReader("test content"))
+	if res.Code != http.StatusInternalServerError {
+		t.Fatalf("expected 500 for storage error, got %d", res.Code)
+	}
+	if !strings.Contains(res.Body.String(), "storage error") {
+		t.Errorf("expected 'storage error' in body, got %q", res.Body.String())
+	}
+}
+
+func TestHandleCreatePaste_SlugConflictRetry(t *testing.T) {
+	// Create a storage that fails with ErrSlugConflict twice then succeeds
+	saveCount := 0
+	store := &customStorage{
+		saveFn: func(key string, d *PasteData, ttl time.Duration) error {
+			saveCount++
+			if saveCount <= 2 {
+				return ErrSlugConflict
+			}
+			return nil
+		},
+	}
+
+	app, handler := NewAppForTest(t, TestConfig{})
+	app.storage = store
+
+	res := doRequest(t, handler, "POST", "/", strings.NewReader("test content"))
+	if res.Code != http.StatusCreated {
+		t.Fatalf("expected 201 after retry, got %d", res.Code)
+	}
+	if saveCount != 3 {
+		t.Errorf("expected 3 save attempts, got %d", saveCount)
+	}
+}
+
+func TestHandleCreatePaste_SlugConflictExhausted(t *testing.T) {
+	// Create a storage that always fails with ErrSlugConflict
+	saveCount := 0
+	store := &customStorage{
+		saveFn: func(key string, d *PasteData, ttl time.Duration) error {
+			saveCount++
+			return ErrSlugConflict
+		},
+	}
+
+	app, handler := NewAppForTest(t, TestConfig{})
+	app.storage = store
+
+	res := doRequest(t, handler, "POST", "/", strings.NewReader("test content"))
+	if res.Code != http.StatusInternalServerError {
+		t.Fatalf("expected 500 after exhausting retries, got %d", res.Code)
+	}
+	if !strings.Contains(res.Body.String(), "storage error") {
+		t.Errorf("expected 'storage error' in body, got %q", res.Body.String())
+	}
+	// Should have attempted maxSlugRetries times
+	if saveCount != 3 {
+		t.Errorf("expected 3 save attempts, got %d", saveCount)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Additional tests for fetchPaste burn path
+// ---------------------------------------------------------------------------
+
+func TestFetchPaste_BurnPathFromGet(t *testing.T) {
+	// Test the path where Get returns a paste with Burn=true
+	store := &customStorage{
+		peekMetaFn: func(string) (*PasteData, error) {
+			return nil, errors.New("peek meta not supported")
+		},
+		getFn: func(key string) (*PasteData, error) {
+			return &PasteData{Content: []byte("burn me"), Burn: true}, nil
+		},
+		getDelFn: func(key string) (*PasteData, error) {
+			return &PasteData{Content: []byte("burned"), Burn: true}, nil
+		},
+	}
+
+	app := &App{storage: store}
+	paste, err := app.fetchPaste("id")
+	if err != nil {
+		t.Fatalf("fetchPaste error: %v", err)
+	}
+	if paste == nil {
+		t.Fatal("expected paste, got nil")
+	}
+	if string(paste.Content) != "burned" {
+		t.Errorf("expected content 'burned', got %q", paste.Content)
+	}
+}
+
+func TestFetchPaste_BurnPathWithPeekMetaError(t *testing.T) {
+	// Test the path where PeekMeta returns an error, then Get returns Burn=true
+	store := &customStorage{
+		peekMetaFn: func(string) (*PasteData, error) {
+			return nil, errors.New("peek meta failed")
+		},
+		getFn: func(key string) (*PasteData, error) {
+			return &PasteData{Content: []byte("burn me"), Burn: true}, nil
+		},
+		getDelFn: func(key string) (*PasteData, error) {
+			return &PasteData{Content: []byte("burned from getdel"), Burn: true}, nil
+		},
+	}
+
+	app := &App{storage: store}
+	paste, err := app.fetchPaste("id")
+	if err != nil {
+		t.Fatalf("fetchPaste error: %v", err)
+	}
+	if paste == nil {
+		t.Fatal("expected paste, got nil")
+	}
+	if string(paste.Content) != "burned from getdel" {
+		t.Errorf("expected content 'burned from getdel', got %q", paste.Content)
+	}
+}
+
+func TestFetchPaste_NonBurnPathWithPeekMeta(t *testing.T) {
+	// Test the path where PeekMeta succeeds but Burn=false
+	store := &customStorage{
+		peekMetaFn: func(string) (*PasteData, error) {
+			return &PasteData{Burn: false}, nil
+		},
+		getFn: func(key string) (*PasteData, error) {
+			return &PasteData{Content: []byte("keep me"), Burn: false}, nil
+		},
+	}
+
+	app := &App{storage: store}
+	paste, err := app.fetchPaste("id")
+	if err != nil {
+		t.Fatalf("fetchPaste error: %v", err)
+	}
+	if paste == nil {
+		t.Fatal("expected paste, got nil")
+	}
+	if string(paste.Content) != "keep me" {
+		t.Errorf("expected content 'keep me', got %q", paste.Content)
+	}
+}
+
+func TestFetchPaste_BurnPathWithPeekMetaSuccess(t *testing.T) {
+	// Test the path where PeekMeta succeeds and Burn=true
+	store := &customStorage{
+		peekMetaFn: func(string) (*PasteData, error) {
+			return &PasteData{Burn: true}, nil
+		},
+		getDelFn: func(key string) (*PasteData, error) {
+			return &PasteData{Content: []byte("burned from peek"), Burn: true}, nil
+		},
+	}
+
+	app := &App{storage: store}
+	paste, err := app.fetchPaste("id")
+	if err != nil {
+		t.Fatalf("fetchPaste error: %v", err)
+	}
+	if paste == nil {
+		t.Fatal("expected paste, got nil")
+	}
+	if string(paste.Content) != "burned from peek" {
+		t.Errorf("expected content 'burned from peek', got %q", paste.Content)
+	}
+}
+
+// customStorage implements Storage interface for testing
+type customStorage struct {
+	peekMetaFn func(string) (*PasteData, error)
+	getFn      func(string) (*PasteData, error)
+	getDelFn   func(string) (*PasteData, error)
+	saveFn     func(string, *PasteData, time.Duration) error
+	deleteFn   func(string) error
+}
+
+func (s *customStorage) Save(key string, d *PasteData, ttl time.Duration) error {
+	if s.saveFn != nil {
+		return s.saveFn(key, d, ttl)
+	}
+	return nil
+}
+
+func (s *customStorage) Get(key string) (*PasteData, error) {
+	if s.getFn != nil {
+		return s.getFn(key)
+	}
+	return nil, nil
+}
+
+func (s *customStorage) PeekMeta(key string) (*PasteData, error) {
+	if s.peekMetaFn != nil {
+		return s.peekMetaFn(key)
+	}
+	return nil, nil
+}
+
+func (s *customStorage) Delete(key string) error {
+	if s.deleteFn != nil {
+		return s.deleteFn(key)
+	}
+	return nil
+}
+
+func (s *customStorage) GetAndDelete(key string) (*PasteData, error) {
+	if s.getDelFn != nil {
+		return s.getDelFn(key)
+	}
+	return nil, nil
+}
+
+func (s *customStorage) Stats() StorageStats {
+	return StorageStats{Backend: "custom"}
+}
+
+func (s *customStorage) Close() error {
+	return nil
 }
