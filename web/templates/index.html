@@ -2,86 +2,33 @@
 <html lang="en">
 
 <head>
-  <meta http-equiv="Content-Security-Policy"
-        content="style-src 'self' 'unsafe-inline' https://www.w3schools.com https://cdnjs.cloudflare.com; img-src 'self' data: blob:; font-src 'self' https://cdnjs.cloudflare.com;">
+  <!-- Hash calculate: echo -n "toggleMobileMenu()" | openssl dgst -sha256 -binary | openssl base64 -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-hashes' SHA-HASHES; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self';">
 
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Simple, fast and standalone pastebin service">
-  <meta name="default-expiry" content="3600">
-  <meta name="default-burn" content="true">
-  <meta name="uri-prefix" content="">
+  <meta name="default-expiry" content="{{.DefaultExpiry}}">
+  <meta name="default-burn" content="{{.DefaultBurn}}">
+  <meta name="uri-prefix" content="{{.URIPrefix}}">
 
-  <link rel="icon" href="/static/favicon.svg">
-  <title>Pastebin [TEST]</title>
+  <link rel="icon" href="{{.URIPrefix}}/static/images/favicon.svg">
+  <title>Pastebin</title>
 
-  <!-- W3.CSS + FontAwesome from CDN for standalone test -->
-  <link rel="stylesheet" href="https://www.w3schools.com/w3css/5/w3.css">
-  <!-- Any theme from https://www.w3schools.com/w3css/w3css_color_themes.asp -->
-  <link rel="stylesheet" href="https://www.w3schools.com/lib/w3-theme-orange.css">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
-  <!-- Prism from CDN -->
-  <!-- <link rel="stylesheet" href="/static/prism.css" > -->
+  <!-- Plugin CSS (Prism theme, etc.) -->
+  {{range .CSSImports}}
+  <link href="{{.}}" rel="stylesheet" />
+  {{end}}
+  <!-- custom.css is always loaded last so its rules win the cascade -->
+  {{range .TailCSSImports}}
+  <link href="{{.}}" rel="stylesheet" />
+  {{end}}
 
-  <link rel="stylesheet" href="/static/custom.css">
+  {{if .ThemeCSS}}
   <style>
-    /* === Dev state switcher (not in production) === */
-    #dev-switcher {
-      position: fixed;
-      bottom: 10px;
-      right: 10px;
-      z-index: 9999;
-      background: #333;
-      color: #fff;
-      padding: 8px 12px;
-      border-radius: 6px;
-      font-size: 12px;
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-    }
-
-    #dev-switcher strong {
-      margin-bottom: 4px;
-    }
-
-    #dev-switcher button {
-      background: #555;
-      color: #fff;
-      border: none;
-      padding: 3px 8px;
-      cursor: pointer;
-      border-radius: 3px;
-      font-size: 11px;
-    }
-
-    #dev-switcher button:hover {
-      background: #888;
-    }
-
-    /* Default theme 
-       Only used classes are uncommented*/
-    .w3-theme-l5 {color:#000 !important; background-color:#fff !important}
-    /* .w3-theme-l4 {color:#000 !important; background-color:#fff3cd !important} */
-    .w3-theme-l3 {color:#000 !important; background-color:#f8f9fa !important}
-    .w3-theme-l2 {color:#ffffff !important; background-color:#607d8b !important}
-    /* .w3-theme-l1 {color:#000 !important; background-color:#ffcd37 !important}
-    .w3-theme-d1 {color:#000 !important; background-color:#eab000 !important} */
-    .w3-theme-d2 {color:#fff !important; background-color:#607d8b !important}
-    .w3-theme-d3 {color:#fff !important; background-color:#616161 !important}
-    /* .w3-theme-d4 {color:#fff !important; background-color:#9c7500 !important} */
-    .w3-theme-d5 {color:#fff !important; background-color:#9e9e9e !important}
-    .w3-theme-light {color:#000 !important; background-color:#eee !important}
-    .w3-theme-dark {color:#fff !important; background-color:#343a40 !important}
-    .w3-theme-action {color:#fff !important; background-color:#4caf50 !important}
-    .w3-theme {color:#000 !important; background-color:#eee !important}
-    .w3-text-theme {color:#383838 !important}
-    .w3-border-theme {border-color:#8bc34a !important}
-    /* .w3-hover-theme:hover {color:#000 !important; background-color:#ffc107 !important}
-    .w3-hover-text-theme:hover {color:#ffc107 !important}
-    .w3-hover-border-theme:hover {border-color:#ffc107 !important} */
-
+    {{.ThemeCSS}}
   </style>
+  {{end}}
 </head>
 
 <body>
@@ -93,25 +40,32 @@
     <!-- Desktop nav items - hidden on small/medium screens -->
     <div id="desktopNav">
 
-      <img src="/static/favicon.svg" alt="Pastebin Logo" class="w3-margin-top w3-hide-small" style="max-width:50px;margin-right: auto;margin-left: auto; display: block;">
+      <img src="{{.URIPrefix}}/static/images/favicon.svg" alt="Pastebin Logo" class="w3-margin-top w3-hide-small" style="max-width:50px;margin-right: auto;margin-left: auto; display: block;">
 
-      <a id="create-new" href="/" class="w3-bar-item w3-button w3-round w3-margin-top w3-center"><i class="fa-regular fa-file"></i> New</a>
+      <a id="create-new" href="{{.URIPrefix}}/" class="w3-bar-item w3-button w3-round w3-margin-top w3-center"><i class="fa-regular fa-file"></i> New</a>
 
       <!-- Remove btn: shown on view state -->
+      {{if .IsCreated}}
+      {{if not .IsBurned}}
+      {{if not .IsProtected}}
       <a id="remove-btn" href="#" class="w3-bar-item w3-button w3-round w3-margin-top w3-center w3-theme-action w3-hover-pale-red"><i class="fas fa-trash"></i> Delete</a>
+      {{end}}
+      {{end}}
+      {{end}}
 
+      {{if .IsEditable}}
       <!-- Expiry dropdown - CSS hover, no JS needed for open/close -->
       <div id="expiry-burn-controls-expire" class="w3-dropdown-hover w3-margin-top">
         <button id="expiry-dropdown-btn" class="w3-button w3-round w3-center">Expires: 1 day</button>
         <div class="w3-dropdown-content w3-bar-block w3-card-4" id="expiry-dropdown">
-          <a id="expiry-never" class="w3-bar-item w3-button" href="0">Never</a>
-          <a class="w3-bar-item w3-button" href="300">5 <span data-i18n="expiry-min">min</span></a>
-          <a class="w3-bar-item w3-button" href="600">10 <span data-i18n="expiry-min">min</span></a>
-          <a class="w3-bar-item w3-button" href="3600">1 <span data-i18n="expiry-hour">hour</span></a>
-          <a class="w3-bar-item w3-button" href="86400">1 <span data-i18n="expiry-day">day</span></a>
-          <a class="w3-bar-item w3-button" href="604800">1 <span data-i18n="expiry-week">week</span></a>
-          <a class="w3-bar-item w3-button" href="2592000">1 <span data-i18n="expiry-month">month</span></a>
-          <a class="w3-bar-item w3-button" href="31536000">1 <span data-i18n="expiry-year">year</span></a>
+          {{ range .ExpiryTimes }}
+          {{ if gt (len (split .Label " ")) 1 }}
+          <a class="w3-bar-item w3-button" href="{{ .Value }}">{{ index (split .Label " ") 0 }} <span data-i18n="expiry-{{ lower (index (split .Label " ") 1) }}">{{ index (split .Label " ") 1
+              }}</span></a>
+          {{ else }}
+          <a id="expiry-{{ lower (.Label) }}" class="w3-bar-item w3-button" href="{{ .Value }}">{{ .Label }}</a>
+          {{ end }}
+          {{ end }}
         </div>
       </div>
 
@@ -123,19 +77,24 @@
           <a id="burn-false" class="w3-bar-item w3-button" href="#" data-value="false">No</a>
         </div>
       </div>
+      {{end}}
 
       <!-- Copy/Raw/Download (view state) -->
-      <div id="view-controls" style="display:none;">
-        <a id="decrypt-btn-controls" class="w3-bar-item w3-button w3-round w3-margin-top w3-border w3-border-theme w3-center" href="#"
+      {{if .IsCreated}}
+      {{if .IsEncrypted}}
+      <a id="decrypt-btn-controls" class="w3-bar-item w3-button w3-round w3-margin-top w3-border w3-border-theme w3-center" href="#"
            onclick="document.getElementById('password-modal').style.display='block'"><i class="fa-solid fa-key"></i> <span
                 data-i18n="decrypt">Decrypt</span></a>
-        <a id="copy-btn" class="w3-bar-item w3-button w3-round w3-margin-top w3-border w3-border-theme w3-center" href="#"><i class="fa-regular fa-copy"></i> <span
-                id="copy-btn-name">Copy</span></a>
-        <a class="w3-bar-item w3-button w3-round w3-margin-top w3-border w3-border-theme w3-center" href="#"><i class="fa-regular fa-file-lines"></i> <span
-                id="raw-btn-name">Raw</span></a>
-        <a class="w3-bar-item w3-button w3-round w3-margin-top w3-border w3-border-theme w3-center" href="#"><i class="fa-solid fa-download"></i> <span
-                id="download-btn-name">Download</span></a>
-      </div>
+      {{end}}
+      <a id="copy-btn" class="w3-bar-item w3-button w3-round w3-margin-top w3-border w3-border-theme w3-center" href="#"><i class="fa-regular fa-copy"></i> <span
+              id="copy-btn-name">Copy</span></a>
+      {{if not .IsBurned}}
+      <a class="w3-bar-item w3-button w3-round w3-margin-top w3-border w3-border-theme w3-center" href="{{.URIPrefix}}/raw/{{.PastebinID}}"><i
+           class="fa-regular fa-file-lines"></i> <span id="raw-btn-name">Raw</span></a>
+      <a class="w3-bar-item w3-button w3-round w3-margin-top w3-border w3-border-theme w3-center" href="{{.URIPrefix}}/download/{{.PastebinID}}"><i
+           class="fa-solid fa-download"></i> <span id="download-btn-name">Download</span></a>
+      {{end}}
+      {{end}}
 
       <!-- Language selector -->
       <select class="w3-bar-item w3-theme-action w3-round w3-margin-top w3-margin-bottom w3-center" id="language-selector">
@@ -297,6 +256,7 @@
       </select>
 
       <!-- Send + Password (new state) -->
+      {{if .IsEditable}}
       <input class="w3-bar-item w3-input w3-margin-top w3-round" id="pastebin-password" type="password" data-i18n-placeholder="e2e-encrypt-password" placeholder="Password (optional)"
              oninput="updateStrength()">
 
@@ -308,7 +268,7 @@
       </div>
 
       <small id="password-strength-text" class="w3-bar-item w3-center"></small>
-
+      {{if .ProtectedPasteEnabled}}
       <!-- Protected dropdown -->
       <div id="controls-protected" class="w3-dropdown-hover w3-margin-top w3-center">
         <button id="protected-dropdown-btn" class="w3-button w3-round w3-center">Protected: No</button>
@@ -317,9 +277,10 @@
           <a id="protected-false" class="w3-bar-item w3-button" href="#" data-value="false">No</a>
         </div>
       </div>
-
+      {{end}}
       <button id="send-btn-sidebar" class="w3-bar-item w3-button w3-margin-top w3-theme-action w3-round w3-center"><i class="fa-solid fa-upload"></i> <span
               id="send-btn-sidebar-name">Send</span></button>
+      {{end}}
 
     </div>
 
@@ -331,14 +292,15 @@
         <a href="https://github.com/GAS85/ownPastebin"
            class="w3-button w3-hover-text-black w3-round"><i class="fab fa-github"></i></a>
         <a onclick="re_theme()" data-i18n-title="change-theme" title="Change Theme" class="w3-button w3-hover-text-black w3-round"><i class="fa fa-adjust"></i></a>
-        <a href="https://custom" class="w3-button w3-center w3-round"><i class="fa-solid fa-question"></i></a>
+        {{if .CustomURL}}<a href="{{.CustomURL}}" class="w3-button w3-center w3-round"><i class="{{.CustomURLIcon}}"></i></a>{{end}}
       </div>
       <div class="w3-flex" style="flex-flow:wrap; justify-content:center">
-        <a href="https://cookie" class="w3-button w3-round w3-small" data-i18n="cookielaw" id="cookielaw-sidebar">Cookie Policy</a>
-        <a href="https://privacy" class="w3-button w3-round w3-small" data-i18n="privacy" id="privacy-note-sidebar">Privacy Note</a>
+        {{if .CookieURL}}<a href="{{.CookieURL}}" class="w3-button w3-round w3-small" data-i18n="cookielaw" id="cookielaw-sidebar">Cookie Policy</a>{{end}}
+        {{if .PrivacyNoteURL}}<a href="{{.PrivacyNoteURL}}" class="w3-button w3-round w3-small" data-i18n="privacy" id="privacy-note-sidebar">Privacy Note</a>{{end}}
       </div>
-      <a href="https://github.com/GAS85/ownPastebin/releases/tag/v1.2.0" class="w3-bar-item w3-button w3-margin-top w3-center w3-round w3-small"><span id="slogan-sidebar">Your own</span> Pastebin v1.2.0</a>
-      <a id="api-docs-sidebar" href="/swagger-ui" class="w3-bar-item w3-button w3-round w3-center w3-small">API Documentation</a>
+      <a href="https://github.com/GAS85/ownPastebin/releases/tag/{{.Version}}" class="w3-bar-item w3-button w3-margin-top w3-center w3-round w3-small"><span id="slogan-sidebar">Your own</span>
+        Pastebin {{.Version}}</a>
+      <a id="api-docs-sidebar" href="{{.URIPrefix}}/swagger-ui" class="w3-bar-item w3-button w3-margin-top w3-round w3-center w3-small">API Documentation</a>
 
     </div>
   </div>
@@ -364,70 +326,101 @@
         </div>
       </div>
     </div>
-    <a href="/" class="w3-button w3-round w3-margin-top w3-display-topmiddle">Pastebin</a>
+    <a href="{{.URIPrefix}}/" class="w3-button w3-round w3-margin-top w3-display-topmiddle">Pastebin</a>
+    {{if .IsEditable}}
     <a id="send-btn-top" class="w3-button w3-round w3-margin w3-theme-action"><i class="fa-solid fa-upload"></i><span id="send-btn-top-name" class="w3-hide-small"> Send</span></a>
-
-    <a class="w3-button w3-round w3-margin w3-border" href="#"><i class="fa-solid fa-download"></i><span id="download-btn-top" class="w3-hide-small"> Download</span></a>
-
-    <a class="w3-button w3-round w3-margin w3-border w3-hover-pale-red" href="/"><i class="fa-solid fa-x"></i><span id="close-btn-top" class="w3-hide-small"> Close</span></a>
+    {{end}}
+    {{if .IsCreated}}
+    {{if not .IsBurned}}
+    <a class="w3-button w3-round w3-margin w3-border" href="{{.URIPrefix}}/download/{{.PastebinID}}"><i class="fa-solid fa-download"></i><span id="download-btn-top" class="w3-hide-small">
+        Download</span></a>
+    {{end}}
+    {{if .IsBurned}}
+    <a class="w3-button w3-round w3-margin w3-border w3-hover-pale-red" href="{{.URIPrefix}}/"><i class="fa-solid fa-x"></i><span id="close-btn-top" class="w3-hide-small"> Close</span></a>
+    {{end}}
+    {{end}}
 
   </div>
 
   <!-- MAIN -->
   <main class="w3-container w3-theme-l3" id="main-content">
 
+    {{if .IsError}}
     <!-- 404 view -->
-    <div id="error-region" style="display:none;" class="w3-section w3-center">
+    <div class="w3-section w3-center">
       <span class="w3-xxxlarge w3-text-theme"><i class="fa-solid fa-square-xmark"></i> 404</span>
       <p id="error-region-message" class="w3-large">The page you are looking for was not found.</p>
-      <a id="error-region-back" href="/" class="w3-button w3-theme w3-round">Back to Home</a>
+      <a id="error-region-back" href="{{.URIPrefix}}/" class="w3-button w3-theme w3-round">Back to Home</a>
     </div>
+    {{else}}
 
-    <!-- Alerts region (toggled by dev switcher) -->
-    <div id="alert-region"></div>
+    <!-- Flash / redirect message -->
+    {{if .Msg}}
+    <div class="w3-panel {{if eq .Level " success"}}w3-pale-green{{else if eq .Level "danger" }}w3-pale-red{{else}}w3-khaki{{end}} w3-round w3-display-container w3-card-4 w3-margin-top" role="alert"
+         id="flash-msg">
+      <span onclick="this.parentElement.style.display='none'" class="w3-button w3-display-topright w3-round fa fa-x"></span>
+      <p>
+        {{if .Glyph}}<i class="{{.Glyph}}"></i> {{end}}
+        {{if .FlashURL}}{{.Msg}} <a href="{{.FlashURL}}">{{.FlashURL}}</a>{{else}}{{.Msg}}{{end}}
+      </p>
+    </div>
+    {{end}}
 
     <!-- New/editable paste: textarea -->
+    {{if .IsEditable}}
     <div class="w3-section" id="textarea-region">
-      <textarea autofocus class="w3-input w3-border w3-theme-l5 w3-round w3-monospace w3-large" id="content-textarea"></textarea>
+      <textarea autofocus class="w3-input w3-border w3-theme-l5 w3-round w3-monospace w3-large" id="content-textarea">{{.PastebinCode}}</textarea>
     </div>
+    {{end}}
 
     <!-- Created paste view (shown in "view" state) -->
-    <div id="paste-view-region" style="display:none;">
-      <div id="burn-alert" class="w3-panel w3-pale-red w3-round w3-display-container w3-card-4 w3-margin-top" role="alert" style="display:none;">
-        <span onclick="this.parentElement.style.display='none'" class="w3-button w3-display-topright w3-round fa fa-x"></span>
-        <p><i class="fas fa-fire"></i> <strong id="alert-burn-1">For your eyes only.</strong> <span id="alert-burn-2">This paste has been permanently deleted after this view.</span></p>
-      </div>
-      <div id="expire-alert" class="w3-panel w3-card-4 w3-khaki w3-round w3-display-container w3-margin-top" role="alert" style="display:none;">
-        <span onclick="this.parentElement.style.display='none'" class="w3-button w3-display-topright w3-round fa fa-x"></span>
-        <p><i class="fas fa-clock"></i> <span id="alert-expire">This paste will expire on</span> <strong>2026-09-03 12:51:46 UTC</strong>.</p>
-      </div>
-      <pre id="pastebin-pre" class="w3-margin-top line-numbers linkable-line-numbers w3-theme-l5">
-        <code id="pastebin-code-block" class="language-python">def hello():
-    print("Hello from pastebin!")
-    return 42</code>
-      </pre>
+    {{if or .IsCreated .IsClone}}
+
+    {{if .IsBurn}}
+    <div class="w3-panel w3-pale-red w3-round w3-display-container w3-card-4 w3-margin-top" role="alert">
+      <span onclick="this.parentElement.style.display='none'" class="w3-button w3-display-topright w3-round fa fa-x"></span>
+      <p><i class="fas fa-fire"></i> <strong id="alert-burn-1">For your eyes only.</strong> <span id="alert-burn-2">This paste has been permanently deleted after this view.</span></p>
     </div>
+    {{end}}
+
+    {{if .ExpireAt}}
+    <div class="w3-panel w3-card-4 w3-khaki w3-round w3-display-container w3-margin-top" role="alert">
+      <span onclick="this.parentElement.style.display='none'" class="w3-button w3-display-topright w3-round fa fa-x"></span>
+      <p><i class="fas fa-clock"></i> <span id="alert-expire">This paste will expire on</span> <strong>{{formatTime .ExpireAt}}</strong>.</p>
+    </div>
+    {{end}}
+
+    {{if eq .PastebinCls "language-mermaid"}}
+    <div class="mermaid w3-margin-top">{{.PastebinCode}}</div>
+    {{else}}
+    <pre id="pastebin-pre" class="w3-margin-top line-numbers linkable-line-numbers">
+      <code id="pastebin-code-block" class="{{.PastebinCls}}">{{.PastebinCode}}</code>
+    </pre>
+    {{end}}
+
+    {{end}}{{/* end IsCreated/IsClone */}}
+    {{end}}{{/* end not IsError */}}
 
   </main>
 
   <!-- FOOTER -->
   <footer class="w3-flex w3-theme-light w3-padding w3-small w3-hide-small w3-animate-bottom" id="footer" style="flex-direction:row;justify-content:space-between">
     <div id="icons">
-      <a href="https://hub.docker.com/r/gas85/ownpastebin"
-         class="w3-button w3-hover-text-black w3-round"><i class="fab fa-docker"></i></a>
-      <a href="https://github.com/GAS85/ownPastebin"
-         class="w3-button w3-hover-text-black w3-round"><i class="fab fa-github"></i></a>
+      <a href="https://hub.docker.com/r/gas85/ownpastebin" class="w3-button w3-hover-text-black w3-round"><i class="fab fa-docker"></i></a>
+      <a href="https://github.com/GAS85/ownPastebin" class="w3-button w3-hover-text-black w3-round"><i class="fab fa-github"></i></a>
       <a onclick="re_theme()" data-i18n-title="change-theme" title="Change Theme" class="w3-button w3-hover-text-black w3-round"><i class="fa fa-adjust"></i></a>
-      <a href="https://cookie" class="w3-button w3-center w3-round"><i class="fa-solid fa-cookie-bite"></i></a>
-      <a href="https://privacy" class="w3-button w3-center w3-round"><i class="fa-solid fa-fingerprint"></i></a>
-      <a href="https://custom" class="w3-button w3-center w3-round"><i class="fa-solid fa-question"></i></a>
+      {{if .CookieURL}}<a href="{{.CookieURL}}" class="w3-button w3-center w3-round"><i class="fa-solid fa-cookie-bite"></i></a>{{end}}
+      {{if .PrivacyNoteURL}}<a href="{{.PrivacyNoteURL}}" class="w3-button w3-center w3-round"><i class="fa-solid fa-fingerprint"></i></a>{{end}}
+      {{if .CustomURL}}<a href="{{.CustomURL}}" class="w3-button w3-center w3-round"><i class="{{.CustomURLIcon}}"></i></a>{{end}}
     </div>
-    <a class="w3-hide-medium w3-button w3-hover-text-black w3-round" href="https://github.com/GAS85/ownPastebin/releases/tag/v2.0.0"><span id="slogan-footer">Your own</span> Pastebin v2.0.0</a>
-    <a id="api-docs-footer" href="/swagger-ui" class="w3-hide-medium w3-button w3-hover-text-black w3-round">API Documentation</a>
+    <a class="w3-hide-medium w3-button w3-hover-text-black w3-round" href="https://github.com/GAS85/ownPastebin/releases/tag/{{.Version}}"><span id="slogan-footer">Your own</span> Pastebin
+      {{.Version}}</a>
+    <a id="api-docs-footer" href="{{.URIPrefix}}/swagger-ui" class="w3-hide-medium w3-button w3-hover-text-black w3-round">API Documentation</a>
   </footer>
 
   <!-- ── Password Modal (only rendered for E2E-encrypted pastes) ── -->
-  <div id="password-modal" class="w3-modal" role="dialog" aria-modal="true" aria-labelledby="password-modal-title">
+  {{if .IsEncrypted}}
+  <div id="password-modal" class="w3-modal" style="display:block;" role="dialog" aria-modal="true" aria-labelledby="password-modal-title">
     <div class="w3-modal-content w3-animate-top w3-card-4">
       <header class="w3-container w3-theme-l2">
         <button onclick="document.getElementById('password-modal').style.display='none'" class="w3-button w3-display-topright fa fa-x" aria-label="Close"></button>
@@ -448,8 +441,7 @@
           </div>
         </div>
 
-        <div class="w3-panel w3-khaki w3-border w3-round w3-padding w3-hide"
-             id="modal-alert" role="alert">
+        <div class="w3-panel w3-khaki w3-border w3-round w3-padding w3-hide" id="modal-alert" role="alert">
           <i class="fas fa-exclamation-triangle"></i> <span id="password-req-error">Could not decrypt. Wrong password?</span>
         </div>
         <label for="modal-password"><strong id="password">Password</strong></label>
@@ -466,9 +458,12 @@
       </footer>
     </div>
   </div>
+  {{end}}
 
   <!-- DELETE MODAL -->
-  <div id="deletion-modal" class="w3-modal" style="display:none;"
+  {{if .IsCreated}}
+  {{if not .IsBurned}}
+  <div id="deletion-modal" class="w3-modal"
        role="dialog" aria-modal="true" aria-labelledby="deletion-modal-title">
     <div class="w3-modal-content w3-animate-top w3-card-4" style="max-width:400px;">
       <header class="w3-container w3-theme-l2">
@@ -487,116 +482,18 @@
       </footer>
     </div>
   </div>
+  {{end}}
+  {{end}}
 
-  <!-- ============================================================
-         BOOT DATA (matches what Go template injects)
-         ============================================================ -->
-  <script>
-    // var uri_prefix = "";   // empty = root-mounted
-
-    function init_plugins() {
-      // In production this is populated by Go plugins.Manager (e.g. Prism.highlightAll())
-      if (typeof Prism !== "undefined") Prism.highlightAll();
-    }
+  <!-- ── Boot data: must come before custom.js ── -->
+  <script type="application/json" id="plugin-inits">
+    {{.JSInits | toJSON}}
   </script>
 
-  <!-- custom.js from CDN-less inline copy for standalone test -->
-  <!-- <script src="/static/prism.js"></script> -->
-  <script src="/static/custom.js"></script>
-
-  <!-- ============================================================
-         DEV STATE SWITCHER - not in production template
-       ============================================================ -->
-  <script>
-    // Switches the visible page state so all UI states can be tested
-    // without running the Go backend.
-    function setPageState(state) {
-      var textarea = document.getElementById("textarea-region");
-      var pasteView = document.getElementById("paste-view-region");
-      var errorView = document.getElementById("error-region");
-      var alertReg = document.getElementById("alert-region");
-      var sendCtrl = document.getElementById("pastebin-password", "send-btn");
-      var viewCtrl = document.getElementById("view-controls");
-      var expiryBurn = document.getElementById("expiry-burn-controls-burn", "expiry-burn-controls-expire");
-      var removeBtn = document.getElementById("remove-btn");
-      // var mobileEdit = document.getElementById("mobile-edit-controls");
-      // var mobileView = document.getElementById("mobile-view-controls");
-      var burnAlert = document.getElementById("burn-alert");
-      var expireAlert = document.getElementById("expire-alert");
-      var pwdModal = document.getElementById("password-modal");
-
-      // Hide everything first
-      [textarea, pasteView, errorView, sendCtrl, viewCtrl, expiryBurn,
-        pwdModal].forEach(function (el) {
-          if (el) el.style.display = "none";
-        });
-      if (removeBtn) removeBtn.style.display = "none";
-      alertReg.innerHTML = "";
-
-      if (state === "new") {
-        textarea.style.display = "";
-        sendCtrl.style.display = "";
-        expiryBurn.style.display = "";
-        // mobileEdit.style.display = "";
-
-      } else if (state === "flash-success") {
-        textarea.style.display = "";
-        sendCtrl.style.display = "";
-        expiryBurn.style.display = "";
-        alertReg.innerHTML = '<div class="w3-panel w3-pale-green w3-round w3-display-container w3-card-4 w3-margin-top" role="alert">'
-          + '<span onclick="this.parentElement.style.display=\'none\'" class="w3-button w3-display-topright w3-round fa fa-x"></span>'
-          + '<p><i class="fas fa-check"></i> The paste has been successfully created: '
-          + '<a href="#">https://example.com/pastebin/abc123</a></p></div>';
-
-      } else if (state === "view") {
-        pasteView.style.display = "";
-        viewCtrl.style.display = "";
-        // mobileView.style.display = "";
-        removeBtn.style.display = "";
-        burnAlert.style.display = "none";
-        expireAlert.style.display = "";
-        if (typeof init_plugins === "function") init_plugins();
-        if (typeof applyLineHighlight === "function") applyLineHighlight();
-
-      } else if (state === "view-burn") {
-        pasteView.style.display = "";
-        viewCtrl.style.display = "";
-        // mobileView.style.display = "";
-        burnAlert.style.display = "";
-        expireAlert.style.display = "none";
-        if (typeof init_plugins === "function") init_plugins();
-        if (typeof applyLineHighlight === "function") applyLineHighlight();
-
-      } else if (state === "view-encrypted") {
-        pasteView.style.display = "";
-        viewCtrl.style.display = "";
-        removeBtn.style.display = "";
-        // Show encrypted placeholder
-        document.getElementById("pastebin-code-block").textContent = "U2FsdGVkX1+abc123...encrypted...";
-        pwdModal.style.display = "block";
-        if (typeof init_plugins === "function") init_plugins();
-
-      } else if (state === "error") {
-        errorView.style.display = "";
-      }
-    }
-
-    // Default: new paste state
-    document.addEventListener("DOMContentLoaded", function () {
-      setPageState("new");
-    });
-  </script>
-
-  <!-- Dev switcher UI -->
-  <div id="dev-switcher">
-    <strong>🛠 Test state:</strong>
-    <button onclick="setPageState('new')">New paste</button>
-    <button onclick="setPageState('flash-success')">Flash: created</button>
-    <button onclick="setPageState('view')">View paste</button>
-    <button onclick="setPageState('view-burn')">View burn</button>
-    <button onclick="setPageState('view-encrypted')">Encrypted</button>
-    <button onclick="setPageState('error')">404 error</button>
-  </div>
+  <!-- Plugin JS (Prism, and conditionally Mermaid when lang=mermaid) -->
+  {{range .JSImports}}
+  <script src="{{.}}"></script>
+  {{end}}
 
 </body>
 

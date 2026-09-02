@@ -23,13 +23,13 @@ func TestDefaultBaseAssets(t *testing.T) {
 	if len(base.CSSImports) != 2 {
 		t.Fatalf("expected 2 CSS imports, got %d", len(base.CSSImports))
 	}
-	if got := base.CSSImports[0]; got != "/prefix/static/w3.css" {
+	if got := base.CSSImports[0]; got != "/prefix/static/css/w3.css" {
 		t.Fatalf("unexpected first CSS import: %q", got)
 	}
 	if len(base.JSImports) != 1 {
 		t.Fatalf("expected 1 JS import, got %d", len(base.JSImports))
 	}
-	if got := base.JSImports[0]; got != "/prefix/static/custom.js" {
+	if got := base.JSImports[0]; got != "/prefix/static/js/custom.js" {
 		t.Fatalf("unexpected second JS import: %q", got)
 	}
 }
@@ -60,7 +60,7 @@ func TestManagerBuildForFiltersConditionalPlugins(t *testing.T) {
 	if len(manager.StaticFileSystems) != 1 {
 		t.Fatalf("expected 1 static filesystem, got %d", len(manager.StaticFileSystems))
 	}
-	if got := manager.TailCSSImports(); len(got) != 1 || got[0] != "/base/static/custom.css" {
+	if got := manager.TailCSSImports(); len(got) != 1 || got[0] != "/base/static/css/custom.css" {
 		t.Fatalf("unexpected tail CSS imports: %v", got)
 	}
 

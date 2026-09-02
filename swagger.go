@@ -8,7 +8,7 @@ import (
 	"text/template"
 )
 
-//go:embed templates/swagger_ui.html templates/openapi.json.tmpl
+//go:embed web/templates/swagger_ui.html web/templates/openapi.json.tmpl
 var swaggerFS embed.FS
 
 // openAPIData holds the values interpolated into openapi.json.tmpl.
@@ -26,7 +26,7 @@ type openAPIData struct {
 // using live config values so max_paste_size, server_side_encryption, etc.
 // are always accurate.
 func (a *App) openAPISpec() (string, error) {
-	tmplBytes, err := swaggerFS.ReadFile("templates/openapi.json.tmpl")
+	tmplBytes, err := swaggerFS.ReadFile("web/templates/openapi.json.tmpl")
 	if err != nil {
 		return "", err
 	}
@@ -71,7 +71,7 @@ func (a *App) handleOpenAPISpec(w http.ResponseWriter, r *http.Request) {
 
 // handleSwaggerUI serves the Swagger UI HTML page from the embedded template.
 func (a *App) handleSwaggerUI(w http.ResponseWriter, r *http.Request) {
-	html, err := swaggerFS.ReadFile("templates/swagger_ui.html")
+	html, err := swaggerFS.ReadFile("web/templates/swagger_ui.html")
 	if err != nil {
 		http.Error(w, "swagger UI not found", http.StatusInternalServerError)
 		return

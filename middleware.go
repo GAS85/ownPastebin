@@ -190,6 +190,7 @@ func securityHeadersMiddleware(next http.Handler) http.Handler {
 		h.Set("X-Content-Type-Options", "nosniff")
 		h.Set("X-Frame-Options", "SAMEORIGIN") // SAMEORIGIN, not DENY/'none': the app may legitimately frame its own pages (e.g. an embedded preview).
 		h.Set("Referrer-Policy", "no-referrer")
+		h.Set("X-Robots-Tag", "none")
 		// h.Set("Permissions-Policy", "picture-in-picture=(), geolocation=(), camera=();") // Experimental for now, not enabled. See https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Permissions_Policy
 		// h.Set("Content-Security-Policy", "default-src 'self'; frame-ancestors 'self'; object-src 'none'; base-uri 'self'") // As it is will brake html as dynamic hashes are calculated during the build
 		next.ServeHTTP(w, r)

@@ -11,6 +11,7 @@ All notable changes to this project are documented in this file.
   - `Content-Security-Policy: sandbox` for `raw` and `download` endpoints.
   - `X-Frame-Options: SAMEORIGIN`.
   - `Referrer-Policy: no-referrer`.
+  - `X-Robots-Tag: none`.
 - Add `rawContentMiddleware` to handle headers for `raw` and `download` endpoints.
 - Add `ghcr.io/gas85/ownpastebin` images.
 

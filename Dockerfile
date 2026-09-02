@@ -12,20 +12,19 @@ COPY . .
 # Will be used in a plugin.go
 # Check for updates under https://cdnjs.com
 # CSS
-ADD https://www.w3schools.com/w3css/5/w3.css ./static
-ADD https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css ./static
+ADD https://www.w3schools.com/w3css/5/w3.css ./web/static/css
+ADD https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css ./web/static/css
 # Fonts
-ADD https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/webfonts/fa-solid-900.woff2 ./static
-ADD https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/webfonts/fa-regular-400.woff2 ./static
-ADD https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/webfonts/fa-brands-400.woff2 ./static
+ADD https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/webfonts/fa-solid-900.woff2 ./web/static/webfonts
+ADD https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/webfonts/fa-regular-400.woff2 ./web/static/webfonts
+ADD https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/webfonts/fa-brands-400.woff2 ./web/static/webfonts
 # JS
-ADD https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.11/clipboard.min.js ./static
-ADD https://cdnjs.cloudflare.com/ajax/libs/mermaid/11.12.0/mermaid.min.js ./static
-# Check downloaded files
-RUN sha256sum -c ./static/sha256.sum && rm ./static/sha256.sum
+ADD https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.11/clipboard.min.js ./web/static/js
+ADD https://cdnjs.cloudflare.com/ajax/libs/mermaid/11.12.0/mermaid.min.js ./web/static/js
 
-# Replace relative links to static
-RUN sed -i 's|../webfonts/||g' ./static/all.min.css
+# Check downloaded files and cleanup the rest
+RUN sha256sum -c ./web/static/sha256.sum && \
+    find web/ -type f -name ".gitkeep" -o -name "sha256.sum" -delete
 
 # Install needed packages
 RUN apk add --no-cache \
@@ -33,34 +32,34 @@ RUN apk add --no-cache \
         minify
 
 # Add local script hashes to the CSP
-RUN export InternalHashes=$(grep -oE 'on[a-zA-Z]+="[^"]+"' ./templates/index.html \
+RUN export InternalHashes=$(grep -oE 'on[a-zA-Z]+="[^"]+"' ./web/templates/index.html \
     | sed 's/^on[a-zA-Z]*="//; s/"$//' \
     | sort -u \
     | while IFS= read -r line; do \
         hash=$(printf "%s" "$line" | openssl dgst -sha256 -binary | openssl base64); \
         printf "'sha256-%s' " "$hash"; \
     done) && \
-    sed -i "s|SHA-HASHES|$InternalHashes|g" ./templates/index.html
+    sed -i "s|SHA-HASHES|$InternalHashes|g" ./web/templates/index.html
 
 # Minify css, js, html, json and svg except "min" files and Jinja template
-RUN find static/ -type f -name "*.css" ! -name "*.min.*" -exec minify -i "{}" \; && \
-    find static/ -type f -name "*.js" ! -name "*.min.*" -exec minify -i "{}" \; && \
-    find static/ -type f -name "*.json" ! -name "*.min.*" -exec minify -i "{}" \; && \
-    minify -i "static/favicon.svg" && \
-    minify -i "templates/swagger_ui.html" && \
+RUN find web/ -type f -name "*.css" ! -name "*.min.*" -exec minify -i "{}" \; && \
+    find web/ -type f -name "*.js" ! -name "*.min.*" -exec minify -i "{}" \; && \
+    find web/ -type f -name "*.json" ! -name "*.min.*" -exec minify -i "{}" \; && \
+    minify -i "web/static/images/favicon.svg" && \
+    minify -i "web/templates/swagger_ui.html" && \
     sed -i 's/{{.SSEEnabled}}/747522/g; \
         s/{{.MaxSize}}/435433/g; \
         s/{{.MaxTTL}}/399975/g; \
         s/{{.Version}}/443329/g; \
         s/{{.BaseURL}}/994342/g; \
-        s/{{.ProtectedPasteEnabled}}/473472/g' "templates/openapi.json.tmpl" && \
-    minify --type application/json -i "templates/openapi.json.tmpl" && \
+        s/{{.ProtectedPasteEnabled}}/473472/g' "web/templates/openapi.json.tmpl" && \
+    minify --type application/json -i "web/templates/openapi.json.tmpl" && \
     sed -i 's/747522/{{.SSEEnabled}}/g; \
         s/435433/{{.MaxSize}}/g; \
         s/399975/{{.MaxTTL}}/g; \
         s/443329/{{.Version}}/g; \
         s/994342/{{.BaseURL}}/g; \
-        s/473472/{{.ProtectedPasteEnabled}}/g' "templates/openapi.json.tmpl"
+        s/473472/{{.ProtectedPasteEnabled}}/g' "web/templates/openapi.json.tmpl"
 
 RUN go mod download
 

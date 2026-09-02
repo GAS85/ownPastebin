@@ -367,7 +367,7 @@ func TestSecurityHeadersOnRawEndpoint(t *testing.T) {
 func TestSecurityHeadersOnStaticAssets(t *testing.T) {
 	_, handler := NewAppForTest(t, TestConfig{})
 
-	res := doRequest(t, handler, "GET", "/static/prism.js", nil)
+	res := doRequest(t, handler, "GET", "/static/js/prism.js", nil)
 	if got := res.Header().Get("X-Content-Type-Options"); got != "nosniff" {
 		t.Errorf("static assets missing nosniff: %q", got)
 	}

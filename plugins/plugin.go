@@ -101,7 +101,7 @@ func (m *Manager) BuildFor(lang string) (cssImports, jsImports, jsInits []string
 // other CSS so their rules win the cascade.  Currently this is just
 // custom.css.  routes.go emits these via TemplateData.TailCSSImports.
 func (m *Manager) TailCSSImports() []string {
-	return []string{m.base.PathPrefix + "/static/custom.css"}
+	return []string{m.base.PathPrefix + "/static/css/custom.css"}
 }
 
 // dedupeStrings returns a new slice with duplicate strings removed,
@@ -138,13 +138,13 @@ func DefaultBase(prefix string) *Base {
 	return &Base{
 		PathPrefix: prefix,
 		CSSImports: []string{
-			static + "/w3.css",
-			static + "/all.min.css",
+			static + "/css/w3.css",
+			static + "/css/all.min.css",
 			// custom.css is NOT here — see Manager.TailCSSImports().
 		},
 		JSImports: []string{
 			// static + "/clipboard.min.js",
-			static + "/custom.js",
+			static + "/js/custom.js",
 		},
 	}
 }

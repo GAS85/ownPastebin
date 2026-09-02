@@ -290,7 +290,7 @@ function t(key, vars = {}, fallback = "") {
  */
 async function loadLanguage(lang) {
   try {
-    const response = await fetch(`${uri_prefix}/static/${lang}.json`);
+    const response = await fetch(`${uri_prefix}/static/i18n/${lang}.json`);
 
     if (!response.ok) {
       throw new Error(`Could not load ${lang}.json`);
@@ -423,14 +423,14 @@ function loadPrism() {
 
   var css = document.createElement("link");
   css.rel = "stylesheet";
-  css.href = uri_prefix + "/static/prism.css";
+  css.href = uri_prefix + "/static/css/prism.css";
   document.head.appendChild(css);
 
-  loadScript(uri_prefix + "/static/prism.js")
+  loadScript(uri_prefix + "/static/js/prism.js")
     .then(function () {
       Prism.highlightAll();
 
-      return loadScript(uri_prefix + "/static/clipboard.min.js");
+      return loadScript(uri_prefix + "/static/js/clipboard.min.js");
     })
     .catch(function (err) {
       console.error("Failed to load scripts:", err);
@@ -577,7 +577,7 @@ function loadMermaidThenRender(block) {
   }
   var prefix = typeof uri_prefix !== "undefined" ? uri_prefix : "";
   var s = document.createElement("script");
-  s.src = prefix + "/static/mermaid.min.js";
+  s.src = prefix + "/static/js/mermaid.min.js";
   s.onload = function () {
     if (typeof mermaid !== "undefined") {
       mermaid.initialize({ startOnLoad: false });
