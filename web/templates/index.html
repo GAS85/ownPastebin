@@ -96,6 +96,7 @@
       {{end}}
       {{end}}
 
+      {{if not .IsError}}
       <!-- Language selector -->
       <select class="w3-bar-item w3-theme-action w3-round w3-margin-top w3-margin-bottom w3-center" id="language-selector">
         <option value="markup">Markup</option>
@@ -254,6 +255,7 @@
         <option value="xojo">Xojo (REALbasic)</option>
         <option value="xquery">XQuery</option>
       </select>
+      {{end}}
 
       <!-- Send + Password (new state) -->
       {{if .IsEditable}}
