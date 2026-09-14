@@ -333,6 +333,7 @@ This results in:
 You can build it from sources with following commands:
 
 ```bash
+mv internal/*.go .
 go mod download
 CGO_ENABLED=1 GOOS=linux go build -ldflags="-s -w" -o pastebin .
 ```
