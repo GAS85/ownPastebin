@@ -34,15 +34,6 @@ RUN apk add --no-cache \
         openssl \
         minify
 
-# Add local script hashes to the CSP
-RUN export InternalHashes=$(grep -oE 'on[a-zA-Z]+="[^"]+"' ./web/templates/index.html \
-    | sed 's/^on[a-zA-Z]*="//; s/"$//' \
-    | sort -u \
-    | while IFS= read -r line; do \
-        hash=$(printf "%s" "$line" | openssl dgst -sha256 -binary | openssl base64); \
-        printf "'sha256-%s' " "$hash"; \
-    done) && \
-    sed -i "s|SHA-HASHES|$InternalHashes|g" ./web/templates/index.html
 
 # Minify css, js, html, json and svg except "min" files and Jinja template
 RUN find web/ -type f -name "*.css" ! -name "*.min.*" -exec minify -i "{}" \; && \
@@ -50,6 +41,13 @@ RUN find web/ -type f -name "*.css" ! -name "*.min.*" -exec minify -i "{}" \; &&
     find web/ -type f -name "*.json" ! -name "*.min.*" -exec minify -i "{}" \; && \
     minify -i "web/static/images/favicon.svg" && \
     minify -i "web/templates/swagger_ui.html" && \
+    sed -i ':a;N;$!ba;s/\n//g; \
+        s#{{.JSInits | toJSON}}#["JSINITS_toJSON"]#' "web/templates/index.html" && \
+    minify --html-keep-quotes -i "web/templates/index.html" && \
+    sed -i "s/.level/.Level/g; \
+        s/.Level/.Level /g; \
+        s/  / /g; \
+        s#\["JSINITS_toJSON"\]#{{.JSInits | toJSON}}#" "web/templates/index.html" && \
     sed -i 's/{{.SSEEnabled}}/747522/g; \
         s/{{.MaxSize}}/435433/g; \
         s/{{.MaxTTL}}/399975/g; \
@@ -63,6 +61,16 @@ RUN find web/ -type f -name "*.css" ! -name "*.min.*" -exec minify -i "{}" \; &&
         s/443329/{{.Version}}/g; \
         s/994342/{{.BaseURL}}/g; \
         s/473472/{{.ProtectedPasteEnabled}}/g' "web/templates/openapi.json.tmpl"
+
+# Add local script hashes to the CSP
+RUN export InternalHashes=$(grep -oE "on[a-zA-Z]+=(\"[^\"]*\"|'[^']*')" ./web/templates/index.html \
+    | sed -E "s/^on[a-zA-Z]+=\"//; s/\"$//; s/^on[a-zA-Z]+='//; s/'$//" \
+    | sort -u \
+    | while IFS= read -r line; do \
+        hash=$(printf "%s" "$line" | openssl dgst -sha256 -binary | openssl base64); \
+        printf "'sha256-%s' " "$hash"; \
+    done) && \
+    sed -i "s|SHA-HASHES|$InternalHashes|g" ./web/templates/index.html
 
 RUN go mod download
 
