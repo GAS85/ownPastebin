@@ -8,6 +8,9 @@ WORKDIR /build
 
 COPY . .
 
+# Move files to the root 
+RUN mv internal/*.go .
+
 # Download static data to host it locally
 # Will be used in a plugin.go
 # Check for updates under https://cdnjs.com

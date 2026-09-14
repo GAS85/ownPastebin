@@ -333,6 +333,7 @@ This results in:
 You can build it from sources with following commands:
 
 ```bash
+mv internal/*.go .
 go mod download
 CGO_ENABLED=1 GOOS=linux go build -ldflags="-s -w" -o pastebin .
 ```
@@ -479,9 +480,9 @@ Example:
 
 ## Translate
 
-1. Copy `static/i18n/en.json` to any new language file you need.
+1. Copy `web/static/i18n/en.json` to any new language file you need.
 2. Translate it.
-3. In `static/js/custom.js` update `const flags` with new language.
+3. In `web/static/js/custom.js` update `const flags` with new language.
 4. In `templates/index.html` and `templates/index_full.html` add new language in `i18n-dropdown` div.
 
 ## 🛠️ Notes
