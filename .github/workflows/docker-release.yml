@@ -123,38 +123,38 @@ jobs:
 
           sha256sum -c ./web/static/sha256.sum && find web/ -type f -name ".gitkeep" -o -name "sha256.sum" -delete
 
-          find web/ -type f -name "*.css" ! -name "*.min.*" -exec minify -i "{}" \; && \
-          find web/ -type f -name "*.js" ! -name "*.min.*" -exec minify -i "{}" \; && \
-          find web/ -type f -name "*.json" ! -name "*.min.*" -exec minify -i "{}" \; && \
-          minify -i "web/static/images/favicon.svg" && \
-          minify -i "web/templates/swagger_ui.html" && \
+          find web/ -type f -name "*.css" ! -name "*.min.*" -exec minify -i "{}" \;
+          find web/ -type f -name "*.js" ! -name "*.min.*" -exec minify -i "{}" \;
+          find web/ -type f -name "*.json" ! -name "*.min.*" -exec minify -i "{}" \;
+          minify -i "web/static/images/favicon.svg"
+          minify -i "web/templates/swagger_ui.html"
           sed -i -e ':a' -e 'N' -e '$!ba' -e 's/\n//g' \
-              -e 's#{{\.JSInits | toJSON}}#["JSINITS_toJSON"]#' "web/templates/index.html" && \
-          minify --html-keep-quotes -i "web/templates/index.html" && \
-          sed -i -e 's/\.level/.Level /g' \
-              -e 's/\.Level/.Level /g' \
-              -e 's/  */ /g' "web/templates/index.html" && \
-          sed -i 's/\["JSINITS_toJSON"\]/{{.JSInits | toJSON}}/' "web/templates/index.html" && \
+              -e 's#{{\.JSInits | toJSON}}#["JSINITS_toJSON"]#' "web/templates/index.html"
+          minify --html-keep-quotes -i "web/templates/index.html"
+          sed -i 's/\.level/.Level /g' "web/templates/index.html"
+          sed -i 's/\.Level/.Level /g' "web/templates/index.html"
+          sed -i 's/  */ /g' "web/templates/index.html"
+          sed -i 's/\["JSINITS_toJSON"\]/{{.JSInits | toJSON}}/' "web/templates/index.html"
           sed -i 's/{{.SSEEnabled}}/747522/g; \
               s/{{.MaxSize}}/435433/g; \
               s/{{.MaxTTL}}/399975/g; \
               s/{{.Version}}/443329/g; \
               s/{{.BaseURL}}/994342/g; \
-              s/{{.ProtectedPasteEnabled}}/473472/g' "web/templates/openapi.json.tmpl" && \
-          minify --type application/json -i "web/templates/openapi.json.tmpl" && \
+              s/{{.ProtectedPasteEnabled}}/473472/g' "web/templates/openapi.json.tmpl"
+          minify --type application/json -i "web/templates/openapi.json.tmpl"
           sed -i 's/747522/{{.SSEEnabled}}/g; \
               s/435433/{{.MaxSize}}/g; \
               s/399975/{{.MaxTTL}}/g; \
               s/443329/{{.Version}}/g; \
               s/994342/{{.BaseURL}}/g; \
-              s/473472/{{.ProtectedPasteEnabled}}/g' "web/templates/openapi.json.tmpl" && \
+              s/473472/{{.ProtectedPasteEnabled}}/g' "web/templates/openapi.json.tmpl"
           export InternalHashes=$(grep -oE "on[a-zA-Z]+=(\"[^\"]*\"|'[^']*')" ./web/templates/index.html \
           | sed -E "s/^on[a-zA-Z]+=\"//; s/\"$//; s/^on[a-zA-Z]+='//; s/'$//" \
           | sort -u \
           | while IFS= read -r line; do \
               hash=$(printf "%s" "$line" | openssl dgst -sha256 -binary | openssl base64); \
               printf "'sha256-%s' " "$hash"; \
-          done) && \
+          done)
           sed -i "s|SHA-HASHES|$InternalHashes|g" ./web/templates/index.html
 
       - name: Set up Go
