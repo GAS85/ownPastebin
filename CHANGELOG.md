@@ -2,6 +2,20 @@
 
 All notable changes to this project are documented in this file.
 
+## v2.4.13
+
+### Add
+
+- minify index.html template.
+
+### Changed
+
+- Initial Project restructure, static content path updated.
+- Hide markup selector on error page.
+- Add Docker compose example missing `PASTEBIN_SLUG_LEN`.
+- Dockerfile update with new path to the static content, update CSP hashes calculator to support minified html.
+- Log db vacuum letting you see the effect of each vacuum in the logs.
+
 ## v2.4.12
 
 ### Add
