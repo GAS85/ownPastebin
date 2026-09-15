@@ -132,9 +132,9 @@ jobs:
               -e 's#{{\.JSInits | toJSON}}#["JSINITS_toJSON"]#' "web/templates/index.html" && \
           minify --html-keep-quotes -i "web/templates/index.html" && \
           sed -i -e 's/\.level/.Level /g' \
-              -e 's/.Level/.Level /g' \
-              -e 's/\ \ */\ /g' \
-              -e 's#\["JSINITS_toJSON"\]#{{.JSInits | toJSON}}#' "web/templates/index.html" && \
+              -e 's/\.Level/.Level /g' \
+              -e 's/\ \ */\ /g' "web/templates/index.html" && \
+          sed -i 's#\["JSINITS_toJSON"\]#{{.JSInits | toJSON}}#' "web/templates/index.html" && \
           sed -i 's/{{.SSEEnabled}}/747522/g; \
               s/{{.MaxSize}}/435433/g; \
               s/{{.MaxTTL}}/399975/g; \
