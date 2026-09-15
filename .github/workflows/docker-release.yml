@@ -111,46 +111,51 @@ jobs:
             testutil.go \
             tests
 
-          wget https://www.w3schools.com/w3css/5/w3.css -O ./static/w3.css
-          wget https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css -O ./static/all.min.css
+          wget https://www.w3schools.com/w3css/5/w3.css -O ./web/static/css/w3.css
+          wget https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css -O ./web/static/css/all.min.css
 
-          wget https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/webfonts/fa-solid-900.woff2 -O ./static/fa-solid-900.woff2
-          wget https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/webfonts/fa-regular-400.woff2 -O ./static/fa-regular-400.woff2
-          wget https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/webfonts/fa-brands-400.woff2 -O ./static/fa-brands-400.woff2
+          wget https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/webfonts/fa-solid-900.woff2 -O ./web/static/webfonts/fa-solid-900.woff2
+          wget https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/webfonts/fa-regular-400.woff2 -O ./web/static/webfonts/fa-regular-400.woff2
+          wget https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/webfonts/fa-brands-400.woff2 -O ./web/static/webfonts/fa-brands-400.woff2
 
-          wget https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.11/clipboard.min.js -O ./static/clipboard.min.js
-          wget https://cdnjs.cloudflare.com/ajax/libs/mermaid/11.12.0/mermaid.min.js -O ./static/mermaid.min.js
+          wget https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.11/clipboard.min.js -O ./web/static/js/clipboard.min.js
+          wget https://cdnjs.cloudflare.com/ajax/libs/mermaid/11.12.0/mermaid.min.js -O ./web/staticjs/js/mermaid.min.js
 
-          sha256sum -c ./static/sha256.sum && rm ./static/sha256.sum
+          sha256sum -c ./web/static/sha256.sum && find web/ -type f -name ".gitkeep" -o -name "sha256.sum" -delete
 
-          sed -i 's|../webfonts/||g' ./static/all.min.css
-
-          export InternalHashes=$(grep -oE 'on[a-zA-Z]+="[^"]+"' ./templates/index.html \
-            | sed 's/^on[a-zA-Z]*="//; s/"$//' \
-            | sort -u \
-            | while IFS= read -r line; do \
-                hash=$(printf "%s" "$line" | openssl dgst -sha256 -binary | openssl base64); \
-                printf "'sha256-%s' " "$hash"; \
-            done) && \
-            sed -i "s|SHA-HASHES|$InternalHashes|g" ./templates/index.html
-          find static/ -type f -name "*.css" ! -name "*.min.*" -exec minify -i "{}" \; && \
-          find static/ -type f -name "*.js" ! -name "*.min.*" -exec minify -i "{}" \; && \
-          find static/ -type f -name "*.json" ! -name "*.min.*" -exec minify -i "{}" \; && \
-          minify -i "static/favicon.svg" && \
-          minify -i "templates/swagger_ui.html" && \
-          sed -i -e 's/{{\.SSEEnabled}}/747522/g' \
-              -e 's/{{\.MaxSize}}/435433/g' \
-              -e 's/{{\.MaxTTL}}/399975/g' \
-              -e 's/{{\.Version}}/443329/g' \
-              -e 's/{{\.BaseURL}}/994342/g' \
-              -e 's/{{\.ProtectedPasteEnabled}}/473472/g' "templates/openapi.json.tmpl" && \
-          minify --type application/json -i "templates/openapi.json.tmpl" && \
-          sed -i -e 's/747522/{{\.SSEEnabled}}/g' \
-              -e 's/435433/{{\.MaxSize}}/g' \
-              -e 's/399975/{{\.MaxTTL}}/g' \
-              -e 's/443329/{{\.Version}}/g' \
-              -e 's/994342/{{\.BaseURL}}/g' \
-              -e 's/473472/{{\.ProtectedPasteEnabled}}/g' "templates/openapi.json.tmpl"
+          find web/ -type f -name "*.css" ! -name "*.min.*" -exec minify -i "{}" \; && \
+          find web/ -type f -name "*.js" ! -name "*.min.*" -exec minify -i "{}" \; && \
+          find web/ -type f -name "*.json" ! -name "*.min.*" -exec minify -i "{}" \; && \
+          minify -i "web/static/images/favicon.svg" && \
+          minify -i "web/templates/swagger_ui.html" && \
+          sed -i ':a;N;$!ba;s/\n//g; \
+              s#{{.JSInits | toJSON}}#["JSINITS_toJSON"]#' "web/templates/index.html" && \
+          minify --html-keep-quotes -i "web/templates/index.html" && \
+          sed -i 's/.level/.Level/g; \
+              s/.Level/.Level /g; \
+              s/\ \ */\ /g; \
+              s#\["JSINITS_toJSON"\]#{{.JSInits | toJSON}}#' "web/templates/index.html" && \
+          sed -i 's/{{.SSEEnabled}}/747522/g; \
+              s/{{.MaxSize}}/435433/g; \
+              s/{{.MaxTTL}}/399975/g; \
+              s/{{.Version}}/443329/g; \
+              s/{{.BaseURL}}/994342/g; \
+              s/{{.ProtectedPasteEnabled}}/473472/g' "web/templates/openapi.json.tmpl" && \
+          minify --type application/json -i "web/templates/openapi.json.tmpl" && \
+          sed -i 's/747522/{{.SSEEnabled}}/g; \
+              s/435433/{{.MaxSize}}/g; \
+              s/399975/{{.MaxTTL}}/g; \
+              s/443329/{{.Version}}/g; \
+              s/994342/{{.BaseURL}}/g; \
+              s/473472/{{.ProtectedPasteEnabled}}/g' "web/templates/openapi.json.tmpl" && \
+          export InternalHashes=$(grep -oE "on[a-zA-Z]+=(\"[^\"]*\"|'[^']*')" ./web/templates/index.html \
+          | sed -E "s/^on[a-zA-Z]+=\"//; s/\"$//; s/^on[a-zA-Z]+='//; s/'$//" \
+          | sort -u \
+          | while IFS= read -r line; do \
+              hash=$(printf "%s" "$line" | openssl dgst -sha256 -binary | openssl base64); \
+              printf "'sha256-%s' " "$hash"; \
+          done) && \
+          sed -i "s|SHA-HASHES|$InternalHashes|g" ./web/templates/index.html
 
       - name: Set up Go
         # https://github.com/actions/setup-go/releases/tag/v7.0.0

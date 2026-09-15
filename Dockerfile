@@ -34,7 +34,6 @@ RUN apk add --no-cache \
         openssl \
         minify
 
-
 # Minify css, js, html, json and svg except "min" files and Jinja template
 RUN find web/ -type f -name "*.css" ! -name "*.min.*" -exec minify -i "{}" \; && \
     find web/ -type f -name "*.js" ! -name "*.min.*" -exec minify -i "{}" \; && \
