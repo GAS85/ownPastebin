@@ -15,6 +15,7 @@ All notable changes to this project are documented in this file.
 - Add Docker compose example missing `PASTEBIN_SLUG_LEN`.
 - Dockerfile update with new path to the static content, update CSP hashes calculator to support minified html.
 - Log db vacuum letting you see the effect of each vacuum in the logs.
+- Css update for paste view
 
 ## v2.4.12
 
