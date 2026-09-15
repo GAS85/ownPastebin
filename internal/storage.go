@@ -579,10 +579,14 @@ func (s *SQLiteStorage) cleanupLoop() {
 			}
 
 		case <-vacuumTicker.C:
+			slog.Info("starting incremental db vacuum")
 			s.vacuumDB(false, 10000)
+			logStats(s.Stats())
 
 		case <-fullVacuumTicker.C:
+			slog.Info("starting full db vacuum")
 			s.vacuumDB(true, 0)
+			logStats(s.Stats())
 
 		case <-walCheckTicker.C:
 			size := s.walFileSize()

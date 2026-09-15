@@ -96,7 +96,7 @@ footer {
 /* shadow broken */
 pre[class*="language-"]::after,
 pre[class*="language-"]::before {
-  bottom: 3.9em !important;
+  bottom: 2.3em !important;
   height: 8%;
 }
 

@@ -16,16 +16,16 @@ import (
 	"github.com/GAS85/ownPastebin/plugins"
 )
 
-//go:embed templates/index.html
+//go:embed web/templates/index.html
 var templateFS embed.FS
 
-//go:embed static
+//go:embed all:web/static/*
 var staticFS embed.FS
 
 // prismFS and mermaidFS are sub-trees of staticFS exposed to the plugin system.
 // Prism files (prism.js, prism.css) live under static/ and are already covered
 // by staticFS — we pass a sub-FS so the plugin can declare its own static routes.
-var prismFS, _ = fs.Sub(staticFS, "static")
+var prismFS, _ = fs.Sub(staticFS, "web/static")
 
 var Version string
 
@@ -95,7 +95,7 @@ func newApp(cfg *Settings, store Storage, cry *Crypto, tmpl *template.Template, 
 }
 
 func parseIndexTemplate() (*template.Template, error) {
-	return template.New("index.html").Funcs(buildTemplateFuncMap()).ParseFS(templateFS, "templates/index.html")
+	return template.New("index.html").Funcs(buildTemplateFuncMap()).ParseFS(templateFS, "web/templates/index.html")
 }
 
 func newPluginManager(cfg *Settings) *plugins.Manager {
@@ -110,7 +110,7 @@ var listenAndServe = http.ListenAndServe
 var listenAndServeTLS = http.ListenAndServeTLS
 
 func buildFinalHandler(cfg *Settings, app *App) (http.Handler, error) {
-	staticSub, err := fs.Sub(staticFS, "static")
+	staticSub, err := fs.Sub(staticFS, "web/static")
 	if err != nil {
 		return nil, err
 	}
