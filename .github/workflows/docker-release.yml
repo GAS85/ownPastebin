@@ -135,12 +135,12 @@ jobs:
           sed -i 's/\.Level/.Level /g' "web/templates/index.html"
           sed -i 's/  */ /g' "web/templates/index.html"
           sed -i 's/\["JSINITS_toJSON"\]/{{.JSInits | toJSON}}/' "web/templates/index.html"
-          sed -i -e 's/{{\.SSEEnabled}}/747522/g' \
-              -e 's/{{\.MaxSize}}/435433/g' \
-              -e 's/{{\.MaxTTL}}/399975/g' \
-              -e 's/{{\.Version}}/443329/g' \
-              -e 's/{{\.BaseURL}}/994342/g' \
-              -e 's/{{\.ProtectedPasteEnabled}}/473472/g' "web/templates/openapi.json.tmpl"
+          sed -i 's/{{\.SSEEnabled}}/747522/g' "web/templates/openapi.json.tmpl" ; echo "step 1"
+          sed -i 's/{{\.MaxSize}}/435433/g' "web/templates/openapi.json.tmpl" ; echo "step 2"
+          sed -i 's/{{\.MaxTTL}}/399975/g' "web/templates/openapi.json.tmpl" ; echo "step 3"
+          sed -i 's/{{\.Version}}/443329/g' "web/templates/openapi.json.tmpl" ; echo "step 4"
+          sed -i 's/{{\.BaseURL}}/994342/g' "web/templates/openapi.json.tmpl" ; echo "step 5"
+          sed -i 's/{{\.ProtectedPasteEnabled}}/473472/g' "web/templates/openapi.json.tmpl" ; echo "step 6"
           minify --type application/json -i "web/templates/openapi.json.tmpl"
           sed -i 's/747522/{{.SSEEnabled}}/g; \
               s/435433/{{.MaxSize}}/g; \
