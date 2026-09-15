@@ -44,10 +44,10 @@ RUN find web/ -type f -name "*.css" ! -name "*.min.*" -exec minify -i "{}" \; &&
     sed -i ':a;N;$!ba;s/\n//g; \
         s#{{.JSInits | toJSON}}#["JSINITS_toJSON"]#' "web/templates/index.html" && \
     minify --html-keep-quotes -i "web/templates/index.html" && \
-    sed -i "s/.level/.Level/g; \
+    sed -i 's/.level/.Level/g; \
         s/.Level/.Level /g; \
-        s/  / /g; \
-        s#\["JSINITS_toJSON"\]#{{.JSInits | toJSON}}#" "web/templates/index.html" && \
+        s/\ \ */\ /g; \
+        s#\["JSINITS_toJSON"\]#{{.JSInits | toJSON}}#' "web/templates/index.html" && \
     sed -i 's/{{.SSEEnabled}}/747522/g; \
         s/{{.MaxSize}}/435433/g; \
         s/{{.MaxTTL}}/399975/g; \
